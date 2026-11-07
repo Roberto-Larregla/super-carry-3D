@@ -2,6 +2,8 @@
 
 ![Furgón Super Carry en rayos X con el motor y los sistemas a la vista](docs/preview.png)
 
+**[Ver el modelo en 3D →](https://roberto-larregla.github.io/super-carry-3D/)**
+
 Modelo 3D interactivo de mi **Suzuki Super Carry 1000 (SK410) 1996**: furgón ciego, volante a la izquierda, caja de 5 velocidades y carburador no catalítico.
 
 Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su lugar (con corte, rayos X y animación), todos los sistemas, el mapa de sensores, diagramas animados, ficha técnica, plan de mantención, diagnóstico y un mapa de qué tan preciso es cada dato mostrado.
