@@ -583,7 +583,6 @@ footer { padding: 24px 0 40px; color: var(--ink-3); font-size: 13px; }
       <li><span>Entre ejes</span><b>1.840 mm</b></li>
       <li><span>Estanque</span><b>37 L</b></li>
     </ul>
-    <p class="mine"><b>Este furgón:</b> ciego en los costados con vidrio en el portalón, techo con nervios a lo largo, parrilla de techo, llantas de aleación de 13" con neumáticos 175/70 R13, tapa de bencina al costado del copiloto y batería bajo el piso de carga, volante a la izquierda, uso urbano en trayectos cortos y carburador no catalítico (sólo se cambió el carburador). El modelo, la mantención y el estado de cada sensor tienen esto en cuenta.</p>
   </div>
 </header>
 <nav class="jump" aria-label="Secciones"><div class="wrap">
@@ -610,16 +609,16 @@ footer { padding: 24px 0 40px; color: var(--ink-3); font-size: 13px; }
         <p id="viewer-msg" hidden>Tu navegador no pudo iniciar el modelo 3D (WebGL). Los diagramas y fichas de abajo siguen funcionando.</p>
       </div>
       <div class="toolbar" aria-label="Controles del modelo">
-        <button type="button" class="btn" id="tb-run" aria-pressed="true">Pausar motor</button>
-        <div class="tgroup" data-only="van"><span>Carrocería</span><div class="segbtns" id="tb-body"><button type="button" data-v="ghost" aria-pressed="true">Rayos X</button><button type="button" data-v="solid" aria-pressed="false">Sólida</button><button type="button" data-v="hidden" aria-pressed="false">Oculta</button></div></div>
+        <button type="button" class="btn" id="tb-run" aria-pressed="false">Arrancar motor</button>
+        <div class="tgroup" data-only="van"><span>Carrocería</span><div class="segbtns" id="tb-body"><button type="button" data-v="ghost" aria-pressed="false">Rayos X</button><button type="button" data-v="solid" aria-pressed="true">Sólida</button><button type="button" data-v="hidden" aria-pressed="false">Oculta</button></div></div>
         <div class="tgroup" data-only="eng" hidden><span>Corte</span><div class="segbtns" id="tb-cut"><button type="button" data-v="none" aria-pressed="true">Sin corte</button><button type="button" data-v="xray" aria-pressed="false">Rayos X</button><button type="button" data-v="long" aria-pressed="false">Largo</button><button type="button" data-v="trans" aria-pressed="false">Transversal</button></div></div>
-        <div class="tgroup"><span>Color</span><div class="segbtns" id="tb-color"><button type="button" data-v="sys" aria-pressed="true">Por sistema</button><button type="button" data-v="real" aria-pressed="false">Real</button><button type="button" data-v="qual" aria-pressed="false">Precisión</button></div></div>
+        <div class="tgroup"><span>Color</span><div class="segbtns" id="tb-color"><button type="button" data-v="sys" aria-pressed="false">Por sistema</button><button type="button" data-v="real" aria-pressed="true">Real</button><button type="button" data-v="qual" aria-pressed="false">Precisión</button></div></div>
         <div class="tgroup"><span>Vista</span><div class="segbtns" id="tb-view"></div></div>
         <div class="tgroup" data-only="eng" hidden><span>Velocidad</span><div class="segbtns" id="tb-speed"><button type="button" data-v="0.15" aria-pressed="false">Lenta</button><button type="button" data-v="0.6" aria-pressed="true">Media</button><button type="button" data-v="1.6" aria-pressed="false">Rápida</button></div></div>
         <div class="tgroup" data-only="eng" hidden><label for="tb-angle"><span>Cigüeñal</span></label><input type="range" id="tb-angle" min="0" max="719" value="0"><output id="tb-angle-v" for="tb-angle">0°</output></div>
         <div class="tgroup"><label for="tb-explode"><span>Despiece</span></label><input type="range" id="tb-explode" min="0" max="100" value="0"><output id="tb-explode-v" for="tb-explode">0 %</output></div>
         <label class="checkopt" data-only="van"><input type="checkbox" id="tb-rack" checked> Parrilla</label>
-        <label class="checkopt"><input type="checkbox" id="tb-labels" checked> Etiquetas</label>
+        <label class="checkopt"><input type="checkbox" id="tb-labels"> Etiquetas</label>
       </div>
     </div>
     <aside id="infocard" aria-live="polite"></aside>

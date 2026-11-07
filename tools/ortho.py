@@ -13,7 +13,7 @@ async def main(which):
         b = await p.chromium.launch(executable_path=os.environ.get("CHROME", "/usr/bin/google-chrome"), args=["--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader","--ignore-gpu-blocklist"])
         ctx = await b.new_context(viewport={"width": 1360, "height": 900}); pg = await ctx.new_page()
         await pg.goto(URL_DOC); await pg.wait_for_timeout(2500)
-        await pg.evaluate("document.querySelector('#tb-run').click()")
+        await pg.evaluate("window.__viewer.isRunning() && document.querySelector('#tb-run').click()")
         await pg.evaluate("document.querySelector('#tb-body [data-v=solid]').click()"); await pg.wait_for_timeout(300)
         await pg.evaluate("document.querySelector('#tb-color [data-v=real]').click()"); await pg.wait_for_timeout(300)
         jobs = {

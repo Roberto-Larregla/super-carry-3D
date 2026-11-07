@@ -15,7 +15,7 @@ async def main(dev, body, mode, views, cams):
         pg.on("console", lambda m: logs.append(m.text[:200]) if m.type == 'error' and 'TUNNEL' not in m.text else None)
         pg.on("pageerror", lambda e: logs.append('[pageerror] ' + str(e)[:300]))
         await pg.goto(URL_DOC); await pg.wait_for_timeout(2500)
-        await pg.evaluate("document.querySelector('#tb-run').click()")
+        await pg.evaluate("window.__viewer.isRunning() && document.querySelector('#tb-run').click()")
         if mode == 'eng': await pg.evaluate("document.querySelector('#modebar [data-mode=eng]').click()"); await pg.wait_for_timeout(1200)
         if body != 'ghost' and mode == 'van': await pg.evaluate(f"document.querySelector('#tb-body [data-v={body}]').click()"); await pg.wait_for_timeout(600)
         await pg.evaluate("document.querySelector('#modelo').scrollIntoView()"); await pg.wait_for_timeout(200); await pg.evaluate("window.scrollBy(0,-50)")

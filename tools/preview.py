@@ -7,7 +7,7 @@ DOC = (ROOT / 'docs' / 'index.html').as_uri()
 CAM = "{pos:[4.9,2.0,-4.6], target:[-0.95,0.92,0.0], fov:29, w:820, h:630, bg:'#0c1113'}"
 async def render(pg, body, color):
     await pg.goto(DOC); await pg.wait_for_timeout(2500)
-    await pg.evaluate("document.querySelector('#tb-run').click()")
+    await pg.evaluate("window.__viewer.isRunning() && document.querySelector('#tb-run').click()")
     await pg.evaluate(f"document.querySelector('#tb-body [data-v={body}]').click()")
     await pg.evaluate(f"document.querySelector('#tb-color [data-v={color}]').click()"); await pg.wait_for_timeout(500)
     return await pg.evaluate(f"window.__viewer.debugPersp({CAM})")

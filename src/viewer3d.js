@@ -187,7 +187,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
 
   // ════════ ESTADO, MATERIALES Y SELECCIÓN ════════
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const state = { mode: 'van', focus: null, sel: null, colorMode: 'sys', body: 'ghost', labels: true, running: !reduced, theta: 0, cut: 'none', speed: 0.6, rack: true, exVan: 0, exEng: 0 };
+  const state = { mode: 'van', focus: null, sel: null, colorMode: 'real', body: 'solid', labels: false, running: false, theta: 0, cut: 'none', speed: 0.6, rack: true, exVan: 0, exEng: 0 };
   Object.defineProperty(state, 'explode', { get: () => (state.mode === 'eng' ? state.exEng : state.exVan), set: v => { if (state.mode === 'eng') state.exEng = v; else state.exVan = v; }, enumerable: true });
   const xraySys = new Set(['motor', 'electrico', 'lubricacion', 'transmision', 'sensores']);
   const matchFocus = (P, f) => !!P && (P.sys === f || P.serves === f || (P.also || []).includes(f));

@@ -25,7 +25,7 @@ async def main(dev, steps):
         pg.on("console", lambda m: logs.append(f"[{m.type}] {m.text}") if m.type in ("error","warning") and "GPU stall" not in m.text and "ERR_TUNNEL" not in m.text and "fonts.g" not in m.text else None)
         pg.on("pageerror", lambda e: logs.append(f"[pageerror] {e}"))
         await pg.goto(URL); await pg.wait_for_timeout(2500)
-        await pg.evaluate("document.querySelector('#tb-run').click()")  # pausa para capturas estables
+        await pg.evaluate("window.__viewer.isRunning() && document.querySelector('#tb-run').click()")  # pausa para capturas estables
         for st in steps.split(','):
             if st == 'van': await vshot(pg, f"shots/t_{dev}_van.png")
             elif st == 'vanside':
