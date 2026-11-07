@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Super Carry 1000 por dentro</title>
+<meta name="generator" content="super-carry-3d versión {{VERSION}} ({{FECHA}})">
+<meta name="description" content="Modelo 3D interactivo de un Suzuki Super Carry 1000 (SK410) 1996, furgón: carrocería medida en fotos, motor F10A en su lugar, sistemas y sensores.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="es_CL">
+<meta property="og:title" content="Super Carry 1000 por dentro">
+<meta property="og:description" content="Modelo 3D interactivo de un Suzuki Super Carry 1996 (SK410): gíralo, ábrelo y mira el motor F10A, los sistemas y los sensores en su lugar.">
+<meta property="og:url" content="{{SITIO}}">
+<meta property="og:image" content="{{SITIO}}preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Furgón Super Carry en rayos X con el motor y los sistemas a la vista">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0c1113">
+<style>/*FONTS*/
+footer .about { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-3); }
+</style>
+<style>
+:root {
+  /* Hoja nocturna: una columna en el teléfono; visor 3D + ficha lado a lado en pantallas anchas */
+  --bg: #0b1012;
+  --panel: #121a1d;
+  --panel-2: #172126;
+  --line: #24333a;
+  --ink: #e6ecec;
+  --ink-2: #a5b3b7;
+  --ink-3: #72838a;
+  --accent: #e94b35;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* materiales y fluidos de los diagramas */
+  --iron: #3a454a; --alu: #4f5d63; --steel: #8b989d; --rubber: #121618;
+  --water: #2f93b5; --air: #a6dcff; --fuel: #f2c94c; --oil: #d9a066; --exh: #9ba1a7; --hot: #ff7a3d; --elec: #a08cff; --good: #4fcf8f;
+  --ph-adm: #66bdff; --ph-comp: #f2c94c; --ph-exp: #ff6a3d; --ph-esc: #9aa2a8;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.5 var(--font-body); }
+a { color: #8ccbe0; }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.01em; text-wrap: balance; margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+.muted { color: var(--ink-3); }
+
+/* ——— cabecera ——— */
+.hdr { padding: 22px 0 6px; background:
+  linear-gradient(180deg, rgba(233,75,53,0.08), transparent 60%),
+  repeating-linear-gradient(90deg, transparent 0 39px, rgba(255,255,255,0.025) 39px 40px); border-bottom: 1px solid var(--line); }
+.kicker { font: 500 12px/1.3 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 8px; }
+.kicker b { color: var(--accent); font-weight: 500; }
+h1 { font-size: clamp(32px, 8.5vw, 56px); line-height: 1; font-weight: 700; }
+h1 span { color: var(--ink-3); font-weight: 500; }
+.lede { max-width: 64ch; color: var(--ink-2); margin: 10px 0 14px; font-size: 16px; }
+.specstrip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.specstrip li { background: var(--panel); padding: 8px 10px; }
+.specstrip span { display: block; font: 500 11px/1.2 var(--font-mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.specstrip b { display: block; font: 600 20px/1.15 var(--font-display); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.mine { margin: 12px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: rgba(233,75,53,0.07); border-radius: 0 8px 8px 0; font-size: 14px; color: var(--ink-2); }
+.mine b { color: var(--ink); font-weight: 600; }
+nav.jump { position: sticky; top: 0; z-index: 20; background: rgba(11,16,18,0.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+nav.jump .wrap { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+nav.jump a { flex: 0 0 auto; padding: 10px 10px; color: var(--ink-2); text-decoration: none; font: 500 14px/1 var(--font-body); }
+nav.jump a:hover { color: var(--ink); }
+section.block { padding: 26px 0 8px; scroll-margin-top: 44px; }
+section.block > .wrap > h2 { font-size: 28px; margin-bottom: 4px; }
+section.block > .wrap > p.intro { color: var(--ink-2); max-width: 66ch; margin: 0 0 14px; }
+
+/* ——— chips ——— */
+.chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: thin; }
+.chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); cursor: pointer; font-size: 14px; min-height: 36px; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c, var(--ink-3)); }
+.chip[aria-pressed="true"] { color: var(--ink); border-color: var(--c, var(--accent)); background: color-mix(in srgb, var(--c, var(--accent)) 16%, var(--panel)); }
+
+/* ——— visor ——— */
+.viewer-grid { display: grid; gap: 12px; }
+@media (min-width: 980px) { .viewer-grid { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; } .viewer { height: clamp(360px, 64vh, 620px); } }
+.viewer { position: relative; height: clamp(340px, 56vh, 620px); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: #0c1113; }
+.viewer canvas.gl { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.viewer canvas.gl:active { cursor: grabbing; }
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.tag { position: absolute; left: 0; top: 0; pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 6px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); background: rgba(11,16,18,0.86); color: var(--ink); font: 500 11.5px/1.2 var(--font-body); white-space: nowrap; cursor: pointer; }
+.tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.tag.on { border-color: var(--c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 35%, transparent); }
+.hint { position: absolute; left: 10px; top: 10px; font: 500 11.5px/1.3 var(--font-body); color: var(--ink-2); background: rgba(11,16,18,0.7); padding: 5px 9px; border-radius: 8px; pointer-events: none; max-width: 70%; }
+.hint b { color: var(--ink); font-weight: 600; }
+.hint.gone { opacity: 0; transition: opacity 0.4s; }
+.viewer.is-eng .hint { top: auto; bottom: 10px; }
+.peek { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 12px; background: rgba(11,16,18,0.92); border: 1px solid color-mix(in srgb, var(--c) 60%, var(--line)); }
+.peek i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: 0 0 auto; }
+.peek b { font: 600 15px/1.2 var(--font-display); letter-spacing: 0.01em; flex: 1 1 auto; min-width: 0; }
+.peek .btn { flex: 0 0 auto; }
+@media (min-width: 980px) { .peek .go { display: none; } }
+#viewer-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--ink-2); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-top: 10px; }
+.tgroup { display: inline-flex; align-items: center; gap: 6px; }
+.tgroup > span { font: 500 11px/1 var(--font-mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+.segbtns { display: inline-flex; flex-wrap: wrap; gap: 3px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.segbtns button { border: 0; background: transparent; color: var(--ink-2); padding: 6px 10px; border-radius: 7px; cursor: pointer; font-size: 13.5px; min-height: 32px; }
+.segbtns button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent); }
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid color-mix(in srgb, var(--accent) 70%, var(--line)); background: color-mix(in srgb, var(--accent) 16%, var(--panel)); color: var(--ink); padding: 7px 13px; border-radius: 10px; cursor: pointer; font-size: 14px; min-height: 36px; }
+.btn:hover { background: color-mix(in srgb, var(--accent) 26%, var(--panel)); }
+.btn.ghost { background: transparent; border-color: var(--line); color: var(--ink-2); }
+.btn.ghost:hover { color: var(--ink); border-color: var(--ink-3); }
+.btn.sm { font-size: 13px; padding: 5px 10px; min-height: 32px; }
+.btn[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 30%, var(--panel)); }
+input[type=range] { accent-color: var(--accent); width: 100%; height: 28px; margin: 0; }
+.tgroup input[type=range] { width: 120px; }
+.tgroup output { font: 500 12px/1 var(--font-mono); color: var(--ink-2); min-width: 40px; }
+.checkopt { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--ink-2); }
+.checkopt input { accent-color: var(--accent); width: 18px; height: 18px; }
+
+/* ——— ficha de pieza ——— */
+#infocard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 16px; }
+@media (min-width: 980px) { #infocard { max-height: clamp(360px, 64vh, 620px); overflow: auto; } }
+#infocard h3 { font-size: 24px; margin: 6px 0 6px; }
+#infocard h4 { font: 600 12px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); margin: 14px 0 4px; }
+#infocard p { margin: 0 0 8px; max-width: 65ch; }
+.card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-head .x { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--ink-2); width: 32px; height: 32px; border-radius: 8px; font-size: 18px; cursor: pointer; }
+.eyebrow { font: 500 11px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); }
+.syschip { display: inline-flex; align-items: center; gap: 6px; font: 600 12px/1 var(--font-body); color: var(--ink); padding: 5px 9px; border-radius: 999px; background: color-mix(in srgb, var(--c) 18%, transparent); border: 1px solid color-mix(in srgb, var(--c) 50%, transparent); }
+.syschip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.approx { display: inline-block; font: 500 11px/1 var(--font-mono); color: #f2c94c; border: 1px dashed rgba(242,201,76,0.6); padding: 3px 6px; border-radius: 6px; }
+.kv { margin: 0; }
+.kv > div { display: grid; grid-template-columns: minmax(104px, 38%) minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.kv > div:last-child { border-bottom: 0; }
+.kv dt { color: var(--ink-3); font-size: 13.5px; }
+.kv dd { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.src { display: inline-block; vertical-align: 1px; margin-left: 4px; font: 500 10.5px/1 var(--font-mono); padding: 3px 5px; border-radius: 5px; text-decoration: none; white-space: nowrap; border: 1px solid; }
+.src.k-fab { color: #8fe0b5; border-color: rgba(79,207,143,0.45); background: rgba(79,207,143,0.08); }
+.src.k-oem { color: #9cc0ff; border-color: rgba(111,156,255,0.5); background: rgba(111,156,255,0.08); }
+.src.k-sec { color: var(--ink-2); border-color: var(--line); background: rgba(255,255,255,0.03); }
+.src.k-rec { color: #f2c94c; border-color: rgba(242,201,76,0.45); background: rgba(242,201,76,0.07); }
+ul.ticks, ul.warns { margin: 0; padding-left: 18px; }
+ul.ticks li, ul.warns li { margin: 3px 0; }
+ul.warns li::marker { color: #ff8a73; }
+ul.ticks li::marker { color: var(--good); }
+.partlist { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+.pbtn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2); border-radius: 8px; padding: 6px 9px; font-size: 13px; cursor: pointer; text-align: left; }
+.pbtn:hover { color: var(--ink); border-color: var(--c); }
+.pbtn i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: 0 0 auto; }
+
+/* ——— pestañas y paneles ——— */
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: thin; }
+.tabs [role=tab] { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); padding: 8px 13px; border-radius: 10px; cursor: pointer; font: 500 14.5px/1 var(--font-body); min-height: 38px; }
+.tabs [role=tab] i { width: 9px; height: 9px; border-radius: 2px; background: var(--c); }
+.tabs [role=tab][aria-selected="true"] { color: var(--ink); border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--panel)); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 16px; }
+@media (min-width: 1020px) { .panel { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "head head" "body foot"; } .panel-head { grid-area: head; } .diag-body { grid-area: body; } .panel-foot { grid-area: foot; position: sticky; top: 56px; } }
+.panel[hidden] { display: none; }
+.panel-head h3 { font-size: 24px; }
+.panel-head p { margin: 4px 0 0; color: var(--ink-2); max-width: 70ch; }
+.diag-body { display: grid; gap: 12px; min-width: 0; }
+.panel-foot { display: grid; gap: 14px; align-content: start; }
+.mini { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.mini h4 { font: 600 12px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-3); margin: 0 0 6px; }
+.mini .warns { font-size: 14px; }
+.subh { font-size: 19px; margin: 8px 0 -2px; color: var(--ink); }
+.fig { margin: 0; background: radial-gradient(120% 100% at 50% 0%, #1a252a, #141c20); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.fig.slim { padding: 6px 10px; }
+.fig figcaption { color: var(--ink-3); font-size: 13px; margin: 6px 2px 0; max-width: 70ch; }
+.dsvg { display: block; width: 100%; height: auto; max-width: 580px; margin: 0 auto; overflow: visible; }
+.controls { display: grid; gap: 10px 16px; grid-template-columns: 1fr; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+@media (min-width: 620px) { .controls { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
+.ctl { display: grid; gap: 4px; align-content: start; }
+.ctl.range { grid-template-columns: 1fr auto; align-items: center; }
+.ctl.range input { grid-column: 1 / -1; }
+.ctl label, .ctl .clabel { font: 500 12px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); }
+.ctl .val { font: 500 13px/1 var(--font-mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.ctl select { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; min-height: 36px; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.readout { background: rgba(255,255,255,0.025); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; padding: 9px 12px; font-size: 14.5px; min-height: 48px; }
+.readout .sub { display: block; color: var(--ink-2); font-size: 13.5px; margin-top: 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 2px 4px 6px; font-size: 13px; color: var(--ink-2); }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.legend .sw.co { background: #ff8a73; height: 9px; width: 9px; border-radius: 50%; }
+.legend .sw.co2 { background: #8fe0b5; height: 9px; width: 9px; border-radius: 50%; }
+.legend .sw.o2 { background: #a6dcff; height: 9px; width: 9px; border-radius: 50%; }
+.tablewrap { overflow-x: auto; margin-top: 8px; }
+table.data { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+table.data caption { text-align: left; color: var(--ink-3); font-size: 12.5px; padding: 4px 0 6px; }
+table.data th, table.data td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+table.data thead th { font: 500 11.5px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); }
+.chart table.data td { text-align: right; } .chart table.data th[scope=row] { color: var(--ink-2); }
+
+/* ——— ficha técnica, mantención, diagnóstico ——— */
+.specgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); }
+.speccard { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c); border-radius: 12px; padding: 12px 14px; }
+.speccard h3 { font-size: 19px; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.speccard h3 i { width: 9px; height: 9px; border-radius: 2px; background: var(--c); }
+.maintwrap { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; overflow-x: auto; }
+table.maint th[scope=row] { font-weight: 600; min-width: 180px; }
+table.maint td.when { white-space: nowrap; font-weight: 600; color: var(--ink); }
+table.maint td { color: var(--ink-2); }
+table.maint tr.urgent th[scope=row] { color: #ffd2c8; }
+.pill { display: inline-block; font: 600 10.5px/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: #1a0c08; background: #ff8a73; padding: 3px 6px; border-radius: 5px; margin-left: 4px; vertical-align: 2px; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c); margin-right: 7px; vertical-align: 1px; }
+@media (max-width: 680px) {
+  table.maint thead { display: none; }
+  table.maint, table.maint tbody, table.maint tr, table.maint th, table.maint td { display: block; }
+  table.maint tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  table.maint th, table.maint td { border: 0; padding: 2px 0; }
+  table.maint td.when { white-space: normal; }
+}
+.diaggrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
+.dcard { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--c); border-radius: 0 12px 12px 0; padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
+.dcard h3 { font-size: 19px; }
+.dcard ol { margin: 0; padding-left: 20px; color: var(--ink-2); font-size: 14px; }
+.dcard ol li::marker { color: var(--ink-3); font-family: var(--font-mono); font-size: 12px; }
+.dcard .btn { justify-self: start; margin-top: 4px; }
+.notes { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+.notes p { margin: 6px 0; max-width: 75ch; color: var(--ink-2); }
+.notes p b { color: var(--ink); }
+#srclist { margin: 10px 0 0; padding-left: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; }
+#srclist .src { margin: 0 6px 0 0; }
+footer { padding: 24px 0 40px; color: var(--ink-3); font-size: 13px; }
+
+/* ——— SVG: texto ——— */
+.dsvg text { fill: var(--ink-2); font-family: var(--font-body); }
+.lbl { font-size: 11px; }
+.lbl-s { font-size: 11.5px; }
+.lbl-xs { font-size: 9.6px; }
+.dsvg text.strong { fill: var(--ink); font-weight: 600; }
+.dsvg text.on-fill { fill: #0e1416; font-weight: 600; }
+.dsvg text.muted { fill: var(--ink-3); }
+.dsvg text.num { font: 600 24px var(--font-display); fill: var(--ink); }
+.dsvg text.chem { font: 500 13px var(--font-mono); fill: var(--ink); }
+.tnum { font-variant-numeric: tabular-nums; }
+.dsvg text.halo { paint-order: stroke; stroke: #141c20; stroke-width: 3px; stroke-linejoin: round; }
+.leader { stroke: var(--ink-3); stroke-width: 0.8; fill: none; }
+.leader-dot { fill: var(--ink-2); }
+.none { fill: none; stroke: none; }
+
+/* ——— SVG: materiales ——— */
+.metal-iron { fill: var(--iron); stroke: #56646a; stroke-width: 1; }
+.metal-alu { fill: var(--alu); stroke: #6c7c83; stroke-width: 1; }
+.metal-outline { fill: none; stroke: #56646a; stroke-width: 1.2; stroke-dasharray: 3 3; }
+.bore { fill: #0f1619; stroke: #2a383e; }
+.water, .coolant { fill: var(--water); opacity: 0.85; }
+.coolant.link { fill: var(--water); stroke: none; opacity: 0.85; }
+.port { fill: #1d2a30; stroke: #3b4c53; }
+.roof { fill: none; stroke: #6c7c83; stroke-width: 1.2; }
+.gas { fill: rgba(255,255,255,0.04); }
+.gas.g0 { fill: color-mix(in srgb, var(--ph-adm) 35%, transparent); }
+.gas.g1 { fill: color-mix(in srgb, var(--ph-comp) 45%, transparent); }
+.gas.g2 { fill: color-mix(in srgb, var(--ph-exp) 55%, transparent); }
+.gas.g3 { fill: color-mix(in srgb, var(--ph-esc) 40%, transparent); }
+.gas.fire { fill: #ffd36a; }
+.p-air { fill: var(--air); }
+.p-exh { fill: #c8ccd0; }
+.p-fuel { fill: var(--fuel); }
+.stem { stroke: #c9d2d6; stroke-width: 3; stroke-linecap: round; }
+.valve { stroke: #0e1416; stroke-width: 0.8; }
+.valve.v-in { fill: #9fd0ff; } .valve.v-ex { fill: #c9a6a0; }
+.spring { fill: none; stroke: #8fa0a6; stroke-width: 1.4; }
+.cam { stroke: #0e1416; stroke-width: 0.8; }
+.cam.c-in { fill: rgba(159,208,255,0.85); } .cam.c-ex { fill: rgba(201,166,160,0.75); }
+.axle { fill: #0e1416; stroke: #c9d2d6; stroke-width: 1.4; }
+.rocker { fill: none; stroke: #d6dde0; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+.screw { fill: var(--accent); }
+.plug-ghost { stroke: #f2efe4; stroke-width: 2.2; stroke-dasharray: 3 3; fill: none; opacity: 0.55; }
+.spark { fill: none; stroke: #fff2a8; stroke-width: 2; filter: drop-shadow(0 0 4px #ffd36a); transition: opacity 0.05s; }
+.cweight { fill: #4b585e; stroke: #6c7c83; }
+.web { fill: #5f6d73; }
+.journal { fill: #8b989d; }
+.cpin { fill: #c9d2d6; }
+.rod { fill: #9aa7ac; stroke: #0e1416; stroke-width: 0.8; }
+.piston { fill: #b9c3c7; stroke: #0e1416; stroke-width: 0.8; }
+.ring { stroke: #55656b; stroke-width: 1.2; }
+.ppin { fill: #55656b; }
+.phase { opacity: 0.9; }
+.phase.ph0 { fill: var(--ph-adm); } .phase.ph1 { fill: var(--ph-comp); } .phase.ph2 { fill: var(--ph-exp); } .phase.ph3 { fill: var(--ph-esc); }
+.dsvg text.ph-t0 { fill: var(--ph-adm); } .dsvg text.ph-t1 { fill: var(--ph-comp); } .dsvg text.ph-t2 { fill: var(--ph-exp); } .dsvg text.ph-t3 { fill: var(--ph-esc); }
+.tick { stroke: var(--ink-3); stroke-width: 0.8; }
+.cursor { stroke: #ffffff; stroke-width: 1.6; }
+.belt-bg { fill: none; stroke: #0a0e10; stroke-width: 7; stroke-linejoin: round; }
+.belt-teeth { fill: none; stroke: #4a585e; stroke-width: 5; }
+.belt-v { fill: none; stroke: #4a585e; stroke-width: 4; }
+.sprocket { fill: #68767c; stroke: #9aa7ac; stroke-width: 0.8; }
+.mark { fill: var(--accent); }
+.mark-fixed { fill: #f2efe4; }
+.idler { fill: #8b989d; stroke: #c9d2d6; }
+.fanblade { fill: rgba(229,226,214,0.55); stroke: #c9d2d6; stroke-width: 0.6; }
+.pulley { fill: #56646a; stroke: #9aa7ac; stroke-width: 1; }
+.spoke { stroke: #e6ecec; stroke-width: 2; stroke-linecap: round; }
+.spoke.wide { stroke-width: 5; stroke: #56646a; }
+.node { fill: #1d2a30; stroke: #3b4c53; stroke-width: 1; }
+.pipe { fill: none; stroke-width: 5; stroke-linecap: round; }
+.fuel-pipe { stroke: #3a3220; }
+.air-pipe { stroke: #24414f; }
+.flow { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.flow.fuel { stroke: var(--fuel); }
+.flow.air { stroke: var(--air); }
+.flow.elec { stroke: var(--elec); }
+.flow.exh { stroke: var(--exh); }
+.flow.cool { stroke: var(--water); stroke-width: 3.2; }
+.flow.oil { stroke: var(--oil); stroke-width: 2.6; }
+.flow.oil.dirty { stroke: #6b4a2b; }
+.flow.power { stroke: var(--good); stroke-width: 3; }
+.flow.spark-flow { stroke: #fff2a8; stroke-width: 2.6; }
+.flow.heavy { stroke-width: 4; }
+.fuel-fill { fill: color-mix(in srgb, var(--fuel) 55%, #1a1408); }
+.float { fill: #c9d2d6; stroke: #0e1416; }
+.needle { fill: #e6ecec; }
+.pass { fill: none; stroke: #121a1d; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+.pass.air { stroke: #24414f; }
+.jet { fill: #d9a066; stroke: #0e1416; } .jet.air { fill: var(--air); }
+.valvebox { fill: #56646a; stroke: #0e1416; } .valvebox.open { fill: var(--good); }
+.solenoid { fill: #2c2350; stroke: var(--elec); }
+.sol.off .solenoid { stroke: #55656b; }
+.plunger { fill: #c9d2d6; }
+.screw-line { stroke: #e6ecec; stroke-width: 2.5; stroke-linecap: round; }
+.diaph { fill: none; stroke: #e6ecec; stroke-width: 2; }
+.check { fill: #56646a; stroke: #c9d2d6; } .check.open { fill: var(--good); }
+.link { fill: none; stroke: #c9d2d6; stroke-width: 2; stroke-linecap: round; }
+.plate { stroke: #e6ecec; stroke-width: 3.5; stroke-linecap: round; }
+.mixbar { fill: url(#none); fill: #20303a; }
+.mixneedle { fill: #ffffff; stroke: #ffffff; stroke-width: 2; }
+.o2bar { fill: var(--elec); }
+.adv.base { fill: #8b989d; } .adv.cent { fill: var(--elec); } .adv.vac { fill: var(--air); }
+.dsvg.dim { opacity: 0.45; }
+.bat { fill: #232b2f; }
+.term { fill: #c9d2d6; stroke: #0e1416; }
+.term.pos { fill: #e9564a; } .term.neg { fill: #55656b; }
+.wire { fill: none; stroke: #4a3f75; stroke-width: 2; stroke-linejoin: round; }
+.wire.gnd { stroke: #72838a; }
+.keyptr { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.coil { fill: #20262a; }
+.coilw { fill: none; stroke: #b47a4c; stroke-width: 1.5; }
+.cap { fill: #20262a; stroke: #55656b; stroke-width: 2; }
+.rotor { fill: #c9d2d6; stroke: #0e1416; }
+.body { fill: #263238; }
+.reluctor { fill: #8b989d; stroke: #0e1416; }
+.pickup { fill: var(--elec); }
+.igniter { fill: #c9d2d6; }
+.vacuum { fill: #3b4c53; stroke: #6c7c83; }
+.plugbody { fill: #f2efe4; }
+.sparkdot { fill: #fff2a8; filter: drop-shadow(0 0 5px #ffd36a); opacity: 0; }
+.ht { fill: none; stroke: #6d2a2a; stroke-width: 2.6; }
+.alt, .starter { fill: #1d2a30; }
+.ringgear { fill: none; stroke: #8b989d; stroke-width: 6; stroke-dasharray: 2 2; }
+.pinion { fill: #8b989d; } .pinion.engaged { fill: var(--good); }
+.lamp { fill: #1d2a30; stroke: #55656b; }
+.lampon { fill: #ff6a3d; filter: drop-shadow(0 0 5px #ff6a3d); }
+.lampon.oil { fill: #ffb04a; filter: drop-shadow(0 0 5px #ffb04a); }
+.fin { stroke: #3b4c53; stroke-width: 0.9; }
+.radcore { fill: var(--panel-2); opacity: 0.65; }
+.tank { fill: #3b4c53; }
+.capk { fill: #c9d2d6; }
+.shroud { stroke: #8b989d; stroke-width: 3; fill: none; }
+.shroud.broken { stroke: #ff6a3d; stroke-dasharray: 4 3; }
+.blade { fill: rgba(229,226,214,0.6); }
+.pump { fill: #263238; }
+.impeller { stroke: #c9d2d6; stroke-width: 1.6; }
+.thermo { fill: #8b989d; } .thermo.open { fill: var(--good); }
+.hosebg { fill: none; stroke: #0a0e10; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.thin-hose { fill: none; stroke: #0a0e10; stroke-width: 3; }
+.res { fill: rgba(229,226,214,0.12); stroke: #8b989d; }
+.heater { fill: #3a2e24; stroke: #b47a4c; }
+.hvalve { fill: #55656b; stroke: #c9d2d6; } .hvalve.open { fill: var(--good); }
+.shaft { stroke: #9aa7ac; stroke-width: 6; stroke-linecap: round; }
+.shaft.thin { stroke-width: 3; }
+.journal-b { fill: #c9d2d6; stroke: #0e1416; stroke-width: 0.6; }
+.rotor-in { fill: #c9d2d6; stroke: #0e1416; } .rotor-out { fill: none; stroke: #8b989d; stroke-width: 2; }
+.oilbg { fill: none; stroke: #0a0e10; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.filter { fill: #b9c3c7; stroke: #0e1416; }
+.strainer { fill: none; stroke: #c9d2d6; stroke-width: 1.4; stroke-dasharray: 2 2; }
+.oilfill { fill: color-mix(in srgb, var(--oil) 70%, #20140a); }
+.gauge-track { fill: none; stroke: #24333a; stroke-width: 10; }
+.gauge-spec { fill: none; stroke: var(--good); stroke-width: 10; }
+.gauge-needle { stroke: #ffffff; stroke-width: 2.5; stroke-linecap: round; }
+.exh-pipe { fill: none; stroke: #4b585e; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+.cat { fill: #56646a; stroke: #9aa7ac; }
+.cat-hot .cat { fill: #7a4a3a; stroke: #ff7a3d; }
+.cell { fill: #2a383e; } .cat-hot .cell { fill: #b0542f; }
+.o2 { fill: var(--elec); }
+.muffler { fill: #3b4c53; stroke: #8b989d; }
+.baffle { stroke: #1d2a30; stroke-width: 3; }
+.perf { fill: #8b989d; }
+.m-co { fill: #ff8a73; } .m-co2 { fill: #8fe0b5; } .m-o2 { fill: #a6dcff; } .m-n2 { fill: #6f7f85; }
+.housing { fill: rgba(86,100,106,0.15); stroke: #56646a; stroke-dasharray: 4 3; }
+.stripe { stroke: rgba(255,255,255,0.75); stroke-width: 2; fill: none; }
+.flywheel { fill: #56646a; stroke: #9aa7ac; }
+.facing { fill: #b47a4c; }
+.hub { fill: #8b989d; }
+.pplate { fill: #8b989d; stroke: #0e1416; }
+.diaphragm { fill: none; stroke: #f2efe4; stroke-width: 2.4; }
+.bearing { fill: #c9d2d6; stroke: #0e1416; }
+.fork { fill: none; stroke: #c9d2d6; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.cable { fill: none; stroke: #8b989d; stroke-width: 1.6; }
+.cable.dashed { stroke-dasharray: 5 4; }
+.pedalarm { fill: none; stroke: #c9d2d6; stroke-width: 4; stroke-linecap: round; }
+.gearbox-g { fill: #3b4c53; stroke: #6c7c83; }
+.gearbox-g.active { fill: color-mix(in srgb, var(--good) 45%, #1d2a30); stroke: var(--good); }
+.gearbox-g.idler { stroke-dasharray: 3 2; }
+.gtooth { stroke: rgba(255,255,255,0.12); stroke-width: 1; }
+.sync { fill: #8b989d; stroke: #0e1416; transition: transform 0.25s; }
+.sync.active { fill: var(--accent); }
+.pinion-g { fill: #8b989d; stroke: #0e1416; }
+.carrier { fill: #2a383e; stroke: #6c7c83; }
+.spider { fill: #8b989d; stroke: #0e1416; }
+.sidegear { fill: #c9d2d6; }
+.tire { fill: #101517; stroke: #3b4c53; stroke-width: 1.4; }
+.tire.ghost { fill: rgba(16,21,23,0.6); }
+.grid { stroke: #1f2c32; stroke-width: 1; }
+.axis { stroke: #3b4c53; stroke-width: 1; }
+.refline { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 4 4; }
+.series { fill: none; stroke-width: 2; stroke-linecap: round; }
+.series.active { stroke-width: 3.2; }
+.enddot { stroke: #141c20; stroke-width: 2; }
+.curdot { fill: #ffffff; stroke: #141c20; stroke-width: 2; }
+.crosshair { stroke: var(--ink-2); stroke-width: 1; }
+.hdot { stroke: #141c20; stroke-width: 2; }
+.tip { fill: rgba(11,16,18,0.94); stroke: var(--line); }
+.hit { fill: transparent; pointer-events: all; cursor: crosshair; touch-action: pan-y; }
+.pad-r { fill: #3b4c53; }
+.servo { fill: #1d2a30; }
+.mc { fill: #3b4c53; stroke: #8b989d; }
+.brakefluid { fill: #c8a75a; opacity: 0.85; }
+.mcpiston { fill: #c9d2d6; stroke: #0e1416; }
+.disc { fill: #8b989d; stroke: #0e1416; }
+.caliper { fill: #b8423b; stroke: #0e1416; }
+.padbrake { fill: #3b4c53; } .padbrake.on { fill: #ffb04a; }
+.drum { fill: #2a383e; stroke: #8b989d; stroke-width: 3; }
+.shoe { fill: none; stroke: #b47a4c; stroke-width: 4; stroke-linecap: round; } .shoe.on { stroke: #ffb04a; }
+.wcyl { fill: #c9d2d6; }
+.brakeline { fill: none; stroke: #2a1f12; stroke-width: 4; stroke-linejoin: round; }
+.brakeline.p { stroke: #ffb04a; stroke-width: 2.4; }
+.drip { fill: #c8a75a; }
+.swheel { fill: none; stroke: #56646a; stroke-width: 6; }
+.rackhouse { fill: #3b4c53; stroke: #6c7c83; }
+.rack { fill: #c9d2d6; }
+.tierod { fill: none; stroke: #c9d2d6; stroke-width: 3; stroke-linecap: round; }
+.axisline { stroke: var(--ink-3); stroke-dasharray: 3 4; }
+.divider { stroke: var(--line); }
+.bodymount { fill: #56646a; }
+.knuckle { fill: #6c7c83; }
+.strut { stroke: #3b4c53; stroke-width: 10; stroke-linecap: round; }
+.coilspring { fill: none; stroke: #6f9cff; stroke-width: 2; }
+.larm { stroke: #8b989d; stroke-width: 5; stroke-linecap: round; }
+.ground { stroke: #2a383e; stroke-width: 2; }
+.frame { stroke: #56646a; stroke-width: 8; }
+.hanger { fill: #56646a; }
+.leaf { fill: none; stroke: #9aa7ac; stroke-width: 3; }
+.axletube { fill: #8b989d; stroke: #0e1416; }
+.ubolt { stroke: #c9d2d6; stroke-width: 2; }
+.shackle { stroke: #c9d2d6; stroke-width: 4; stroke-linecap: round; }
+.shock { stroke: #3b4c53; stroke-width: 6; stroke-linecap: round; }
+/* ——— modo del visor ——— */
+.modebar { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 0 0 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; max-width: 560px; }
+.modebar button { border: 0; background: transparent; color: var(--ink-2); padding: 9px 10px; border-radius: 9px; cursor: pointer; font: 600 16px/1.1 var(--font-display); letter-spacing: 0.02em; min-height: 42px; }
+.modebar button small { display: block; font: 500 11.5px/1.2 var(--font-body); color: var(--ink-3); letter-spacing: 0; margin-top: 2px; }
+.modebar button[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 18%, var(--panel-2)); color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 65%, transparent); }
+.modebar button[aria-selected="true"] small { color: var(--ink-2); }
+.chip.sens[aria-pressed="false"] { border-color: color-mix(in srgb, var(--c) 45%, var(--line)); }
+.tag.sensor { padding-left: 3px; }
+.tag b, .pbtn b, .snum { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--c); color: #160b14; font: 700 11px/1 var(--font-mono); }
+.pbtn.sn b { --c: #f45cd6; }
+.hud { position: absolute; right: 8px; top: 8px; display: grid; gap: 3px; justify-items: end; pointer-events: none; font: 500 11.5px/1.2 var(--font-body); }
+.hud .hud-a { font: 500 12px/1 var(--font-mono); color: var(--ink); background: rgba(11,16,18,0.8); padding: 4px 7px; border-radius: 6px; }
+.hud .hud-c { display: inline-flex; align-items: center; gap: 6px; background: rgba(11,16,18,0.8); border: 1px solid color-mix(in srgb, var(--c) 60%, transparent); color: var(--ink); padding: 2px 8px 2px 3px; border-radius: 999px; min-width: 104px; }
+.hud .hud-c b { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: var(--c); color: #0e1416; font: 700 11px/1 var(--font-mono); }
+@media (min-width: 700px) { .hud { grid-auto-flow: column; justify-items: start; } }
+.tgroup input#tb-angle { width: 150px; }
+.sblock { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--c) 7%, var(--panel-2)); border: 1px solid color-mix(in srgb, var(--c) 40%, var(--line)); }
+.sblock .sb-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.sblock .snum { --c: #f45cd6; min-width: 24px; height: 24px; font-size: 13px; }
+.sblock h4 { margin-top: 8px !important; }
+.sblock p { margin: 0; }
+.stpill { display: inline-flex; align-items: center; gap: 5px; font: 600 11.5px/1 var(--font-body); color: var(--ink); padding: 4px 8px; border-radius: 999px; background: color-mix(in srgb, var(--c) 16%, transparent); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); white-space: nowrap; }
+.stpill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.btnrow .btn { text-decoration: none; }
+.src.k-usr { color: #ffb3a6; border-color: rgba(233,75,53,0.5); background: rgba(233,75,53,0.1); }
+/* ——— sensores ——— */
+.sen-grid { display: grid; gap: 14px; }
+@media (min-width: 1020px) { .sen-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: start; } .smapfig { position: sticky; top: 56px; } }
+.smapfig .dsvg { max-width: 640px; }
+.scards { display: grid; gap: 10px; }
+.scard { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--c); border-radius: 0 12px 12px 0; padding: 10px 14px 12px; display: grid; gap: 6px; scroll-margin-top: 60px; transition: border-color 0.2s, background 0.2s; }
+.scard.on { background: color-mix(in srgb, var(--c) 8%, var(--panel)); border-color: color-mix(in srgb, var(--c) 70%, var(--line)); }
+.scard header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.scard header .snum { --c: #f45cd6; min-width: 24px; height: 24px; font-size: 13px; }
+.scard h3 { font-size: 18px; flex: 1 1 auto; min-width: 0; }
+.scard .kv > div { padding: 4px 0; }
+.scard .sc-test { margin: 0; color: var(--ink-2); font-size: 14px; }
+.scard .sc-test b { color: var(--ink); font-weight: 600; }
+.scard footer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.scard footer .btn { margin-left: auto; }
+.m-body { fill: #172126; stroke: #4a5d64; stroke-width: 1.4; }
+.m-line { fill: none; stroke: #3b4c53; stroke-width: 1; }
+.m-line.dash { stroke-dasharray: 4 4; }
+.m-glass { fill: rgba(127,182,201,0.14); stroke: #4a6d78; stroke-width: 1; }
+.m-wheel { fill: #0e1416; stroke: #3b4c53; stroke-width: 1.2; }
+.m-hub { fill: #263238; }
+.m-seat { fill: #222c31; stroke: #34444b; }
+.m-wheelsteer { fill: none; stroke: var(--accent); stroke-width: 2.2; }
+.m-eng { fill: rgba(255,138,61,0.16); stroke: rgba(255,138,61,0.6); stroke-width: 1; }
+.m-gb { fill: rgba(79,207,143,0.12); stroke: rgba(79,207,143,0.5); stroke-width: 1; }
+.m-tank { fill: rgba(242,201,76,0.12); stroke: rgba(242,201,76,0.5); stroke-width: 1; }
+.m-prop { stroke: rgba(79,207,143,0.5); stroke-width: 2; }
+.m-dash { fill: #2a3338; stroke: #6c7c83; }
+.m-ctrl { fill: rgba(242,201,76,0.18); stroke: rgba(242,201,76,0.6); stroke-dasharray: 2 2; }
+.m-ground { stroke: #2a383e; stroke-width: 2; }
+.m-line.thick { stroke-width: 2; stroke: #4a5d64; } .m-line.faint { stroke: #2c3a40; }
+.m-panel { fill: rgba(0,0,0,0.12); stroke: #34454c; stroke-width: 1; }
+.m-trim { fill: #0e1416; stroke: #3b4c53; stroke-width: 1; }
+.m-rack { stroke: #56676e; stroke-width: 3; stroke-linecap: round; } .m-rack.thin { stroke-width: 2; }
+.m-amber { fill: #e8a33c; } .m-red { fill: #c8473b; } .m-clear { fill: #cfd8da; }
+.m-slot { fill: #172126; stroke: none; } .m-far { opacity: 0.7; }
+.dsvg text.m-tag { fill: var(--ink-3); font-style: italic; }
+.smark { cursor: pointer; outline: none; }
+.sm-lead { stroke: var(--c); stroke-width: 1; opacity: 0.7; }
+.sm-dot { fill: #ffffff; stroke: var(--c); stroke-width: 1.6; }
+.sm-badge { fill: var(--c); stroke: #0e1416; stroke-width: 1.5; transition: r 0.15s; }
+.dsvg text.sm-num { fill: #0e1416; font: 700 10.5px var(--font-mono); pointer-events: none; }
+.smap.has-sel .smark:not(.on) { opacity: 0.32; }
+.smark.on .sm-badge { stroke: #ffffff; stroke-width: 2.2; }
+.smark:focus-visible .sm-badge { stroke: var(--accent); stroke-width: 2.5; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* ——— mapa de calidad ——— */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.qlegend { position: absolute; left: 8px; bottom: 8px; max-width: min(330px, calc(100% - 16px)); background: rgba(11,16,18,0.88); border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; font-size: 11.5px; color: var(--ink-2); }
+.qlegend .qkey { font-size: 12px; } .qlegend .qkey i { width: 10px; height: 10px; }
+.qlegend p { margin: 0 0 4px; } .qlegend a { display: inline-block; margin-top: 4px; color: var(--accent); }
+@media (max-width: 520px) { .qlegend p { display: none; } }
+.viewer:has(.peek:not([hidden])) .qlegend { bottom: 72px; }
+.qlegend-row { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.qkey { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.qkey i { width: 12px; height: 12px; border-radius: 3px; background: var(--q); box-shadow: 0 0 0 1px rgba(255,255,255,0.18) inset; }
+.qgrid { display: grid; gap: 18px; margin-top: 12px; }
+@media (min-width: 980px) { .qgrid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; } }
+.qsheet { display: grid; gap: 7px; margin-top: 12px; }
+.qs-row { display: grid; grid-template-columns: minmax(84px, 1.1fr) 20px repeat(3, minmax(0, 1fr)); gap: 7px; align-items: center; cursor: pointer; }
+.qs-row.qs-head { cursor: default; font-size: 12px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.qs-row.qs-total { padding-bottom: 6px; border-bottom: 1px solid var(--line); font-weight: 600; cursor: default; }
+.qs-name { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--ink); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qs-n { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; }
+.qs-name i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: 0 0 auto; }
+.qbar { display: flex; gap: 2px; height: 12px; }
+.qbar b { background: var(--q); min-width: 3px; }
+.qbar b:first-child { border-radius: 4px 0 0 4px; } .qbar b:last-child { border-radius: 0 4px 4px 0; } .qbar b:only-child { border-radius: 4px; }
+.qs-row:not(.qs-head):not(.qs-total):hover .qs-name { color: var(--accent); }
+.qneeds { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 12px; }
+.qneeds p { margin: 0 0 4px; }
+.qparts { display: flex; flex-wrap: wrap; gap: 5px; }
+.qpart { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 3px 9px 3px 7px; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.qpart::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--q); }
+.qtables { display: grid; gap: 6px; margin-top: 8px; }
+.qdet { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.qdet summary { cursor: pointer; padding: 9px 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.qdet summary i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.qdet summary small { margin-left: auto; color: var(--ink-3); font-weight: 400; }
+.qdet .tablewrap { margin: 0 8px 8px; }
+.qtable th[scope=row] { text-align: left; font-weight: 400; }
+.qpill { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink); white-space: nowrap; }
+.qpill i { width: 10px; height: 10px; border-radius: 3px; background: var(--q); box-shadow: 0 0 0 1px rgba(255,255,255,0.18) inset; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; cursor: pointer; font: inherit; text-align: left; }
+.qcard { margin-top: 10px; padding-top: 4px; }
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="wrap">
+    <p class="kicker"><b>●</b> Modelo conceptual · Suzuki SK410 · versión chilena · volante a la izquierda</p>
+    <h1>Super Carry 1000 <span>furgón ciego 1996</span></h1>
+    <p class="lede">Un modelo 3D para tocar pieza por pieza y diagramas animados que muestran cómo funciona cada sistema, con los datos técnicos y la fuente de cada cifra.</p>
+    <ul class="specstrip">
+      <li><span>Motor</span><b>F10A · 970 cm³</b></li>
+      <li><span>Potencia</span><b>41 CV · 30 kW</b></li>
+      <li><span>Caja</span><b>5 vel. + R</b></li>
+      <li><span>Diferencial</span><b>5,125 : 1</b></li>
+      <li><span>Entre ejes</span><b>1.840 mm</b></li>
+      <li><span>Estanque</span><b>37 L</b></li>
+    </ul>
+    <p class="mine"><b>Este furgón:</b> ciego en los costados con vidrio en el portalón, techo con nervios a lo largo, parrilla de techo, llantas de aleación de 13" con neumáticos 175/70 R13, tapa de bencina al costado del copiloto y batería bajo el piso de carga, volante a la izquierda, uso urbano en trayectos cortos y carburador no catalítico (sólo se cambió el carburador). El modelo, la mantención y el estado de cada sensor tienen esto en cuenta.</p>
+  </div>
+</header>
+<nav class="jump" aria-label="Secciones"><div class="wrap">
+  <a href="#modelo">Modelo 3D</a><a href="#sensores">Sensores</a><a href="#como-funciona">Cómo funciona</a><a href="#ficha">Ficha técnica</a><a href="#mantencion">Mantención</a><a href="#diagnostico">Diagnóstico</a><a href="#calidad">Precisión</a><a href="#fuentes">Fuentes</a>
+</div></nav>
+
+<main>
+<section class="block" id="modelo"><div class="wrap">
+  <h2>Modelo 3D</h2>
+  <p class="intro" id="modelo-intro">Un solo modelo: la carrocería sigue las fotos de este furgón y adentro van todos los sistemas, con el motor F10A completo inclinado bajo los asientos, la caja, el cardán corto y el puente trasero de resortes.</p>
+  <div class="modebar" id="modebar" role="tablist" aria-label="Qué mostrar">
+    <button type="button" role="tab" data-mode="van" aria-selected="true">Furgón completo<small>este furgón por fuera y todos los sistemas</small></button>
+    <button type="button" role="tab" data-mode="eng" aria-selected="false">Motor en su lugar<small>por dentro, en corte y en movimiento</small></button>
+  </div>
+  <div class="chips" id="syschips" role="toolbar" aria-label="Sistemas"></div>
+  <div class="viewer-grid">
+    <div>
+      <div class="viewer" id="viewer">
+        <div id="labels"></div>
+        <p class="hint"><b>Arrastra</b> para girar · <b>pellizca</b> para acercar · <b>toca</b> una pieza</p>
+        <div class="hud" id="enghud" hidden></div>
+        <div class="qlegend" id="qlegend" hidden><p>Color = lo más débil entre <b>ubicación</b> y <b>forma</b> de cada pieza</p><div id="qlegend-keys"></div><a href="#calidad">Ver el mapa completo ↓</a></div>
+        <div class="peek" id="peek" hidden></div>
+        <p id="viewer-msg" hidden>Tu navegador no pudo iniciar el modelo 3D (WebGL). Los diagramas y fichas de abajo siguen funcionando.</p>
+      </div>
+      <div class="toolbar" aria-label="Controles del modelo">
+        <button type="button" class="btn" id="tb-run" aria-pressed="true">Pausar motor</button>
+        <div class="tgroup" data-only="van"><span>Carrocería</span><div class="segbtns" id="tb-body"><button type="button" data-v="ghost" aria-pressed="true">Rayos X</button><button type="button" data-v="solid" aria-pressed="false">Sólida</button><button type="button" data-v="hidden" aria-pressed="false">Oculta</button></div></div>
+        <div class="tgroup" data-only="eng" hidden><span>Corte</span><div class="segbtns" id="tb-cut"><button type="button" data-v="none" aria-pressed="true">Sin corte</button><button type="button" data-v="xray" aria-pressed="false">Rayos X</button><button type="button" data-v="long" aria-pressed="false">Largo</button><button type="button" data-v="trans" aria-pressed="false">Transversal</button></div></div>
+        <div class="tgroup"><span>Color</span><div class="segbtns" id="tb-color"><button type="button" data-v="sys" aria-pressed="true">Por sistema</button><button type="button" data-v="real" aria-pressed="false">Real</button><button type="button" data-v="qual" aria-pressed="false">Precisión</button></div></div>
+        <div class="tgroup"><span>Vista</span><div class="segbtns" id="tb-view"></div></div>
+        <div class="tgroup" data-only="eng" hidden><span>Velocidad</span><div class="segbtns" id="tb-speed"><button type="button" data-v="0.15" aria-pressed="false">Lenta</button><button type="button" data-v="0.6" aria-pressed="true">Media</button><button type="button" data-v="1.6" aria-pressed="false">Rápida</button></div></div>
+        <div class="tgroup" data-only="eng" hidden><label for="tb-angle"><span>Cigüeñal</span></label><input type="range" id="tb-angle" min="0" max="719" value="0"><output id="tb-angle-v" for="tb-angle">0°</output></div>
+        <div class="tgroup"><label for="tb-explode"><span>Despiece</span></label><input type="range" id="tb-explode" min="0" max="100" value="0"><output id="tb-explode-v" for="tb-explode">0 %</output></div>
+        <label class="checkopt" data-only="van"><input type="checkbox" id="tb-rack" checked> Parrilla</label>
+        <label class="checkopt"><input type="checkbox" id="tb-labels" checked> Etiquetas</label>
+      </div>
+    </div>
+    <aside id="infocard" aria-live="polite"></aside>
+  </div>
+</div></section>
+
+<section class="block" id="sensores"><div class="wrap">
+  <h2>Sensores del furgón</h2>
+  <p class="intro">Dónde está cada sensor e interruptor, qué detecta, adónde manda su señal y cómo probarlo. El mapa usa las mismas coordenadas del modelo 3D y los números coinciden con el chip <b>Sensores</b>. Este furgón no tiene computador de inyección: casi todo avisa directo al tablero.</p>
+  <div class="sen-grid">
+    <figure class="fig smapfig"><div id="senmap"></div><figcaption>Toca un número para ver su ficha. Los sensores 3 y 4 eran del sistema catalítico original: con el carburador actual ya no influyen en el funcionamiento.</figcaption></figure>
+    <div class="scards" id="sencards"></div>
+  </div>
+</div></section>
+
+<section class="block" id="como-funciona"><div class="wrap">
+  <h2>Cómo funciona</h2>
+  <p class="intro">Cada sistema en un esquema animado que puedes manejar. Los esquemas muestran el principio de funcionamiento con las cifras de fábrica; no son planos a escala.</p>
+  <div class="tabs" id="tabs" role="tablist" aria-label="Sistemas"></div>
+  <div id="panels"></div>
+</div></section>
+
+<section class="block" id="ficha"><div class="wrap">
+  <h2>Ficha técnica</h2>
+  <p class="intro">Cada dato lleva su fuente. <span class="src k-fab">Manual SK410</span> es el manual de servicio; <span class="src k-fab">Fábrica UK</span> es la especificación del Super Carry / Bedford Rascal SK410 (mismo vehículo y motor); <span class="src k-oem">OEM Chile</span> son piezas del catálogo de repuestos marcadas para Chile; <span class="src k-rec">Recomendación</span> es criterio práctico, no dato de fábrica.</p>
+  <div class="specgrid" id="specgrid"></div>
+</div></section>
+
+<section class="block" id="mantencion"><div class="wrap">
+  <h2>Plan de mantención</h2>
+  <p class="intro">Ajustado a uso urbano con trayectos cortos, que es servicio severo: el motor y el aceite pasan más tiempo fríos y la batería carga poco.</p>
+  <div class="maintwrap" id="maint"></div>
+</div></section>
+
+<section class="block" id="diagnostico"><div class="wrap">
+  <h2>Diagnóstico rápido</h2>
+  <p class="intro">Síntomas frecuentes con sus causas probables en orden de revisión. Cada tarjeta te lleva a la pieza en el modelo.</p>
+  <div class="chips" id="diagchips" role="toolbar" aria-label="Filtrar por sistema"></div>
+  <div class="diaggrid" id="diaglist"></div>
+</div></section>
+
+<section class="block" id="calidad"><div class="wrap">
+  <h2>Qué tan preciso es cada dato</h2>
+  <p class="intro">Cada pieza tiene tres notas: <b>dónde va</b> en el furgón, su <b>forma y medidas</b> en el 3D, y los <b>datos</b> de su ficha. Azul es lo confirmado (medido en las fotos o sacado del manual), gris lo que viene de un catálogo o ficha, y naranjo lo que todavía es una referencia general o una estimación. En el visor, el color <b>Precisión</b> pinta el modelo con esta misma escala.</p>
+  <div class="qgrid">
+    <div class="fig" id="qsheet"></div>
+    <div><h3>Lo que más subiría la precisión</h3><div id="qneeds"></div></div>
+  </div>
+  <h3>Pieza por pieza</h3>
+  <div id="qtable"></div>
+</div></section>
+
+<section class="block" id="fuentes"><div class="wrap">
+  <h2>Fuentes y precisión</h2>
+  <div class="notes">
+    <p><b>El manual de servicio:</b> es el manual de servicio del SK410 en su versión de platinos, sin catalizador (traducción al español). Para este furgón valen el motor F10A, el carburador de tiro horizontal (como el no catalítico que lleva ahora), la refrigeración, la transmisión y el chasis. No trae el encendido electrónico, el sensor de oxígeno ni el controlador del catalítico chileno 1993–99: esos datos siguen saliendo del catálogo OEM. De ahí salen ahora holguras, relaciones, torques, presiones, resistencias de los sensores y la ubicación del distribuidor, el filtro de aceite, el carburador y la bomba de bencina.</p>
+    <p><b>Qué es exacto:</b> dimensiones principales, relaciones de caja y diferencial, capacidades, reglajes y piezas de la versión chilena tal como figuran en las fuentes enlazadas. El modelo 3D respeta distancia entre ejes, trochas, diámetro de las ruedas (175/70 R13), discos y tambores, y en el motor los diámetros de muñones, codos, pasadores, vástagos y la altura de leva del manual.</p>
+    <p><b>Cómo leer la precisión:</b> cada pieza tiene su nota de ubicación, forma y datos en el <a href="#calidad">mapa de precisión</a>; ahí también está la lista de fotos y medidas que más la subirían.</p>
+    <p><b>Qué es aproximado:</b> la forma de las piezas en el 3D y la posición de las marcadas “aprox.” (estanque, batería, radiador, catalizador, silenciador, controlador y varios sensores). La calefacción sigue el despiece del manual (caja bajo el centro del tablero, ventilador al lado del conductor, llave de agua y mandos), pero sus cotas y el recorrido de las mangueras bajo la cabina son aproximados. La inclinación del motor (unos 50°) y la forma del cárter siguen el corte transversal del manual, que no está acotado; que va inclinado, desplazado hacia el lado izquierdo y con las bujías hacia abajo también está en las fuentes. En el motor en detalle, el largo de biela, el ángulo de las válvulas, la forma de los balancines y el ángulo exacto del distribuidor son aproximados.</p>
+    <p><b>Sensores:</b> los números de parte del bulbo de aceite, del interruptor de luz de freno y del distribuidor salen del catálogo OEM del SK410; el bulbo de temperatura y el interruptor de retroceso, de catálogos de repuestos que los listan para el Super Carry. El manual confirma dónde van el bulbo de temperatura (múltiple de admisión), el bulbo de aceite (junto al filtro, en el costado de abajo del block), el aforador (en el estanque) y el generador de señal (en el distribuidor, sobre su caja de engranajes); las resistencias y presiones de prueba también salen de él. La posición exacta del resto es aproximada y está marcada así.</p>
+    <p><b>Este furgón:</b> la carrocería está medida en las fotos de costado, frente y atrás, con la distancia entre ejes (1.840 mm) y la patente (360 × 130 mm) como escala; el error típico es de 2 a 3 cm. Las fotos 3/4 dan la forma de las esquinas, el abombado del techo y el frente, y la ubicación de la tapa de bencina (costado del copiloto, detrás de la rueda delantera). Las diagonales de los vanos de la puerta corredera y del portalón que trae la sección 19 del manual calzan con las fotos. Neumáticos 175/70 R13 en llantas de aleación de 13".</p>
+    <p><b>Qué no incluí:</b> el CO de ralentí y las cifras del encendido electrónico (resistencia del captador, entrehierro) de la versión catalítica: no están en el manual de servicio ni en otra fuente verificable. El punto de 8° APMS a 900 rpm coincide entre el manual y el dato UK.</p>
+    <p><b>El sistema catalítico original</b> (controlador, sensor de oxígeno, solenoide del carburador y distribuidor con módulo) está confirmado por las piezas del catálogo OEM marcadas para Chile; su lógica exacta de control no está publicada, por lo que el diagrama la muestra en principio.</p>
+  </div>
+  <ul id="srclist"></ul>
+</div></section>
+</main>
+<footer><div class="wrap">Modelo conceptual con fines educativos. Antes de intervenir frenos, dirección o combustible, confirma los datos en el manual de servicio original.<p class="about">Versión {{VERSION}} · {{FECHA}}. Funciona sin internet. Hecho con three.js (licencia MIT) y las tipografías Barlow e IBM Plex Mono (licencia SIL OFL).</p></div></footer>
+<!--APP-->
+<!--FUENTE-->
+</body>
+</html>
