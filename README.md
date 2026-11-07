@@ -1,4 +1,4 @@
-# Super Carry 1000 por dentro
+# Super Carry 1000cc 3D
 
 ![Furgón Super Carry en rayos X con el motor y los sistemas a la vista](docs/preview.png)
 
