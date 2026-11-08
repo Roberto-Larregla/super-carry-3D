@@ -12,6 +12,27 @@ const RZ = 0.562;             // plano medio del tambor trasero (|z|)
 const GAP_PAD = 0.0015, GAP_SHOE = 0.0045;   // holguras exageradas para que se vea el movimiento
 const HOT = new THREE.Color('#e8402f'), HOTE = new THREE.Color('#ff3b1f'), GLOW = new THREE.Color('#ff6a1a');
 
+// Pedal colgante como en las fotos: brazo de platina que baja y se dobla hacia atrás, y pisadera de aluminio
+// (con agujeros) inclinada, mirando hacia arriba y hacia el pie. Coordenadas desde el eje del pedal.
+export const PAD = { c: [-0.068, -0.338], tilt: -0.44 };      // centro e inclinación de la pisadera (rad)
+export function hangingPedal(ctx, part, parent, { ex = null } = {}) {
+  const { V, rbox, tube, cylX, add } = ctx;
+  const A = (geo, kind, o = {}) => add(part, geo, kind, { parent, ex, ...o });
+  const t = PAD.tilt, up = [Math.sin(-t), Math.cos(-t)], fr = [Math.cos(-t), -Math.sin(-t)];   // en el plano de la pisadera y hacia adelante
+  const [cx, cy] = PAD.c, off = 0.010;
+  const at = (u, k = off) => [cx + up[0] * u + fr[0] * k, cy + up[1] * u + fr[1] * k, 0];
+  // platina: sección de 22 × 8 mm (un tubo aplastado en z)
+  const arm = A(tube([[0, 0.012, 0], [0.004, -0.09, 0], [0.002, -0.19, 0], [-0.016, -0.25, 0], at(0.045), at(0.005)], 0.011, false, 64), 'steel');
+  arm.scale.set(1, 1, 0.38);
+  A(rbox(0.006, 0.05, 0.03, 0.002), 'steel', { p: at(0.022, 0.0075), r: [0, 0, t] });                 // placa donde se apernan
+  A(rbox(0.010, 0.096, 0.076, 0.012), 'machined', { p: at(0, 0), r: [0, 0, t] });                      // pisadera
+  for (const [u, w] of [[0.026, -0.022], [0.026, 0], [0.026, 0.022], [0.0, -0.011], [0.0, 0.011], [-0.026, 0]]) {
+    const p = at(u, -0.0052); A(cylX(0.0058, 0.0016, 14), 'dark', { p: [p[0], p[1], w], r: [0, 0, t] });
+  }
+  A(rbox(0.0012, 0.008, 0.05, 0.0005), 'dark', { p: at(-0.04, -0.0052), r: [0, 0, t] });              // relieve del logo
+  return arm;
+}
+
 export function buildBrakes(ctx, { ELv, E }) {
   const { V, rbox, cylX, cylY, cylZ, tube, helix, add, group } = ctx;
   const root = ctx.world.root;
@@ -47,10 +68,7 @@ export function buildBrakes(ctx, { ELv, E }) {
   A('pedal_freno', rbox(0.08, 0.006, 0.07, 0.002), 'steel', { p: [0.475, 0.957, -0.22], ex: [0.3, 0.25, 0] });
   A('pedal_freno', cylZ(0.008, 0.07, 12), 'machined', { p: PIV.toArray(), ex: [0.3, 0.25, 0] });
   const pedal = group('pedal_freno', root, PIV.toArray(), [0.3, 0.25, 0]);
-  A('pedal_freno', tube([[0, 0, 0], [-0.008, -0.12, 0], [-0.035, -0.25, 0], [-0.066, -0.318, 0]], 0.009), 'steel', { parent: pedal });
-  A('pedal_freno', rbox(0.012, 0.085, 0.075, 0.01), 'machined', { parent: pedal, p: [-0.072, -0.338, 0], r: [0, 0, 0.25] });
-  for (const [dy, dz] of [[0.022, -0.022], [0.022, 0.0], [0.022, 0.022], [-0.005, -0.011], [-0.005, 0.011], [-0.028, 0]])   // pisadera de aluminio con agujeros (foto)
-    A('pedal_freno', cylX(0.0055, 0.004, 12), 'dark', { parent: pedal, p: [-0.0665 + dy * 0.25, -0.338 + dy, dz] });
+  hangingPedal(ctx, 'pedal_freno', pedal);
   A('pedal_freno', rbox(0.012, 0.016, 0.03, 0.003), 'steel', { parent: pedal, p: [-0.006, -0.075, 0] });          // horquilla
   A('pedal_freno', helix(0.006, 0.06, 7, 0.0012), 'steel', { p: [0.47, 0.885, -0.205], r: [0, 0, 0.5], ex: [0.3, 0.25, 0] });  // resorte de retorno
   // interruptor de luz de freno (sensor 7) apoyado en el brazo del pedal

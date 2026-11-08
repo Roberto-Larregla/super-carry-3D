@@ -100,6 +100,9 @@ svg.ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-wid
 .simbox .muted { font-size: 12.5px; }
 .simbox .kv { margin-bottom: 8px; }
 .bad { color: var(--red); font-weight: 600; }
+.simbox.cal { border-left-color: #7a9a1e; }
+.trange { accent-color: #d9482b; background: linear-gradient(90deg, #3d8fd1, #d9482b); border-radius: 4px; height: 6px; }
+@media (max-width: 899px) { .modesw button { padding: 6px 8px; font-size: 13.5px; letter-spacing: 0.02em; } }
 .is-brk .focuspill { display: none; }
 @media (max-width: 899px) {
   .bh-line { display: none; }

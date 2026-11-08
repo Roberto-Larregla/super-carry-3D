@@ -6,7 +6,8 @@ import { FINAL } from './data.js';
 import { buildEngine } from './engine3d.js';
 import { buildBody, buildWheel, BODY, sideSheet, onSide, FUEL_LID } from './body3d.js';
 import { PARTS } from './data.js';
-import { buildBrakes } from './brakes3d.js';
+import { buildBrakes, hangingPedal } from './brakes3d.js';
+import { buildHeater } from './heater3d.js';
 
 const EXV = {
   carroceria: [0, 1.25, 0], asientos: [0, 0.9, 0], interior: [0, 0.55, 0], radiador: [0.32, 0.05, 0], deposito: [0.32, 0.15, 0.12], calefactor: [0.35, 0.35, 0],
@@ -112,8 +113,8 @@ export function buildVan(ctx) {
     for (const a of [0, 2.1, 4.2]) { const sp = A('direccion', rbox(0.17, 0.018, 0.012, 0.005), 'dark', { p: [0.29, 1.09, DZ] }); sp.lookAt(V(0.29 - 0.42, 1.09 + 0.9, DZ)); sp.rotateZ(a); sp.translateX(0.085); } }
 
   // pedal de embrague (colgante, a la izquierda de la columna; foto) y acelerador de piso. Los frenos van en brakes3d.js
-  A('embrague', tube([[0.43, 0.90, -0.44], [0.42, 0.74, -0.44], [0.40, 0.60, -0.44]], 0.01), 'steel');
-  A('embrague', rbox(0.012, 0.085, 0.075, 0.01), 'machined', { p: [0.393, 0.575, -0.44], r: [0, 0, 0.25] });
+  { const g = new THREE.Group(); g.position.set(0.465, 0.915, -0.44); root.add(g); hangingPedal(ctx, 'embrague', g, { ex: EXV.embrague });
+    A('embrague', ctx.cylZ(0.008, 0.06, 12), 'machined', { p: [0.465, 0.915, -0.44] }); }
   A('carburador', rbox(0.012, 0.19, 0.06, 0.01), 'steel', { p: [0.385, 0.56, -0.115], r: [0, 0, 0.35] });   // acelerador de piso
   A('carburador', cylZ(0.008, 0.08, 10), 'steel', { p: [0.42, 0.47, -0.115] });
 
@@ -170,65 +171,9 @@ export function buildVan(ctx) {
   { const ci = ELv(E.pts.carbInlet); A('canister', tube([[-0.31, 0.75, 0.51], [-0.30, 0.76, 0.38], [ci.x + 0.02, ci.y + 0.04, ci.z + 0.06]], 0.004), 'hose'); }
   A('canister', tube([[-0.31, 0.565, 0.56], [-0.45, 0.40, 0.45], [-1.10, 0.33, 0.30], [-1.30, 0.40, 0.24]], 0.004), 'hose');
 
-  // ════════ CALEFACCIÓN (manual secc. 7 + fotos del tablero: caja negra al centro, del tablero al piso) ════════
-  const HC = V(0.47, 0.70, 0.0);                                                     // centro de la caja
-  const C = (part, geo, kind, p, o = {}) => A(part, geo, kind, { p, ...o });
-  C('calefactor', rbox(0.17, 0.42, 0.11, 0.03), 'plastic', [HC.x, HC.y, HC.z + 0.055], { casing: true });  // mitad derecha
-  C('calefactor', rbox(0.17, 0.42, 0.11, 0.03), 'plastic', [HC.x, HC.y, HC.z - 0.055], { casing: true });  // mitad izquierda
-  C('calefactor', rbox(0.172, 0.40, 0.006, 0.003), 'dark', [HC.x, HC.y, HC.z]);                            // junta vertical con grapas
-  for (const dy of [-0.12, 0.10]) C('calefactor', rbox(0.02, 0.026, 0.03, 0.004), 'dark', [HC.x - 0.088, HC.y + dy, HC.z]);
-  C('calefactor', rbox(0.045, 0.16, 0.19, 0.006), 'copper', [HC.x + 0.02, HC.y + 0.03, HC.z]);              // radiador de calefacción
-  for (const dy of [-0.08, 0.08]) C('calefactor', rbox(0.05, 0.02, 0.20, 0.004), 'alu', [HC.x + 0.02, HC.y + 0.03 + dy, HC.z]);
-  for (const dz of [0.03, 0.08]) C('calefactor', cylY(0.009, 0.16, 12), 'alu', [HC.x + 0.055, HC.y - 0.17, HC.z + dz]);   // tubos del radiador (bajan al piso)
-  // salida a los pies del acompañante: ducto curvo que baja al piso (foto)
-  C('calefactor', tube([[HC.x - 0.03, HC.y - 0.02, HC.z + 0.10], [HC.x - 0.05, HC.y - 0.12, HC.z + 0.18], [0.40, 0.50, 0.26]], 0.035), 'plastic', [0, 0, 0], { casing: true });
-  // ventilador: caracol, motor y rotor de jaula (según el dibujo del manual, al lado conductor de la caja)
-  const FV = V(HC.x, HC.y + 0.13, HC.z - 0.17);
-  C('calef_ventilador', cylZ(0.072, 0.09, 28), 'plastic', FV.toArray(), { casing: true });
-  C('calef_ventilador', cylZ(0.042, 0.07, 20), 'dark', [FV.x, FV.y, FV.z - 0.08]);
-  C('calef_ventilador', cylZ(0.048, 0.008, 20), 'steel', [FV.x, FV.y, FV.z - 0.047]);
-  { const fan = new THREE.Group(); fan.position.copy(FV); root.add(fan); out.fans.push(fan);
-    for (let k = 0; k < 18; k++) { const a = k / 18 * Math.PI * 2; add('calef_ventilador', rbox(0.016, 0.004, 0.065, 0.001), 'steel', { parent: fan, p: [Math.cos(a) * 0.05, Math.sin(a) * 0.05, 0], r: [0, 0, a + 0.5], ex: null }); } }
-  C('calef_ventilador', rbox(0.05, 0.035, 0.008, 0.003), 'ceramic', [HC.x + 0.05, HC.y + 0.16, HC.z - 0.115]);  // resistencia (3 velocidades)
-  C('calef_ventilador', rbox(0.02, 0.02, 0.016, 0.003), 'dark', [HC.x + 0.05, HC.y + 0.185, HC.z - 0.118]);
-  // caja con palanca metálica bajo la guantera y ducto corrugado hacia la caja (fotos): probable toma de aire exterior/recirculación
-  C('calef_ductos', rbox(0.12, 0.14, 0.12, 0.02), 'plastic', [0.52, 0.80, 0.52], { casing: true });
-  C('calef_ductos', rbox(0.012, 0.09, 0.012, 0.003), 'steel', [0.455, 0.86, 0.50], { r: [0.35, 0, 0] });
-  C('calef_ductos', tube([[HC.x + 0.03, HC.y + 0.16, HC.z + 0.10], [0.50, 0.88, 0.24], [0.52, 0.86, 0.38], [0.52, 0.82, 0.46]], 0.032, false, 60), 'rubber');
-  for (let k = 0; k < 14; k++) { const t = k / 13; C('calef_ductos', new THREE.TorusGeometry(0.034, 0.004, 6, 18), 'dark', [lerp3(HC.x + 0.03, 0.52, t), lerp3(HC.y + 0.16, 0.84, t), lerp3(HC.z + 0.12, 0.46, t)], { r: [0, Math.PI / 2 - 0.4, 0] }); }
-  // tubo blanco que baja en diagonal junto al acelerador (fotos; parece ser de la calefacción)
-  C('calef_tubo', tube([[0.48, 0.93, -0.16], [0.42, 0.74, -0.13], [0.33, 0.50, -0.085], [0.31, 0.455, -0.08]], 0.034), 'white');
-  C('calef_tubo', cylY(0.045, 0.04, 18), 'rubber', [0.31, 0.47, -0.08]);
-  // llave de agua en la entrada del radiador, con su cable
-  C('calef_llave', rbox(0.035, 0.045, 0.035, 0.006), 'alu', [HC.x + 0.055, HC.y - 0.27, HC.z + 0.08]);
-  C('calef_llave', rbox(0.04, 0.006, 0.012, 0.002), 'steel', [HC.x + 0.08, HC.y - 0.26, HC.z + 0.105], { r: [0, 0, 0.5] });
-  // ductos del desempañador hacia la base del parabrisas y salidas de aire del tablero (2 al centro, 1 en cada extremo)
-  for (const s of [1, -1]) {
-    C('calef_ductos', tube([[HC.x + 0.02, HC.y + 0.21, HC.z + s * 0.04], [0.52, 1.02, s * 0.20], [0.55, 1.105, s * 0.36]], 0.02), 'plastic');
-    C('calef_ductos', rbox(0.07, 0.006, 0.24, 0.004), 'dark', [0.545, 1.126, s * 0.36]);
-    for (let k = 0; k < 5; k++) C('calef_ductos', rbox(0.06, 0.004, 0.006, 0.001), 'plastic', [0.545, 1.13, s * 0.36 - 0.08 + k * 0.04]);
-  }
-  for (const z of [ZC - 0.114, ZC + 0.114, -0.585, 0.585]) {
-    C('calef_ductos', rbox(0.012, 0.064, 0.060, 0.008), 'dark', [0.372, 1.047, z]);
-    for (let k = 0; k < 4; k++) C('calef_ductos', rbox(0.014, 0.004, 0.052, 0.001), 'plastic', [0.369, 1.027 + k * 0.013, z]);
-  }
-  C('calef_ductos', tube([[HC.x, HC.y + 0.21, HC.z], [0.43, 1.02, ZC - 0.05], [0.385, 1.047, ZC - 0.114]], 0.016), 'plastic');
-  C('calef_ductos', tube([[HC.x, HC.y + 0.21, HC.z], [0.43, 1.02, ZC + 0.05], [0.385, 1.047, ZC + 0.114]], 0.016), 'plastic');
-  // mandos (foto): 3 palancas (salida del aire, recirculación/exterior, frío–calor) y perilla OFF + 3 velocidades
-  const CM = V(0.369, 1.045, ZC - 0.012);
-  C('calef_mando', rbox(0.006, 0.068, 0.138, 0.005), 'dark', CM.toArray());
-  for (const [dy, k] of [[0.022, 0.80], [0.0, 0.05], [-0.022, 0.86]]) {
-    C('calef_mando', rbox(0.004, 0.004, 0.086, 0.001), 'plastic', [CM.x - 0.004, CM.y + dy, CM.z - 0.02]);
-    C('calef_mando', rbox(0.016, 0.012, 0.012, 0.003), 'dark', [CM.x - 0.01, CM.y + dy, CM.z - 0.063 + k * 0.086]);
-  }
-  C('calef_mando', rbox(0.004, 0.012, 0.066, 0.001), 'plastic', [CM.x - 0.004, CM.y - 0.012, CM.z - 0.02]);   // escala azul–rojo
-  C('calef_mando', cylX(0.016, 0.02, 18), 'dark', [CM.x - 0.012, CM.y + 0.004, CM.z + 0.048]);
-  for (const [dy, dz, to] of [[0.022, -0.05, [HC.x - 0.02, HC.y + 0.2, HC.z + 0.06]], [0.0, -0.03, [0.455, 0.90, 0.50]], [-0.022, -0.01, [HC.x + 0.10, HC.y - 0.26, HC.z + 0.105]]])
-    C('calef_mando', tube([[CM.x + 0.01, CM.y + dy, CM.z + dz], [CM.x + 0.05, CM.y - 0.05, CM.z + dz + 0.04], to], 0.0025), 'dark');
-  // mangueras: entrada caliente desde el múltiple de admisión → llave; salida del radiador → tubo de entrada de agua (bomba)
-  const vin = V(HC.x + 0.055, HC.y - 0.295, HC.z + 0.08), vout = V(HC.x + 0.055, HC.y - 0.25, HC.z + 0.03);
-  C('calef_mangueras', tube([hOut.toArray(), [hOut.x + 0.1, hOut.y + 0.06, hOut.z - 0.1], [-0.12, 0.66, -0.2], [0.08, 0.62, -0.18], [0.2, 0.43, -0.06], [0.40, 0.40, 0.06], [vin.x, 0.43, vin.z], vin.toArray()], 0.009), 'hose');
-  C('calef_mangueras', tube([vout.toArray(), [vout.x, 0.44, vout.z], [vout.x - 0.05, 0.40, vout.z], [0.3, 0.39, 0.04], [0.08, 0.3, 0.05], [0.04, 0.17, 0.0], [-0.14, 0.17, -0.05], [wpIn.x + 0.03, wpIn.y - 0.03, wpIn.z + 0.01], wpIn.toArray()], 0.009), 'hose');
+  // ════════ CALEFACCIÓN (detalle en heater3d.js; vista Calefacción) ════════
+  const HT = buildHeater(ctx, { hOut, wpIn });
+  out.fans.push(HT.fan);
 
   // ════════ ALIMENTACIÓN ════════
   const carbIn = ELv(E.pts.carbInlet);
@@ -302,7 +247,7 @@ export function buildVan(ctx) {
     A('palanca', tube([[0.09 - k * 0.03, 0.43, -0.03 + k * 0.03], [-0.05, 0.39 - k * 0.01, 0.06 + k * 0.025], [-0.3, 0.4, 0.13 + k * 0.02], [lv2.x + 0.06, lv2.y + 0.02, lv2.z + 0.03], lv2.toArray()], 0.005), 'dark');
   }
   const fork = EL(-0.47, 0.06, 0.13);
-  A('embrague', tube([[0.43, 0.88, -0.44], [0.41, 0.55, -0.43], [0.36, 0.43, -0.38], [0.0, 0.36, -0.2], [-0.25, 0.36, 0.05], [fork.x, fork.y, fork.z]], 0.004), 'dark');
+  A('embrague', tube([[0.465, 0.935, -0.44], [0.41, 0.55, -0.43], [0.36, 0.43, -0.38], [0.0, 0.36, -0.2], [-0.25, 0.36, 0.05], [fork.x, fork.y, fork.z]], 0.004), 'dark');
 
   // ════════ SUSPENSIÓN TRASERA ════════
   for (const s of [1, -1]) {
@@ -368,7 +313,7 @@ export function buildVan(ctx) {
   }
   // ruedas con sus discos y tambores; adelante y atrás por separado (una rueda bloqueada no gira)
   function setWheels(aF, aR) { out.wheels.forEach((w, i) => { w.rotation.z = i < 2 ? aF : aR; }); BR.spinRotors(aF, aR); }
-  return { update, eng, engine: E, setLines, ground: out.ground, brakes: BR, setWheels };
+  return { update, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, setWheels };
 }
 
 // Flecha "adelante" y lados (conductor a la izquierda) dibujados en el piso
