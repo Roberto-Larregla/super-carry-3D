@@ -13,6 +13,7 @@ import { frenos } from './diagrams/frenos.js';
 import { chasis } from './diagrams/chasis.js';
 import { sensorMap } from './diagrams/sensores.js';
 import { qualitySheet, qualityNeeds, qualityTable, qualityLegend, qualityCardHTML } from './diagrams/calidad.js';
+import { BK, FAILS } from './brakesim.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -53,7 +54,7 @@ const TABS = [
   { id: 'lubricacion', sys: 'lubricacion', h: 'Cómo funciona: lubricación a presión', p: 'La bomba de rotores lleva el aceite filtrado a bancadas, bielas, árbol de levas y balancines.', mount: lubricacion },
   { id: 'escape', sys: 'escape', h: 'Cómo funciona: escape y catalizador', p: 'Los gases salen en pulsos 1-3-4-2, se tratan en el catalizador y se silencian antes de la cola.', mount: escape },
   { id: 'transmision', sys: 'transmision', h: 'Cómo funciona: embrague, caja y diferencial', p: 'La fuerza pasa del volante motor al disco de embrague, la caja la multiplica y el diferencial la reparte entre las ruedas traseras.', mount: transmision },
-  { id: 'frenos', sys: 'frenos', h: 'Cómo funciona: frenos de doble circuito', p: 'El servofreno multiplica la fuerza del pie y la bomba tándem la convierte en presión hidráulica para discos y tambores.', mount: frenos },
+  { id: 'frenos', sys: 'frenos', h: 'Cómo funciona: frenos de doble circuito', p: 'El servofreno multiplica la fuerza del pie y la bomba tándem la convierte en presión: la cámara primaria alimenta los discos delanteros y la secundaria los tambores traseros.', mount: frenos },
   { id: 'chasis', sys: 'chasis', h: 'Cómo funciona: dirección y suspensión', p: 'Cremallera adelante; McPherson adelante y paquetes de resortes atrás.', mount: chasis },
 ];
 const DIAG_OF_SYS = { calefaccion: 'refrigeracion' };
@@ -61,15 +62,15 @@ const tabOfSys = sys => TABS.find(t => t.id === DIAG_OF_SYS[sys]) || TABS.find(t
 const BLURB = {
   motor: 'F10A de 970 cm³ y 4 cilindros, inclinado bajo los asientos', combustible: 'Estanque, bomba eléctrica, filtro y carburador', electrico: 'Encendido, carga, partida, luces y tablero',
   refrigeracion: 'Radiador, bomba de agua, ventilador y termostato', lubricacion: 'Bomba, filtro, cárter y bulbo de aceite', escape: 'Múltiple, catalizador, silenciador y cola',
-  transmision: 'Embrague, caja de 5, cardán y diferencial', chasis: 'McPherson adelante, resortes atrás y cremallera', frenos: 'Discos adelante, tambores atrás, doble circuito',
+  transmision: 'Embrague, caja de 5, cardán y diferencial', chasis: 'McPherson adelante, resortes atrás y cremallera', frenos: 'Discos adelante, tambores atrás, doble circuito y vista propia',
   carroceria: 'Furgón ciego, interior, asientos y parrilla', calefaccion: 'Calefactor, ventilador, ductos y mandos', sensores: 'Los 9 sensores e interruptores, con su cableado',
 };
 
 // ═══════════ Visor 3D ═══════════
-const viewerEl = $('#viewer'), hud = $('#enghud');
-let viewer, smap = null, quiet = false;
+const viewerEl = $('#viewer'), hud = $('#enghud'), bhud = $('#brkhud');
+let viewer, smap = null, quiet = false, bhKey = '', simKey = '', seqWas = null;
 try {
-  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th) });
+  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th), onBrake: r => onBrake(r) });
   window.__viewer = viewer;
 } catch (err) {
   viewerEl.classList.add('nogl'); $('#viewer-msg').hidden = false; $('#dock').hidden = true; console.error(err);
@@ -91,9 +92,9 @@ let tab = 'sistemas', stack = [], focusSys = null;
 const scrollMem = {}, built = {};
 
 function saveScroll() { const top = stack[stack.length - 1]; if (top) top.scroll = pview.scrollTop; else scrollMem[tab] = pview.scrollTop; }
-function setFocus(sys) {
+function setFocus(sys, fly = true) {
   focusSys = sys || null;
-  if (viewer) viewer.setFocus(focusSys);
+  if (viewer) viewer.setFocus(focusSys, { fly });
   const pill = $('#focuspill');
   if (focusSys) { pill.style.setProperty('--c', SYS[focusSys].color); pill.firstElementChild.textContent = SYS[focusSys].name; }
   pill.hidden = !focusSys;
@@ -168,9 +169,12 @@ function onViewerSelect(id) {
 function openPart(id) {
   if (isMobile() && sheet === 'full') setSheet('half');
   if (!viewer) { saveScroll(); stack.push({ t: 'part', id, scroll: 0 }); render(); return; }
-  const P = PARTS[id];
-  const toEng = P.deep && mode() === 'van', toVan = mode() === 'eng' && !viewer.isEng(id);
-  if (toEng || toVan) setMode(toEng ? 'eng' : 'van', id); else viewer.select(id);
+  const P = PARTS[id], m = mode();
+  let to = null;
+  if (P.deep && m === 'van') to = 'eng';
+  else if (m === 'eng' && !viewer.isEng(id)) to = 'van';
+  else if (m === 'brk' && !viewer.isBrk(id)) to = P.deep ? 'eng' : 'van';
+  if (to) setMode(to, id); else viewer.select(id);
 }
 
 // ——— vistas ———
@@ -179,9 +183,10 @@ const SPECSTRIP = [['Motor', 'F10A · 970 cm³'], ['Potencia', '41 CV · 30 kW']
 
 function renderSistemas() {
   const eng = mode() === 'eng';
+  const brk = mode() === 'brk';
   const avail = SYSTEMS.filter(sy => sysAvailable(sy.id));
-  views.sistemas.innerHTML = vhead(eng ? 'Sistemas del motor' : 'Sistemas', 'Toca uno para verlo marcado en el modelo') + `
-    ${eng ? '' : `<div class="idcard"><div class="idtop"><b>Super Carry 1000</b><span>Suzuki SK410 · furgón ciego 1996 · volante a la izquierda</span></div>
+  views.sistemas.innerHTML = vhead(eng ? 'Sistemas del motor' : brk ? 'En la vista Frenos' : 'Sistemas', 'Toca uno para verlo marcado en el modelo') + `
+    ${eng || brk ? '' : `<div class="idcard"><div class="idtop"><b>Super Carry 1000</b><span>Suzuki SK410 · furgón ciego 1996 · volante a la izquierda</span></div>
       <ul class="specstrip">${SPECSTRIP.map(([k, v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('')}</ul></div>`}
     <div class="sysgrid">${avail.map(sy => {
       const n = Object.keys(PARTS).filter(id => matchFocus(PARTS[id], sy.id) && inWorld(id) && (eng || !PARTS[id].deep || sy.id === 'motor')).length;
@@ -233,7 +238,8 @@ function renderPart(id) {
     </div>` : '';
   const how = P.diag && TABS.find(t => t.id === P.diag);
   const toEngine = !eng && viewer && viewer.isEng(id) ? `<button type="button" class="btn ghost" data-mode-go="eng" data-part-go="${id}">Ver en la vista Motor</button>` : '';
-  const toVan = eng && viewer ? `<button type="button" class="btn ghost" data-mode-go="van" data-part-go="${id}">Ver en el furgón</button>` : '';
+  const toVan = (eng || mode() === 'brk') && viewer ? `<button type="button" class="btn ghost" data-mode-go="van" data-part-go="${id}">Ver en el furgón</button>` : '';
+  const toBrk = mode() !== 'brk' && viewer && viewer.isBrk(id) ? `<button type="button" class="btn ghost" data-mode-go="brk" data-part-go="${id}">Ver en la vista Frenos</button>` : '';
   vDetail.innerHTML = vhead(P.name, SYS[P.sys].name + (S ? ` · sensor ${S.n}` : ''), true) + `
     <div class="card-head">${sysChip(P.sys)}${P.serves ? sysChip(P.serves) : ''}${P.approx ? '<span class="approx">ubicación aprox.</span>' : ''}</div>
     <p class="lead">${P.desc}</p>
@@ -242,7 +248,7 @@ function renderPart(id) {
     <h4>Mantención</h4><ul class="ticks">${P.m.map(x => `<li>${x}</li>`).join('')}</ul>
     <h4>Fallas típicas</h4><ul class="warns">${P.f.map(x => `<li>${x}</li>`).join('')}</ul>
     ${qualityCardHTML(id)}
-    <div class="btnrow">${how ? `<button type="button" class="btn" data-opensys="${how.sys}" data-anchor="s-diag">Cómo funciona</button>` : ''}${toEngine}${toVan}</div>`;
+    <div class="btnrow">${how ? `<button type="button" class="btn" data-opensys="${how.sys}" data-anchor="s-diag">Cómo funciona</button>` : ''}${toEngine}${toBrk}${toVan}</div>`;
 }
 
 let activeDiag = null;
@@ -262,6 +268,7 @@ function renderSys(sys) {
   const J = [['s-piezas', 'Piezas'], tb && ['s-diag', 'Cómo funciona'], specs && ['s-datos', 'Datos'], maint.length && ['s-mant', 'Mantención'], faults.length && ['s-fallas', 'Fallas']].filter(Boolean);
   vDetail.innerHTML = vhead(SYS[sys].name, `${plural(ids.length, 'pieza', 'piezas')} · marcadas en el modelo`, true) + `
     <p class="lead">${tb && tb.sys === sys ? tb.p : (BLURB[sys] || '') + '.'}</p>
+    ${sys === 'frenos' ? (mode() === 'brk' ? '<div class="simbox" id="brksim"></div>' : '<p><button type="button" class="btn sm" data-mode-go="brk">Abrir la vista Frenos en 3D</button></p>') : ''}
     <nav class="jumps" aria-label="Ir a">${J.map(([a, t]) => `<a href="#${a}" data-jump="${a}">${t}</a>`).join('')}</nav>
     <div class="sect" id="s-piezas"><h3>Piezas</h3><div class="rows">${ids.map(rowHTML).join('')}</div></div>
     ${tb ? `<div class="sect" id="s-diag"><h3>${tb.h.replace('Cómo funciona: ', 'Cómo funciona · ')}</h3>${tb.sys !== sys ? `<p class="muted">${tb.p}</p>` : ''}<div class="diag-slot"></div>${tb.eng3d ? '<p><button type="button" class="btn ghost sm" data-eng3d>Ver el motor en 3D, por dentro</button></p>' : ''}</div>` : ''}
@@ -269,6 +276,7 @@ function renderSys(sys) {
     ${maint.length ? `<div class="sect" id="s-mant"><h3>Mantención</h3><div class="mlist">${maint.map(maintHTML).join('')}</div></div>` : ''}
     ${faults.length ? `<div class="sect" id="s-fallas"><h3>Si algo falla</h3><div class="dcards">${faults.map(diagHTML).join('')}</div></div>` : ''}`;
   if (tb) { const d = diagFor(tb); $('.diag-slot', vDetail).append(d.wrap); activeDiag = d; }
+  if ($('#brksim')) { simKey = ''; viewer && updateSim(viewer.brake()); }
 }
 const maintHTML = m => `<div class="mitem"><b><span class="dot" style="--c:${SYS[m.sys].color}"></span>${m.item}${m.urgent ? ' <span class="pill">Prioridad</span>' : ''}</b><span class="when">${m.every}</span><p>${m.note} ${srcBadge(m.src)}</p></div>`;
 const diagHTML = d => `<article class="dcard" style="--c:${SYS[d.sys].color}"><h5>${d.s}</h5><ol>${d.c.map(c => `<li>${c}</li>`).join('')}</ol><button type="button" class="btn ghost sm" data-part="${d.part}">Ver ${(PARTS[d.part].short || PARTS[d.part].name).replace(/\s*\(.*?\)/g, '').toLowerCase()}</button></article>`;
@@ -304,6 +312,7 @@ function renderDatos() {
         <p><b>Qué es exacto:</b> dimensiones principales, relaciones de caja y diferencial, capacidades, reglajes y piezas de la versión chilena tal como figuran en las fuentes. El modelo 3D respeta distancia entre ejes, trochas, ruedas (175/70 R13), discos y tambores, y en el motor los diámetros de muñones, codos, pasadores, vástagos y la altura de leva del manual.</p>
         <p><b>Carrocería:</b> medida en fotos de costado, frente y atrás, con la distancia entre ejes (1.840 mm) y la patente (360 × 130 mm) como escala; el error típico es de 2 a 3 cm. Las diagonales de los vanos de la corredera y del portalón de la sección 19 del manual calzan con las fotos.</p>
         <p><b>Qué es aproximado:</b> la forma de las piezas en el 3D y la posición de las marcadas “aprox.” (estanque, radiador, catalizador, silenciador, controlador y varios sensores). La calefacción sigue el despiece del manual y las fotos del tablero, pero sus cotas y el recorrido de las mangueras son aproximados. En el motor, el largo de biela, el ángulo de las válvulas, la forma de los balancines y el ángulo exacto del distribuidor son aproximados.</p>
+        <p><b>Frenos:</b> discos, tambores, pastillas, balatas, pistón del caliper, recorrido del pedal y freno de mano siguen el manual, y el depósito está donde se ve en las fotos. La posición del servo, la bomba, la junta de 5 vías y la válvula DSP es aproximada. La vista Frenos usa valores típicos (palanca del pedal, ayuda del servo, diámetro de la bomba y de los cilindros de rueda, roce) para mostrar las proporciones, no para calcular un frenado real.</p>
         <p><b>Sensores:</b> los números de parte del bulbo de aceite, del interruptor de luz de freno y del distribuidor salen del catálogo OEM del SK410; el bulbo de temperatura y el interruptor de retroceso, de catálogos de repuestos. El manual confirma dónde van el bulbo de temperatura, el bulbo de aceite, el aforador y el generador de señal, y da las resistencias y presiones de prueba.</p>
         <p><b>Qué no está:</b> el CO de ralentí y las cifras del encendido electrónico de la versión catalítica (resistencia del captador, entrehierro): no aparecen en el manual ni en otra fuente verificable. El punto de 8° APMS a 900 rpm coincide entre el manual y el dato UK.</p>
       </div>
@@ -336,7 +345,7 @@ pview.addEventListener('click', e => {
   if (t.closest('[data-back]')) { back(); return; }
   const sc = t.closest('[data-sys]'); if (sc) { openSys(sc.dataset.sys); return; }
   const os = t.closest('[data-opensys]'); if (os) { openSys(os.dataset.opensys, { anchor: os.dataset.anchor }); return; }
-  const mg = t.closest('[data-mode-go]'); if (mg) { setMode(mg.dataset.modeGo, mg.dataset.partGo); return; }
+  const mg = t.closest('[data-mode-go]'); if (mg) { if (mg.dataset.modeGo !== mode() || mg.dataset.partGo) setMode(mg.dataset.modeGo, mg.dataset.partGo); return; }
   const jp = t.closest('[data-jump]'); if (jp) { e.preventDefault(); const a = $('#' + jp.dataset.jump, vDetail); a && a.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }); return; }
   if (t.closest('[data-eng3d]')) { setMode('eng'); if (viewer) { viewer.setCut('long'); pressSeg($('#tb-cut'), 'long'); } return; }
   const ds = t.closest('[data-dsub]'); if (ds) { showDsub(ds.dataset.dsub); return; }
@@ -434,26 +443,35 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closePop(); 
 const VIEWS = {
   van: [['iso', '3/4'], ['lado', 'Lado conductor'], ['frente', 'Frente'], ['atras', 'Atrás'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
   eng: [['iso', '3/4'], ['escape', 'Lado escape'], ['admision', 'Lado admisión'], ['frente', 'Frente'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
+  brk: [['iso', '3/4'], ['lado', 'Lado conductor'], ['ruedadel', 'Rueda delantera'], ['ruedatras', 'Rueda trasera'], ['pedal', 'Pedal y bomba'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
 };
 function renderViews(m) { $('#tb-view').innerHTML = VIEWS[m].map(([v, t], i) => `<button type="button" data-v="${v}" aria-pressed="${i === 0}">${t}</button>`).join(''); }
 const COLORNOTE = { real: 'Los colores de verdad de cada pieza.', sys: 'Cada sistema con su color, el mismo de la pestaña Sistemas.', qual: 'Azul = confirmado, gris = catálogo, naranjo = estimado.' };
 const run = $('#tb-run');
-const syncRun = () => { const on = viewer.isRunning(); run.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Pausar' : 'Arrancar'}</span>`; run.setAttribute('aria-pressed', String(on)); run.setAttribute('aria-label', on ? 'Pausar el motor' : 'Arrancar el motor'); };
+const syncRun = () => { if (!viewer) return; const on = viewer.isRunning(); run.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Pausar' : 'Arrancar'}</span>`; run.setAttribute('aria-pressed', String(on)); run.setAttribute('aria-label', on ? 'Pausar el motor' : 'Arrancar el motor'); };
 
 function setMode(m, focusPart) {
   if (!viewer) return;
   closePop();
+  if (m === mode() && !focusPart) return;
   viewer.setMode(m);
   $$('#modebar [data-mode]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
-  $$('[data-only]').forEach(el => el.hidden = el.dataset.only !== m);
+  $$('[data-only]').forEach(el => el.hidden = !el.dataset.only.split(' ').includes(m));
   renderViews(m);
   $('#tb-explode').value = 0; $('#tb-explode-v').textContent = '0 %';
-  hud.hidden = m !== 'eng'; viewerEl.classList.toggle('is-eng', m === 'eng');
+  hud.hidden = m !== 'eng'; bhud.hidden = m !== 'brk';
+  viewerEl.classList.toggle('is-eng', m === 'eng'); viewerEl.classList.toggle('is-brk', m === 'brk');
   if (m === 'eng') renderHud(viewer.state.theta, true);
+  syncRun(); syncPress();
   stack = stack.filter(en => en.t !== 'part');
-  if (focusSys && !sysAvailable(focusSys)) { stack = stack.filter(en => en.t !== 'sys'); setFocus(null); } else if (focusSys) viewer.setFocus(focusSys);
+  if (m === 'brk') {
+    // la vista Frenos abre su ficha con la explicación de lo que se ve
+    saveScroll(); tab = 'sistemas'; stack = [{ t: 'sys', id: 'frenos', scroll: 0 }]; setFocus('frenos', false);
+    bhKey = ''; onBrake(viewer.brake());
+  } else if (focusSys && !sysAvailable(focusSys)) { stack = stack.filter(en => en.t !== 'sys'); setFocus(null); } else if (focusSys) viewer.setFocus(focusSys);
   built.sistemas = false; render();
   if (m === 'eng' && !focusPart) toast('Motor F10A en su lugar, sin carrocería. Abre Capas → Corte para verlo por dentro y Arrancar para ponerlo en marcha.');
+  if (m === 'brk' && !focusPart) toast(isMobile() ? 'Pisar aprieta el pedal; Taller simula fallas, desgaste y freno de mano.' : 'Los frenos solos, en su lugar. Pisar aprieta el pedal y la presión pinta cada cañería; Taller simula fallas, desgaste y el freno de mano; Capas → Cortes los abre por dentro.', 7000);
   if (focusPart) setTimeout(() => viewer.select(focusPart), reduced ? 0 : 750);
 }
 $('#modebar').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (b && b.dataset.mode !== mode()) setMode(b.dataset.mode); });
@@ -485,6 +503,110 @@ function renderHud(theta, force) {
   $('#tb-angle-v').textContent = Math.round(deg) + '°';
 }
 
+// ═══════════ Vista Frenos: pedal, fallas, desgaste y freno de mano ═══════════
+function nf(n, d = 0) { return Number.isFinite(n) ? n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—'; }
+function kgOf(n) { return Math.round(n / 9.81); }
+function mixHex(a, b, t) {
+  const pa = a.match(/\w\w/g).map(x => parseInt(x, 16)), pb = b.match(/\w\w/g).map(x => parseInt(x, 16));
+  return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function pcol(p) { return mixHex('8a6a4f', 'd9341f', Math.min(1, p / 60)); }
+function syncPress() {
+  const b = $('#tb-press'); if (!b || !viewer) return;
+  const on = viewer.brakeState.on;
+  b.setAttribute('aria-pressed', String(on)); b.querySelector('span').textContent = on ? 'Soltar' : 'Pisar';
+  b.setAttribute('aria-label', on ? 'Soltar el pedal de freno' : 'Pisar el pedal de freno');
+}
+function onBrake(r) {
+  if (!r || mode() !== 'brk') return;
+  // fin de una frenada de prueba
+  if (seqWas && !r.seq && viewer.brakeState.lastResult) {
+    const q = viewer.brakeState.lastResult;
+    toast(q.stopped ? `Se detuvo en ${nf(q.dist, 1)} m frenando con ${kgOf(r.target)} kg de pie.` : `Después de 9 s seguía a ${nf(q.v * 3.6)} km/h: con esta falla casi no frena.`, 6000);
+  }
+  seqWas = r.seq;
+  const key = [r.seq, Math.round(r.v * 3.6), Math.round(r.force), Math.round(r.pf), Math.round(r.pr), Math.round(r.a * 100), r.lockF, r.lockR, r.dsp, r.floor, r.fail, Math.round(r.wear.pad * 10), r.hb.notches, r.hb.stretched].join('|');
+  if (key !== bhKey) { bhKey = key; renderBhud(r); }
+  updateSim(r);
+}
+function renderBhud(r) {
+  const chips = [];
+  if (r.seq) chips.push(`<span class="bh v"><small>Velocidad</small><b>${nf(r.v * 3.6)} km/h</b></span>`);
+  chips.push(`<span class="bh"><small>Pie</small><b>${kgOf(r.force)} kg</b></span>`);
+  chips.push(`<span class="bh p" style="--c:${pcol(r.pf)}"><small>Adelante</small><b>${nf(r.pf)} bar</b></span>`);
+  chips.push(`<span class="bh p" style="--c:${pcol(r.pr)}"><small>Atrás</small><b>${nf(r.pr)} bar</b></span>`);
+  chips.push(`<span class="bh"><small>Frena</small><b>${nf(r.a, 2)} g</b></span>`);
+  if (r.force > 0.5) chips.push(`<span class="bh"><small>Para en</small><b>${Number.isFinite(r.dist) && r.dist < 400 ? nf(r.dist) + ' m' : '—'}</b></span>`);
+  let line;
+  if (r.force > 0.5) {
+    const dist = Number.isFinite(r.dist) && r.dist < 400 ? `Desde 50 km/h se detendría en ${nf(r.dist)} m` : 'Casi no frena';
+    line = `${dist} · el pedal baja ${nf(r.travel)} mm y queda a ${nf(r.reserve)} mm del piso`;
+  } else line = 'Pedal suelto: toca <b>Pisar</b>, o <b>Pedal → Frenada desde 50 km/h</b>';
+  const tags = [];
+  if (r.lockF) tags.push('<span class="bt w">Se bloquean las delanteras</span>');
+  if (r.lockR) tags.push('<span class="bt w">Se bloquean las traseras</span>');
+  if (r.floor) tags.push('<span class="bt w">Pedal a fondo</span>');
+  if (r.force > 0 && r.reserve < BK.reserveMin && !r.floor) tags.push(`<span class="bt w">A menos de ${BK.reserveMin} mm del piso</span>`);
+  if (r.fail !== 'ok') tags.push(`<span class="bt f">${FAILS[r.fail].name}</span>`);
+  if (r.dsp) tags.push('<span class="bt i">La válvula DSP limita atrás</span>');
+  if (r.wear.metal) tags.push('<span class="bt w">Metal contra metal</span>');
+  if (r.hb.notches > 0) tags.push(`<span class="bt i">Freno de mano: ${r.hb.notches} ${r.hb.notches === 1 ? 'muesca' : 'muescas'}${r.hb.e > 0 ? ` · sostiene ~${nf(r.hb.grade)} %` : ' · aún suelto'}</span>`);
+  bhud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
+}
+const FAILTXT = {
+  ok: 'Los dos circuitos están sanos. La cámara primaria de la bomba manda presión a los discos delanteros y la secundaria a los tambores traseros. En una frenada fuerte, la válvula DSP hace que la presión de atrás suba más lento para que las ruedas traseras no se bloqueen primero.',
+  del: 'Circuito delantero cortado: el pistón primario avanza sin encontrar resistencia hasta tocar al secundario y lo empuja directo. El pedal baja más y sólo frenan los tambores: la distancia de frenado se multiplica. Por eso existe el doble circuito: una fuga no deja el furgón sin frenos.',
+  tras: 'Circuito trasero cortado: el pistón secundario avanza hasta el fondo de la bomba y recién ahí el primario da presión. Frenan sólo los discos delanteros, que de todas formas hacen la mayor parte del trabajo, y el pedal baja más.',
+  aire: 'Aire en las cañerías: el aire se comprime antes que el líquido, así que el pedal se siente esponjoso y baja mucho más para lograr la misma presión. Se corrige purgando, empezando por la rueda más lejana a la bomba (manual).',
+  vacio: 'Servofreno sin vacío (manguera suelta o motor detenido): a la bomba sólo llega la fuerza del pie por la palanca del pedal. El pedal se pone duro y hay que pisar mucho más fuerte para frenar igual, pero el freno sigue funcionando (manual).',
+};
+function updateSim(r) {
+  const box = $('#brksim'); if (!box || !r) return;
+  const ws = r.wear, hb = r.hb;
+  const key = [r.fail, Math.round(ws.pad * 10), hb.notches, hb.stretched, r.dsp, r.lockF, r.lockR].join('|');
+  if (key === simKey) return; simKey = key;
+  const lim = (v, min, u = 'mm') => `${nf(v, 1)} ${u}${v < min ? ' <b class="bad">bajo el mínimo</b>' : ''}`;
+  const wearTxt = ws.metal ? 'Las pastillas pasaron el mínimo: el respaldo de acero roza el disco, chirría y frena menos.'
+    : ws.padLow || ws.liningLow ? 'Llegaron al límite del manual: hay que cambiarlas.' : 'Dentro de lo que permite el manual.';
+  const hbTxt = hb.notches === 0 ? 'Suelto.' : hb.e === 0 ? 'Todavía no aprieta: el cable recién se está estirando.'
+    : `Con ${hb.notches} muescas sostiene el furgón en una pendiente de hasta ~${nf(hb.grade)} %.`;
+  box.innerHTML = `<h4>Lo que muestra el modelo</h4>
+    <p>${FAILTXT[r.fail]}</p>
+    <dl class="kv">
+      <div><dt>Pastillas</dt><dd>${lim(ws.pad, BK.pad[1])} (nuevas 15,5 · mín. 6,5)</dd></div>
+      <div><dt>Balatas</dt><dd>${lim(ws.lining, BK.lining[1])} (nuevas 7,0 · mín. 3,0)</dd></div>
+      <div><dt>Disco</dt><dd>${lim(ws.disc, BK.disc[1])} (nuevo 10 · mín. 8,5)</dd></div>
+      <div><dt>Depósito</dt><dd>${ws.level > 0.05 ? `${nf(ws.level * 100)} % entre MIN y MAX` : 'En el MIN'} · bajó ${nf(ws.drop)} mL por el desgaste</dd></div>
+      <div><dt>Freno de mano</dt><dd>${hbTxt} ${hb.outOfSpec ? '<b class="bad">Pasa de 8 muescas: ajustar el cable (manual).</b>' : 'El manual pide 3 a 8 muescas con 20 kg.'}</dd></div>
+    </dl>
+    <p class="muted">${wearTxt} A medida que se gastan pastillas y balatas, los pistones quedan más afuera y el nivel del depósito baja: un descenso leve es normal; uno rápido es una fuga (manual).</p>
+    <p class="muted">Las cotas (discos, tambores, pastillas, balatas, pistón del caliper, recorrido del pedal) son del manual. Fuerzas, presiones y distancias usan valores típicos para mostrar proporciones; los movimientos dentro del caliper y del tambor están exagerados para que se vean.</p>`;
+}
+function wireBrakes() {
+  const B = o => { const r = viewer.brake(o); onBrake(r); return r; };
+  $('#tb-press').addEventListener('click', () => { const st = viewer.brakeState; if (st.seq) viewer.brakeAbort(); B({ on: !st.on }); syncPress(); });
+  const setForce = v => { $('#tb-fz').value = v; $('#tb-fz-v').textContent = kgOf(v) + ' kg'; pressSeg($('#tb-force'), String(v)); B({ force: v }); };
+  segGroup($('#tb-force'), v => setForce(+v));
+  $('#tb-fz').addEventListener('input', e => { const v = +e.target.value; $('#tb-fz-v').textContent = kgOf(v) + ' kg'; pressSeg($('#tb-force'), ''); B({ force: v }); });
+  $('#tb-stoptest').addEventListener('click', () => { closePop(); seqWas = null; viewer.brakeTest(); syncPress(); });
+  segGroup($('#tb-fail'), v => { B({ fail: v }); if (v !== 'ok' && isMobile()) toast(`${FAILS[v].name}: la explicación está en el panel de Frenos.`, 4500); });
+  const wearNote = () => {
+    const r = viewer.brake(), ws = r.wear;
+    $('#tb-wear-note').textContent = `Pastillas ${nf(ws.pad, 1)} mm · balatas ${nf(ws.lining, 1)} mm · disco ${nf(ws.disc, 1)} mm · depósito ${ws.level > 0.05 ? nf(ws.level * 100) + ' %' : 'en el MIN'}`;
+  };
+  $('#tb-wear').addEventListener('input', e => { $('#tb-wear-v').textContent = e.target.value + ' %'; B({ wear: +e.target.value / 100 }); wearNote(); });
+  const hbNote = () => {
+    const r = viewer.brake(), hb = r.hb;
+    $('#tb-hb-v').textContent = `${hb.notches} ${hb.notches === 1 ? 'muesca' : 'muescas'}`;
+    $('#tb-hb-note').textContent = hb.notches === 0 ? `Aprieta del todo en la muesca ${hb.full}${hb.outOfSpec ? ': pasa de 8, hay que ajustar el cable' : ' (manual: 3 a 8 con 20 kg)'}.`
+      : hb.e === 0 ? 'Todavía no aprieta.' : `Sostiene en pendientes de hasta ~${nf(hb.grade)} %.`;
+  };
+  $('#tb-hb').addEventListener('input', e => { B({ hb: +e.target.value }); hbNote(); });
+  $('#tb-hbs').addEventListener('change', e => { B({ stretched: e.target.checked }); hbNote(); });
+  segGroup($('#tb-bcut'), v => viewer.setBCut(v === 'in'));
+  wearNote(); hbNote();
+}
+
 // ═══════════ Acerca de ═══════════
 const about = $('#about');
 $('#helpbtn').addEventListener('click', () => { if (about.showModal) about.showModal(); else about.setAttribute('open', ''); });
@@ -506,4 +628,5 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 render();
+if (viewer) wireBrakes();
 window.__app = { showTab, openPart, openSys, setSheet, back, get state() { return { tab, stack: stack.map(e => e.t + ':' + e.id), sheet, focus: focusSys }; } };

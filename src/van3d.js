@@ -6,6 +6,7 @@ import { FINAL } from './data.js';
 import { buildEngine } from './engine3d.js';
 import { buildBody, buildWheel, BODY, sideSheet, onSide, FUEL_LID } from './body3d.js';
 import { PARTS } from './data.js';
+import { buildBrakes } from './brakes3d.js';
 
 const EXV = {
   carroceria: [0, 1.25, 0], asientos: [0, 0.9, 0], interior: [0, 0.55, 0], radiador: [0.32, 0.05, 0], deposito: [0.32, 0.15, 0.12], calefactor: [0.35, 0.35, 0],
@@ -110,32 +111,11 @@ export function buildVan(ctx) {
     const hub = A('direccion', cylZ(0.04, 0.05, 16), 'dark', { p: [0.29, 1.085, DZ] }); hub.lookAt(V(0.29 - 0.42, 1.085 + 0.9, DZ));
     for (const a of [0, 2.1, 4.2]) { const sp = A('direccion', rbox(0.17, 0.018, 0.012, 0.005), 'dark', { p: [0.29, 1.09, DZ] }); sp.lookAt(V(0.29 - 0.42, 1.09 + 0.9, DZ)); sp.rotateZ(a); sp.translateX(0.085); } }
 
-  // ════════ FRENOS (pedal, servo y bomba del lado del conductor) ════════
-  for (const s of [1, -1]) {
-    A('frenos_del', cylZ(0.1075, 0.012, 32), 'iron', { p: [0, RW, s * 0.55], ex: [0, 0, s * 0.42] });
-    A('frenos_del', rbox(0.06, 0.09, 0.05, 0.012), 'red', { p: [-0.075, RW + 0.06, s * 0.55], r: [0, 0, 0.6], ex: [0, 0, s * 0.42] });
-    A('frenos_tras', cylZ(0.11, 0.055, 32), 'iron', { p: [-WB, RW, s * 0.535], ex: [-0.28, 0, s * 0.42] });
-    A('frenos_tras', cylZ(0.115, 0.006, 32), 'steel', { p: [-WB, RW, s * 0.502], ex: [-0.28, 0, s * 0.42] });
-  }
-  A('bomba_freno', cylX(0.085, 0.07, 28), 'dark', { p: [0.46, 0.72, DZ] });
-  A('bomba_freno', cylX(0.024, 0.15, 16), 'alu', { p: [0.555, 0.72, DZ] });
-  A('bomba_freno', rbox(0.08, 0.05, 0.05, 0.01), 'ceramic', { p: [0.555, 0.77, DZ], op: 0.85 });
-  // pedales colgantes con pisaderas de aluminio (fotos): embrague a la izquierda de la columna, freno a la derecha
-  for (const [z, part] of [[-0.22, 'bomba_freno'], [-0.44, 'embrague']]) {
-    A(part, tube([[0.43, 0.90, z], [0.42, 0.74, z], [0.40, 0.60, z]], 0.01), 'steel');
-    A(part, rbox(0.012, 0.085, 0.075, 0.01), 'machined', { p: [0.393, 0.575, z], r: [0, 0, 0.25] });
-  }
+  // pedal de embrague (colgante, a la izquierda de la columna; foto) y acelerador de piso. Los frenos van en brakes3d.js
+  A('embrague', tube([[0.43, 0.90, -0.44], [0.42, 0.74, -0.44], [0.40, 0.60, -0.44]], 0.01), 'steel');
+  A('embrague', rbox(0.012, 0.085, 0.075, 0.01), 'machined', { p: [0.393, 0.575, -0.44], r: [0, 0, 0.25] });
   A('carburador', rbox(0.012, 0.19, 0.06, 0.01), 'steel', { p: [0.385, 0.56, -0.115], r: [0, 0, 0.35] });   // acelerador de piso
   A('carburador', cylZ(0.008, 0.08, 10), 'steel', { p: [0.42, 0.47, -0.115] });
-  const bl = pts => A('canerias', tube(pts, 0.0045), 'copper');
-  bl([[0.60, 0.72, -0.33], [0.5, 0.5, -0.42], [0.1, 0.38, -0.46], [-0.06, 0.34, -0.47]]);
-  bl([[0.60, 0.71, -0.32], [0.5, 0.48, 0.0], [0.2, 0.38, 0.4], [-0.06, 0.34, 0.47]]);
-  bl([[0.60, 0.7, -0.34], [0.45, 0.4, -0.37], [-0.6, 0.29, -0.36], [-1.4, 0.36, -0.36], [-1.78, 0.33, -0.12], [-1.84, 0.31, 0.0]]);
-  bl([[-1.84, 0.31, 0.0], [-1.84, 0.31, 0.3], [-1.84, 0.3, 0.46]]);
-  bl([[-1.84, 0.31, 0.0], [-1.84, 0.31, -0.3], [-1.84, 0.3, -0.46]]);
-  A('canerias', tube([[0.05, 0.84, -0.12], [-0.1, 0.5, -0.12], [-0.6, 0.26, -0.3], [-1.6, 0.25, -0.42], [-1.82, 0.24, -0.47]], 0.003), 'steel');
-  A('canerias', tube([[-0.6, 0.26, -0.3], [-1.2, 0.25, 0.1], [-1.6, 0.25, 0.42], [-1.82, 0.24, 0.47]], 0.003), 'steel');
-  A('canerias', rbox(0.04, 0.2, 0.03, 0.01), 'dark', { p: [0.06, 0.78, -0.12], r: [0, 0, -0.5] });
 
   // ════════ MOTOR F10A COMPLETO (el mismo de la vista Motor) ════════
   const eng = new THREE.Group(); eng.position.set(...ENG); eng.rotation.x = TILT; root.add(eng); eng.updateMatrixWorld(true);
@@ -161,6 +141,9 @@ export function buildVan(ctx) {
     A('s_veloc', cylZ(0.011, 0.02, 12), 'alu', { parent: eng, p: [a[0], a[1], 0.045], ex: EXV.s_veloc });
     A('s_veloc', cylZ(0.008, 0.012, 6), 'brass', { parent: eng, p: [a[0], a[1], 0.058], ex: EXV.s_veloc }); }
   eng.updateMatrixWorld(true);
+
+  // ════════ FRENOS (detalle en brakes3d.js; vista Frenos) ════════
+  const BR = buildBrakes(ctx, { ELv, E });
 
   // ════════ REFRIGERACIÓN ════════
   const fanW = EL(0.088, 0.115, 0);
@@ -338,9 +321,6 @@ export function buildVan(ctx) {
   }
 
   // ════════ SENSORES DEL CHASIS Y CABLEADO (esquemático) ════════
-  { const a = PARTS.s_freno.sensor.at.w; // interruptor de luz de freno sobre el brazo del pedal
-    A('s_freno', rbox(0.03, 0.022, 0.03, 0.005), 'dark', { p: [a[0] - 0.01, a[1] + 0.01, a[2]] });
-    A('s_freno', cylX(0.004, 0.02, 8), 'chrome', { p: [a[0] + 0.012, a[1] - 0.004, a[2]] }); }
   // cable del velocímetro (mecánico): caja → tablero
   { const s0 = EL(...PARTS.s_veloc.sensor.at.eng);
     A('s_veloc', tube([[s0.x, s0.y, s0.z], [s0.x + 0.02, s0.y - 0.08, s0.z - 0.08], [-0.9, 0.3, -0.3], [-0.3, 0.36, -0.36], [0.3, 0.42, -0.36], [0.45, 0.75, -0.34], [0.5, 1.03, -0.33]], 0.0045), 'dark', { ex: null }); }
@@ -377,7 +357,7 @@ export function buildVan(ctx) {
     E.update(theta);
     out.fans.forEach(f => { f.rotation.z = theta * 0.8; });
     const wheelA = -theta / (1.947 * FINAL);
-    out.wheels.forEach(w => w.rotation.z = wheelA);
+    setWheels(wheelA, wheelA);
     if (out.prop) out.prop.rotation.z = theta / 1.95;
   }
   // líneas de la carrocería: contorno (rayos X) y juntas de puertas (sólida)
@@ -386,7 +366,9 @@ export function buildVan(ctx) {
     BD.outline.visible = !hidden && !solid; BD.outline.material.opacity = focusBody ? 0.75 : 0.42;
     BD.seams.visible = !hidden; BD.seams.material.color.set(solid ? '#5c6468' : '#2f6f7b'); BD.seams.material.opacity = solid ? 0.7 : (focusBody ? 0.6 : 0.4);
   }
-  return { update, eng, engine: E, setLines, ground: out.ground };
+  // ruedas con sus discos y tambores; adelante y atrás por separado (una rueda bloqueada no gira)
+  function setWheels(aF, aR) { out.wheels.forEach((w, i) => { w.rotation.z = i < 2 ? aF : aR; }); BR.spinRotors(aF, aR); }
+  return { update, eng, engine: E, setLines, ground: out.ground, brakes: BR, setWheels };
 }
 
 // Flecha "adelante" y lados (conductor a la izquierda) dibujados en el piso

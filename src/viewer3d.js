@@ -46,11 +46,16 @@ const KINDS = {
   bar:    { c: '#b4babf', m: 0.75, r: 0.32 },
   mat:    { c: '#1d2022', m: 0.0, r: 0.92 },
   dash:   { c: '#2b2e31', m: 0.05, r: 0.78 },
+  // frenos
+  pad:    { c: '#3b302a', m: 0.05, r: 0.85 },
+  fluid:  { c: '#d9ad55', m: 0.0, r: 0.25, e: '#7a5212', ei: 0.3 },
+  resv:   { c: '#f1ece0', m: 0.0, r: 0.3 },
+  hose2:  { c: '#5a524b', m: 0.0, r: 0.75 },
 };
-const NOTINT = new Set(['water', 'oil', 'sensor']);
+const NOTINT = new Set(['water', 'oil', 'sensor', 'fluid']);
 const BODYKINDS = new Set(['paint', 'trim', 'glass', 'tint', 'rim', 'floorp', 'felt', 'seat', 'tire', 'shade', 'lens', 'machined', 'bar', 'mat', 'dash']);
 
-export function createViewer(host, { labelLayer, onSelect, onTick }) {
+export function createViewer(host, { labelLayer, onSelect, onTick, onBrake }) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -120,16 +125,16 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
     if (k.e) { mat.emissive = new THREE.Color(k.e); mat.emissiveIntensity = k.ei; }
     const real = new THREE.Color(k.c), sc = sysColor(part);
     const mixAmt = NOTINT.has(kind) || BODYKINDS.has(kind) ? 0 : ['rubber', 'hose', 'lead'].includes(kind) ? 0.28 : ['dark', 'plastic'].includes(kind) ? 0.5 : 0.72;
-    mat.userData = { real, sys: real.clone().lerp(sc, mixAmt), sc, kEm: k.e ? new THREE.Color(k.e) : null, kEi: k.ei || 0, casing: !!o.casing, keep: !!o.keep, op: o.op ?? 1, side: o.side || null, wire: !!o.wire };
+    mat.userData = { real, sys: real.clone().lerp(sc, mixAmt), sc, kEm: k.e ? new THREE.Color(k.e) : null, kEi: k.ei || 0, casing: !!o.casing, keep: !!o.keep, op: o.op ?? 1, side: o.side || null, wire: !!o.wire, cut: o.cut || null, press: o.press || null };
     if (o.op != null && o.op < 1) { mat.transparent = true; mat.opacity = o.op; mat.depthWrite = false; }
     return mat;
   }
 
   // ——— un solo mundo ———
-  const W = { root: new THREE.Group(), meshes: [], explodables: [], anchors: {}, partBoxes: {}, allBox: new THREE.Box3(), engBox: new THREE.Box3(), anim: null };
+  const W = { root: new THREE.Group(), meshes: [], explodables: [], anchors: {}, partBoxes: {}, allBox: new THREE.Box3(), engBox: new THREE.Box3(), brkBox: new THREE.Box3(), anim: null };
   scene.add(W.root);
-  const engParts = new Set();
-  let level = 'van';                         // 'eng' mientras se construye el motor
+  const engParts = new Set(), brkParts = new Set();
+  let level = 'van';                         // 'eng' mientras se construye el motor, 'brk' los frenos
   function reg(obj, part, ex) {
     obj.userData.part = part; obj.userData.base = obj.position.clone();
     obj.userData.ex = ex ? V(...ex) : V(0, 0, 0); obj.userData.lvl = level;
@@ -143,6 +148,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
     m.userData.part = part; m.userData.pick = o.pick !== false; m.userData.noAnchor = !!o.wire || !!o.noAnchor;
     if (o.body) m.userData.body = o.body;        // pieza de carrocería: paint, trim, glass, tint, lamp, rack, int
     if (level === 'eng') { m.userData.eng = true; engParts.add(part); }
+    if (level === 'brk') { m.userData.brk = true; brkParts.add(part); }
     (o.parent || W.root).add(m);
     if (o.ex !== null && o.ex !== undefined) reg(m, part, o.ex);
     W.meshes.push(m);
@@ -158,6 +164,9 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   VAN.ground && VAN.ground.traverse(o => { if (o.userData.shadow && o !== VAN.ground) floorShadows.push(o); });
   mergeStatic();
   for (const m of W.meshes) if (m.userData.eng) m.material.clippingPlanes = [m.material.userData.casing ? clip.casing : clip.all];
+  const BR = VAN.brakes;
+  for (const m of W.meshes) { const c = m.material.userData.cut; if (c && BR.planes[c]) m.material.clippingPlanes = [BR.planes[c]]; }
+  BR.bind(W.meshes.filter(m => m.material.userData.press));
   W.explodables.forEach(o => o.userData.base.copy(o.position));
 
   // Junta las mallas estáticas que comparten padre, pieza y material: menos llamadas de dibujo (clave en celulares)
@@ -167,7 +176,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
       if (m.isInstancedMesh || m.userData.dyn || !m.parent) continue;
       const mat = m.material, ud = mat.userData;
       const exk = m.userData.base ? `${m.userData.ex.x},${m.userData.ex.y},${m.userData.ex.z},${m.userData.lvl}` : '-';
-      const key = [m.parent.uuid, m.userData.part, mat.type, mat.color.getHexString(), mat.metalness, mat.roughness, mat.side, mat.emissive.getHexString(), mat.emissiveIntensity, mat.envMapIntensity, ud.op, ud.casing, ud.side, ud.wire, m.userData.body || '', m.userData.pick, m.userData.noAnchor, !!m.userData.eng, exk].join('|');
+      const key = [m.parent.uuid, m.userData.part, mat.type, mat.color.getHexString(), mat.metalness, mat.roughness, mat.side, mat.emissive.getHexString(), mat.emissiveIntensity, mat.envMapIntensity, ud.op, ud.casing, ud.side, ud.wire, ud.cut || '', ud.press || '', m.userData.body || '', m.userData.pick, m.userData.noAnchor, !!m.userData.eng, !!m.userData.brk, exk].join('|');
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(m);
     }
@@ -182,7 +191,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
       });
       const merged = mergeGeometries(geos, false); if (!merged) continue;
       const first = list[0], mm = new THREE.Mesh(merged, first.material);
-      for (const k of ['part', 'pick', 'noAnchor', 'body', 'eng']) if (k in first.userData) mm.userData[k] = first.userData[k];
+      for (const k of ['part', 'pick', 'noAnchor', 'body', 'eng', 'brk']) if (k in first.userData) mm.userData[k] = first.userData[k];
       first.parent.add(mm);
       if (first.userData.base) { mm.userData.base = new THREE.Vector3(); mm.userData.ex = first.userData.ex.clone(); mm.userData.lvl = first.userData.lvl; added.push(mm); }
       for (const m of list) { m.parent.remove(m); m.geometry.dispose(); if (m.material !== first.material) m.material.dispose(); drop.add(m); }
@@ -194,17 +203,18 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
 
   // ════════ ESTADO, MATERIALES Y SELECCIÓN ════════
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const state = { mode: 'van', focus: null, sel: null, colorMode: 'real', body: 'solid', labels: false, running: false, theta: 0, cut: 'none', speed: 0.6, rack: true, exVan: 0, exEng: 0 };
+  const state = { mode: 'van', focus: null, sel: null, colorMode: 'real', body: 'solid', labels: false, running: false, theta: 0, cut: 'none', bcut: false, speed: 0.6, rack: true, exVan: 0, exEng: 0 };
   Object.defineProperty(state, 'explode', { get: () => (state.mode === 'eng' ? state.exEng : state.exVan), set: v => { if (state.mode === 'eng') state.exEng = v; else state.exVan = v; }, enumerable: true });
   const xraySys = new Set(['motor', 'electrico', 'lubricacion', 'transmision', 'sensores']);
   const matchFocus = (P, f) => !!P && (P.sys === f || P.serves === f || (P.also || []).includes(f));
-  const isEngPart = id => engParts.has(id);
+  const isEngPart = id => engParts.has(id), isBrkPart = id => brkParts.has(id);
+  const inMode = id => (state.mode === 'eng' ? isEngPart(id) : state.mode === 'brk' ? isBrkPart(id) : true);
 
   function applyMaterials() {
-    const isEng = state.mode === 'eng', selP = PARTS[state.sel];
-    const xray = isEng ? state.cut === 'xray' : ((state.focus && xraySys.has(state.focus)) || (selP && (xraySys.has(selP.sys) || xraySys.has(selP.serves))));
-    const focusBody = !isEng && (state.focus === 'carroceria' || (selP && selP.sys === 'carroceria'));
-    const bodyMode = isEng ? 'hidden' : ((state.focus && !focusBody) ? (state.body === 'solid' ? 'ghost' : state.body) : state.body);
+    const isEng = state.mode === 'eng', isBrk = state.mode === 'brk', selP = PARTS[state.sel];
+    const xray = isEng ? state.cut === 'xray' : !isBrk && ((state.focus && xraySys.has(state.focus)) || (selP && (xraySys.has(selP.sys) || xraySys.has(selP.serves))));
+    const focusBody = !isEng && !isBrk && (state.focus === 'carroceria' || (selP && selP.sys === 'carroceria'));
+    const bodyMode = isEng || isBrk ? 'hidden' : ((state.focus && !focusBody) ? (state.body === 'solid' ? 'ghost' : state.body) : state.body);
     const solid = bodyMode === 'solid';
     const dimOp = state.focus === 'sensores' ? 0.16 : 0.07;
     const qmode = state.colorMode === 'qual';
@@ -221,7 +231,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
         const hide = (bodyMode === 'hidden' && !inner) || (cat === 'rack' && !state.rack) || (isEng && inner);
         m.visible = !hide; if (hide) continue;
         m.material.color.copy(qmode ? qcol(part) : ud.real);
-        if (cat === 'int' || cat === 'seat') op = solid ? 1 : Math.min(op, focusBody || isSel ? 0.7 : 0.38);
+        if (cat === 'int' || cat === 'seat') op = isBrk ? Math.min(op, 0.08) : solid ? 1 : Math.min(op, focusBody || isSel ? 0.7 : 0.38);
         else if (cat === 'paint') op = solid ? 1 : (focusBody ? 0.2 : 0.075);
         else if (cat === 'glass') op = solid ? 0.36 : 0.1;
         else if (cat === 'tint') op = solid ? 0.84 : 0.13;
@@ -232,9 +242,11 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
         m.material.color.copy(qmode ? qcol(part) : state.colorMode === 'sys' ? ud.sys : ud.real);
         if (ud.wire) m.visible = state.focus === 'sensores' || isSel;
         if (isEng && !m.userData.eng && !isSel) op = Math.min(op, inFocus && state.focus ? 0.12 : 0.06);
+        else if (isBrk && !m.userData.brk && !isSel) op = Math.min(op, part === 'ruedas' ? (state.bcut ? 0.07 : 0.12) : 0.06);
         else if (!inFocus && !isSel) op = Math.min(op, dimOp);
         else if (ud.casing && xray) op = Math.min(op, isEng ? 0.14 : 0.22);
         if (isEng && state.cut === 'long' && ud.side === 'ex') op = Math.min(op, 0.06);
+        if (isBrk && state.bcut && ud.cut === 'xray') op = Math.min(op, 0.2);
       }
       // sobre el fondo claro, lo atenuado se vuelve un fantasma claro (si no, las capas oscuras forman una mancha)
       if (op < 0.13 && !isSel && !(ud.casing && xray)) m.material.color.lerp(GHOST, 0.78);
@@ -244,7 +256,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
       const sensorGlow = state.focus === 'sensores' && P && P.sys === 'sensores';
       if (isSel) { m.material.emissive.copy(ud.sc); m.material.emissiveIntensity = cat ? 0.28 : 0.55; }
       else if (sensorGlow) { m.material.emissive.copy(ud.sc); m.material.emissiveIntensity = 0.5; }
-      else if (inFocus && state.focus && !cat) { m.material.emissive.copy(ud.sc); m.material.emissiveIntensity = 0.12; }
+      else if (inFocus && state.focus && !cat && !isBrk) { m.material.emissive.copy(ud.sc); m.material.emissiveIntensity = 0.12; }
       else if (ud.kEm && !qmode) { m.material.emissive.copy(ud.kEm); m.material.emissiveIntensity = ud.kEi; }
       else { m.material.emissive.setRGB(0, 0, 0); m.material.emissiveIntensity = 0; }
     }
@@ -254,6 +266,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
     const showIn = isEng ? state.cut !== 'none' : !!xray;
     VAN.engine.A.sparks.forEach(s => s.visible = showIn);
     VAN.engine.A.gas.forEach(g => g.visible = isEng && state.cut !== 'none' && state.exEng < 0.04);
+    if (isBrk) BR.paint('brk', state.colorMode);
     requestRender();
   }
 
@@ -270,11 +283,12 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
       if (box.isEmpty()) continue;
       box.getCenter(c); W.anchors[id] = c.clone(); W.partBoxes[id] = box.clone();
     }
-    W.allBox.makeEmpty(); W.engBox.makeEmpty();
+    W.allBox.makeEmpty(); W.engBox.makeEmpty(); W.brkBox.makeEmpty();
     W.root.traverse(o => {
       if (!o.isMesh || o.isInstancedMesh || o.userData.noBox || !o.material || o.material.userData?.wire) return;
       W.allBox.expandByObject(o);
       if (o.userData.eng) W.engBox.expandByObject(o);
+      if (o.userData.brk && o.visible) W.brkBox.expandByObject(o);
     });
     W.partBoxes.carroceria = W.allBox.clone(); W.anchors.carroceria = V(-0.9, 1.8 + state.exVan * 1.25, 0.7);
   }
@@ -282,6 +296,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
     van: ['bloque', 'caja', 'diferencial', 'radiador', 'estanque', 'catalizador', 'bateria', 'bomba_freno', 'susp_del', 'susp_tras', 'direccion', 'calefactor'],
     solid: ['carroceria', 'luces', 'parrilla', 'ruedas'],
     eng: ['culata', 'tapa_valvulas', 'bloque', 'distribucion', 'carburador', 'mult_esc', 'alternador', 'distribuidor', 'volante', 'carter', 'ventilador', 'filtro_aceite', 'mult_adm'],
+    brk: ['pedal_freno', 'servofreno', 'bomba_freno', 'deposito_freno', 'frenos_del', 'frenos_tras', 'canerias', 'valvula_dsp', 'freno_mano'],
   };
   function ensureLabel(id) {
     if (labelEls[id]) return labelEls[id];
@@ -294,7 +309,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
     labelLayer.appendChild(el); labelEls[id] = el; return el;
   }
   const tmpV = new THREE.Vector3();
-  const visibleIn = id => (state.mode === 'eng' ? isEngPart(id) : !PARTS[id].deep || state.focus === 'motor' || state.sel === id);
+  const visibleIn = id => (state.mode === 'eng' ? isEngPart(id) : state.mode === 'brk' ? isBrkPart(id) : !PARTS[id].deep || state.focus === 'motor' || state.sel === id);
   function updateLabels() {
     let ids = [];
     if (state.labels) {
@@ -341,7 +356,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
     state.sel = id && W.anchors[id] ? id : null;
     applyMaterials();
     if (state.sel && fly && W.partBoxes[state.sel]) {
-      const b = W.partBoxes[state.sel].clone(); const sz = b.getSize(new THREE.Vector3()); const m = state.mode === 'eng' || isEngPart(state.sel) ? 0.16 : 0.5;
+      const b = W.partBoxes[state.sel].clone(); const sz = b.getSize(new THREE.Vector3()); const m = state.mode === 'eng' || isEngPart(state.sel) ? 0.16 : state.mode === 'brk' ? 0.24 : 0.5;
       b.expandByVector(V(Math.max(0, (m - sz.x) / 2), Math.max(0, (m - sz.y) / 2), Math.max(0, (m - sz.z) / 2)));
       // piezas del motor que sólo se ven desde un lado: su dirección (marco del motor) girada a como va montado
       const lk = PARTS[state.sel] && PARTS[state.sel].look && isEngPart(state.sel);
@@ -355,6 +370,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   const VIEWS = {
     van: { iso: [2.7, 2.0, -3.6], lado: [0, 0.1, -1], frente: [1, 0.12, 0.002], atras: [-1, 0.15, -0.35], arriba: [0, 1, 0.002], abajo: [0, -1, 0.002] },
     eng: { iso: [0.55, 0.85, -0.85], escape: [0.15, -0.7, -0.7], admision: [0.15, 0.75, 0.66], frente: [1, 0.12, 0.002], arriba: [0.002, 1, -0.05], abajo: [0.05, -1, 0.002] },
+    brk: { iso: [1.6, 1.25, -2.2], lado: [0, 0.12, -1], ruedadel: { d: [-0.55, 0.6, -0.62], g: 'fl' }, ruedatras: { d: [-0.25, 0.42, -1], g: 'rl' }, pedal: { d: [-0.8, 0.55, -0.6], g: 'pedal' }, arriba: [0.002, 1, -0.04], abajo: [0.05, -1, 0.002] },
   };
   let tween = null;
   const viewDir = () => camera.position.clone().sub(controls.target).normalize();
@@ -375,8 +391,10 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   function setView(name, instant) {
     const v = VIEWS[state.mode][name] || VIEWS[state.mode].iso;
     computeAnchors();
-    const box = state.mode === 'eng' ? W.engBox : W.allBox;
-    fitTo(box, V(...v).normalize(), state.mode === 'eng' ? 0.94 : 1.04, instant ? 0 : 700);
+    const dir = Array.isArray(v) ? v : v.d;
+    if (!Array.isArray(v) && v.g) { const b = new THREE.Box3(); [].concat(BR.groups[v.g]).forEach(g => b.expandByObject(g)); fitTo(b, V(...dir).normalize(), 1.25, instant ? 0 : 700); return; }
+    const box = state.mode === 'eng' ? W.engBox : state.mode === 'brk' ? W.brkBox : W.allBox;
+    fitTo(box, V(...dir).normalize(), state.mode === 'eng' ? 0.94 : state.mode === 'brk' ? 0.98 : 1.04, instant ? 0 : 700);
   }
   function animateCam(p, t, ms) {
     if (!ms) { tween = null; camera.position.copy(p); controls.target.copy(t); controls.update(); requestRender(); return; }
@@ -403,6 +421,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   function requestRender() { needs = true; if (!raf) raf = requestAnimationFrame(loop); }
   function loop(now) {
     raf = 0;
+    const prevNow = last;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     let active = false;
     if (tween) {
@@ -415,11 +434,24 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
       state.theta += dt * Math.PI * 2 * rps; W.anim.update(state.theta); active = true;
       onTick && onTick(state.theta, state.mode);
     }
-    if (controls.update()) active = true;
+    if (state.mode === 'brk' && visible) {
+      if (BR.tick(Math.min(0.12, (now - prevNow) / 1000), (aF, aR) => VAN.setWheels(aF, aR))) active = true;   // en equipos lentos la frenada no se alarga tanto
+      BR.paint('brk', state.colorMode);
+      onBrake && onBrake(BR.result);
+    }
+    inLoop = true; if (controls.update() && camMoved()) active = true; inLoop = false;
     if (needs || active) { renderer.render(scene, camera); updateLabels(); needs = false; }
-    if (active || tween || (state.running && visible)) raf = requestAnimationFrame(loop);
+    if ((active || tween || (state.running && visible)) && !raf) raf = requestAnimationFrame(loop);   // un solo ciclo a la vez
   }
-  controls.addEventListener('change', requestRender);
+  // OrbitControls avisa "change" aunque la cámara no se mueva (el objetivo cambia en el último decimal al
+  // recortar su largo): sólo cuenta como movimiento si cambian la posición o la orientación de la cámara
+  let inLoop = false;
+  const lastCam = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
+  function camMoved() {
+    const m = lastCam.p.distanceToSquared(camera.position) > 1e-12 || 1 - Math.abs(lastCam.q.dot(camera.quaternion)) > 1e-12;
+    lastCam.p.copy(camera.position); lastCam.q.copy(camera.quaternion); return m;
+  }
+  controls.addEventListener('change', () => { if (!inLoop) requestRender(); });
   new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) requestRender(); }).observe(host);
 
   function resize() {
@@ -437,12 +469,15 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
 
   function setMode(m) {
     if (m === state.mode) return;
+    const prev = state.mode;
     state.mode = m;
-    const E = m === 'eng';
-    controls.minDistance = E ? 0.22 : 0.6; controls.maxDistance = E ? 5 : 12;
+    const E = m === 'eng', B = m === 'brk';
+    controls.minDistance = E ? 0.22 : B ? 0.25 : 0.6; controls.maxDistance = E ? 5 : B ? 8 : 12;
     state.sel = null; state.exVan = 0; state.exEng = 0; applyExplodeAll();
     if (!E) state.cut = 'none';
-    if (state.focus && !Object.keys(PARTS).some(id => matchFocus(PARTS[id], state.focus) && W.anchors[id] && (!E || isEngPart(id)))) state.focus = null;
+    if (prev === 'brk') { BR.stopSeq(); BR.set({ on: false, pedalF: 0, v: 0, heat: 0 }); BR.setCuts(false); }
+    if (B) { state.running = false; BR.setCuts(state.bcut); }
+    if (state.focus && !Object.keys(PARTS).some(id => matchFocus(PARTS[id], state.focus) && W.anchors[id] && inMode(id))) state.focus = null;
     for (const id in labelEls) labelEls[id].hidden = true;
     W.anim.update(state.theta); updateCutPlanes(); computeAnchors();
     if (VAN.ground) VAN.ground.visible = !E;
@@ -452,11 +487,12 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
 
   return {
     select,
-    setFocus(sys) {
+    setFocus(sys, { fly = true } = {}) {
       state.focus = sys; if (state.sel && sys && !matchFocus(PARTS[state.sel], sys)) state.sel = null; applyMaterials();
+      if (!fly) return;
       const E = state.mode === 'eng';
-      if (sys) { const b = new THREE.Box3(); Object.keys(PARTS).forEach(id => { if (matchFocus(PARTS[id], sys) && W.partBoxes[id] && (!E || isEngPart(id))) b.union(W.partBoxes[id]); }); if (!b.isEmpty()) fitTo(b, viewDir(), sys === 'carroceria' ? 1.04 : 1.18); }
-      else fitTo(E ? W.engBox : W.allBox, viewDir(), 1.04);
+      if (sys) { const b = new THREE.Box3(); Object.keys(PARTS).forEach(id => { if (matchFocus(PARTS[id], sys) && W.partBoxes[id] && inMode(id)) b.union(W.partBoxes[id]); }); if (!b.isEmpty()) fitTo(b, viewDir(), sys === 'carroceria' ? 1.04 : 1.18); }
+      else fitTo(E ? W.engBox : state.mode === 'brk' ? W.brkBox : W.allBox, viewDir(), 1.04);
     },
     setColorMode(m) { state.colorMode = m; applyMaterials(); },
     setBody(m) { state.body = m; applyMaterials(); },
@@ -467,13 +503,20 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
     isRunning: () => state.running,
     setView,
     setMode, getMode: () => state.mode,
-    has: id => !!W.anchors[id] && (state.mode !== 'eng' || isEngPart(id)),
-    isEng: isEngPart,
+    has: id => !!W.anchors[id] && inMode(id),
+    isEng: isEngPart, isBrk: isBrkPart,
+    // frenos
+    brake(o) { const r = BR.set(o || {}); last = performance.now(); requestRender(); return r; },
+    brakeTest() { BR.startStop(); last = performance.now(); requestRender(); },
+    brakeAbort() { BR.stopSeq(); requestRender(); },
+    get brakeState() { return BR.state; },
+    setBCut(on) { state.bcut = on; BR.setCuts(on && state.mode === 'brk'); applyMaterials(); },
     setCut(c) { state.cut = c; updateCutPlanes(); applyMaterials(); },
     setSpeed(k) { state.speed = k; },
     stepTo(deg) { state.theta = deg * Math.PI / 180; W.anim.update(state.theta); onTick && onTick(state.theta, state.mode); requestRender(); },
     get state() { return state; },
     debugCam(v) { animateCam(new THREE.Vector3(v[0], v[1], v[2]), new THREE.Vector3(v[3], v[4], v[5]), 0); },
+    debugLoop() { return { d: +camera.position.distanceTo(controls.target).toFixed(4), p: camera.position.toArray().map(v => +v.toFixed(4)), tween: !!tween, raf: !!raf, running: state.running, brk: BR.state.seq, pedalF: BR.state.pedalF, heat: BR.state.heat, v: BR.state.v }; },
     debugBox(id) { const b = W.partBoxes[id]; return b ? [b.min.toArray(), b.max.toArray()] : null; },
     debugStats() { renderer.render(scene, camera); return { meshes: W.meshes.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles }; },
     // vista en perspectiva con la cámara estimada de una foto (pos, target, fov vertical en grados)

@@ -8,7 +8,7 @@ import { gzipSync } from 'zlib';
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const VERSION = pkg.version.split('.')[0], FECHA = process.env.FECHA || new Date().toISOString().slice(0, 10);
 
-const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: true, format: 'iife', target: ['es2020'], write: false, legalComments: 'eof', logLevel: 'warning' });
+const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: !process.env.NOMIN, format: 'iife', target: ['es2020'], write: false, legalComments: 'eof', logLevel: 'warning' });
 const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 
 // tipografías (licencia OFL, ver fonts/) incrustadas como data URI

@@ -59,7 +59,7 @@ export function frenos(root) {
   const lC = seg({ label: 'Simular falla', options: [{ v: 'none', t: 'Ninguna' }, { v: 'front', t: 'Fuga delantera' }, { v: 'rear', t: 'Fuga trasera' }], value: 'none', onchange: v => st.leak = v });
   const hC = seg({ label: 'Freno de mano', options: [{ v: 'off', t: 'Suelto' }, { v: 'on', t: 'Tirado' }], value: 'off', onchange: v => st.hand = v === 'on' });
   root.append(
-    h('figure', { class: 'fig' }, f, h('figcaption', {}, 'Doble circuito dividido con servofreno (desde 1990 en Chile). El esquema muestra la división delantero/trasero, la más común en tracción trasera; confírmala siguiendo las cañerías desde la bomba de este furgón.')),
+    h('figure', { class: 'fig' }, f, h('figcaption', {}, 'Doble circuito dividido delantero/trasero (manual): la cámara primaria de la bomba alimenta los discos y la secundaria los tambores. Servofreno desde 1990 en Chile. La vista Frenos del modelo 3D muestra lo mismo pieza por pieza.')),
     rd, h('div', { class: 'controls' }, pC, eC, lC, hC),
   );
 

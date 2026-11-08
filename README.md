@@ -6,7 +6,7 @@
 
 Modelo 3D interactivo de mi **Suzuki Super Carry 1000 (SK410) 1996**: furgón ciego, volante a la izquierda, caja de 5 velocidades y carburador no catalítico.
 
-Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su lugar (con corte, rayos X y animación), todos los sistemas, el mapa de sensores, diagramas animados, ficha técnica, plan de mantención, diagnóstico y un mapa de qué tan preciso es cada dato mostrado.
+Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su lugar (con corte, rayos X y animación), los frenos en detalle (pedal, servo, bomba tándem, discos, tambores y freno de mano, con presión, cortes, fallas y desgaste), todos los sistemas, el mapa de sensores, diagramas animados, ficha técnica, plan de mantención, diagnóstico y un mapa de qué tan preciso es cada dato mostrado.
 
 ## Cómo está hecho
 
@@ -14,7 +14,9 @@ Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su
 |---|---|
 | `src/data.js` | Piezas, descripciones, datos técnicos, fuentes, mantención, diagnóstico y precisión de cada dato |
 | `src/body3d.js` | Carrocería medida en las fotos, luces, parachoques, parrilla y ruedas |
-| `src/van3d.js` | Chasis, suspensión, frenos, calefacción, combustible, escape, eléctrico e interior |
+| `src/van3d.js` | Chasis, suspensión, calefacción, combustible, escape, eléctrico e interior |
+| `src/brakes3d.js` | Frenos completos: pedal, servofreno, bomba tándem, depósito, cañerías, válvula DSP, discos, tambores y freno de mano |
+| `src/brakesim.js` | Cálculo simple del frenado: del pie a la presión, la desaceleración y el recorrido del pedal |
 | `src/engine3d.js` | Motor F10A completo |
 | `src/viewer3d.js` | Visor 3D (three.js): vistas, cortes, despiece, colores y selección |
 | `src/main.js` | Interfaz: panel con Sistemas, Piezas, Sensores y Datos, hoja deslizable en el celular y controles del visor |
