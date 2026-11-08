@@ -365,10 +365,10 @@ export function buildVan(ctx) {
     x.fillStyle = gr; x.fillRect(0, 0, 256, 128);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(3.9, 2.05), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }));
-    m.rotation.x = -Math.PI / 2; m.position.set(-0.88, 0.003, 0); m.renderOrder = 1; out.ground.add(m);
+    m.rotation.x = -Math.PI / 2; m.position.set(-0.88, 0.003, 0); m.renderOrder = 1; m.userData.shadow = 1; out.ground.add(m);
     for (const [x0, z0] of [[0, 0.605], [0, -0.605], [-WB, 0.6], [-WB, -0.6]]) {   // bajo cada neumático
       const w = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.26), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: 0.9 }));
-      w.rotation.x = -Math.PI / 2; w.position.set(x0, 0.004, z0); w.renderOrder = 1; out.ground.add(w);
+      w.rotation.x = -Math.PI / 2; w.position.set(x0, 0.004, z0); w.renderOrder = 1; w.userData.shadow = 0.9; out.ground.add(w);
     }
   }
   root.add(out.ground);
@@ -384,7 +384,7 @@ export function buildVan(ctx) {
   function setLines(mode, focusBody) {
     const solid = mode === 'solid', hidden = mode === 'hidden';
     BD.outline.visible = !hidden && !solid; BD.outline.material.opacity = focusBody ? 0.75 : 0.42;
-    BD.seams.visible = !hidden; BD.seams.material.color.set(solid ? '#5c6468' : '#c3dbe2'); BD.seams.material.opacity = solid ? 0.7 : (focusBody ? 0.6 : 0.34);
+    BD.seams.visible = !hidden; BD.seams.material.color.set(solid ? '#5c6468' : '#2f6f7b'); BD.seams.material.opacity = solid ? 0.7 : (focusBody ? 0.6 : 0.4);
   }
   return { update, eng, engine: E, setLines, ground: out.ground };
 }
@@ -397,13 +397,13 @@ function groundMarks(ctx) {
   const font = (px, wt = 600) => `${wt} ${px}px "Barlow Condensed", "Arial Narrow", sans-serif`;
   // flecha hacia +x; el texto se lee desde el lado del conductor (vista 3/4 por defecto)
   const arrow = tex(512, 160, x => {
-    x.fillStyle = 'rgba(233,75,53,0.85)'; x.beginPath(); x.moveTo(12, 80); x.lineTo(92, 20); x.lineTo(92, 56); x.lineTo(240, 56); x.lineTo(240, 104); x.lineTo(92, 104); x.lineTo(92, 140); x.closePath(); x.fill();
-    x.fillStyle = '#e6ecec'; x.font = font(50); x.textBaseline = 'middle'; x.fillText('ADELANTE', 252, 84);
+    x.fillStyle = 'rgba(194,65,45,0.85)'; x.beginPath(); x.moveTo(12, 80); x.lineTo(92, 20); x.lineTo(92, 56); x.lineTo(240, 56); x.lineTo(240, 104); x.lineTo(92, 104); x.lineTo(92, 140); x.closePath(); x.fill();
+    x.fillStyle = '#2a2420'; x.font = font(50); x.textBaseline = 'middle'; x.fillText('ADELANTE', 252, 84);
   });
   const ar = plane(arrow, 1.0, 0.31, [1.3, 0.004, 0], Math.PI); ar.userData.noBox = true;
   const side = (txt, sub) => tex(1024, 128, x => {
-    x.fillStyle = '#e6ecec'; x.font = font(64); x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText(txt, 512, sub ? 46 : 64);
-    if (sub) { x.fillStyle = '#a5b3b7'; x.font = font(40, 500); x.fillText(sub, 512, 102); }
+    x.fillStyle = '#2a2420'; x.font = font(64); x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText(txt, 512, sub ? 46 : 64);
+    if (sub) { x.fillStyle = '#75685b'; x.font = font(40, 500); x.fillText(sub, 512, 102); }
   });
   plane(side('LADO IZQUIERDO', 'conductor · volante'), 1.7, 0.22, [-0.6, 0.004, -1.0], Math.PI);
   plane(side('LADO DERECHO', 'acompañante'), 1.7, 0.22, [-0.6, 0.004, 1.0], 0);

@@ -1,0 +1,265 @@
+/* ——— Diagramas SVG: tinta sobre papel ——— */
+.dsvg text { fill: var(--ink-2); font-family: var(--font-body); }
+.lbl { font-size: 11px; }
+.lbl-s { font-size: 11.5px; }
+.lbl-xs { font-size: 9.6px; }
+.dsvg text.strong { fill: var(--ink); font-weight: 600; }
+.dsvg text.on-fill { fill: var(--ink); font-weight: 600; }
+.dsvg text.muted { fill: var(--ink-3); }
+.dsvg text.num { font: 600 24px var(--font-display); fill: var(--ink); }
+.dsvg text.chem { font: 500 13px var(--font-mono); fill: var(--ink); }
+.tnum { font-variant-numeric: tabular-nums; }
+.dsvg text.halo { paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; }
+.leader { stroke: var(--ink-3); stroke-width: 0.8; fill: none; }
+.leader-dot { fill: var(--ink-2); }
+.none { fill: none; stroke: none; }
+
+/* materiales */
+.metal-iron { fill: var(--iron); stroke: #6e675f; stroke-width: 1; }
+.metal-alu { fill: var(--alu); stroke: #8e877d; stroke-width: 1; }
+.metal-outline { fill: none; stroke: #6e675f; stroke-width: 1.2; stroke-dasharray: 3 3; }
+.bore { fill: #f3ede3; stroke: #a99f92; }
+.water, .coolant { fill: var(--water); opacity: 0.85; }
+.coolant.link { fill: var(--water); stroke: none; opacity: 0.85; }
+.port { fill: #e4dbcc; stroke: #a99f92; }
+.roof { fill: none; stroke: #8e877d; stroke-width: 1.2; }
+.gas { fill: rgba(42,36,32,0.04); }
+.gas.g0 { fill: color-mix(in srgb, var(--ph-adm) 32%, transparent); }
+.gas.g1 { fill: color-mix(in srgb, var(--ph-comp) 40%, transparent); }
+.gas.g2 { fill: color-mix(in srgb, var(--ph-exp) 48%, transparent); }
+.gas.g3 { fill: color-mix(in srgb, var(--ph-esc) 40%, transparent); }
+.gas.fire { fill: #f2b33d; }
+.p-air { fill: var(--air); }
+.p-exh { fill: #9a938a; }
+.p-fuel { fill: var(--fuel); }
+.stem { stroke: #6e675f; stroke-width: 3; stroke-linecap: round; }
+.valve { stroke: var(--ink); stroke-width: 0.8; }
+.valve.v-in { fill: #7fb3e0; } .valve.v-ex { fill: #c99a90; }
+.spring { fill: none; stroke: #7f7a73; stroke-width: 1.4; }
+.cam { stroke: var(--ink); stroke-width: 0.8; }
+.cam.c-in { fill: rgba(127,179,224,0.85); } .cam.c-ex { fill: rgba(201,154,144,0.8); }
+.axle { fill: var(--paper); stroke: #6e675f; stroke-width: 1.4; }
+.rocker { fill: none; stroke: #7f7a73; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+.screw { fill: var(--red); }
+.plug-ghost { stroke: #6e675f; stroke-width: 2.2; stroke-dasharray: 3 3; fill: none; opacity: 0.6; }
+.spark { fill: none; stroke: var(--mustard); stroke-width: 2.2; filter: drop-shadow(0 0 3px var(--mustard)); transition: opacity 0.05s; }
+.cweight { fill: #a39c93; stroke: #6e675f; }
+.web { fill: #8e877d; }
+.journal { fill: #b8b1a7; }
+.cpin { fill: #d6d0c6; stroke: #8e877d; stroke-width: 0.6; }
+.rod { fill: #b8b1a7; stroke: var(--ink); stroke-width: 0.8; }
+.piston { fill: #ddd7cd; stroke: var(--ink); stroke-width: 0.8; }
+.ring { stroke: #7f7a73; stroke-width: 1.2; }
+.ppin { fill: #7f7a73; }
+.phase { opacity: 0.9; }
+.phase.ph0 { fill: var(--ph-adm); } .phase.ph1 { fill: var(--ph-comp); } .phase.ph2 { fill: var(--ph-exp); } .phase.ph3 { fill: var(--ph-esc); }
+.dsvg text.ph-t0 { fill: var(--ph-adm); } .dsvg text.ph-t1 { fill: var(--ph-comp); } .dsvg text.ph-t2 { fill: var(--ph-exp); } .dsvg text.ph-t3 { fill: var(--ph-esc); }
+.tick { stroke: var(--ink-3); stroke-width: 0.8; }
+.cursor { stroke: var(--ink); stroke-width: 1.6; }
+.belt-bg { fill: none; stroke: #2f2a26; stroke-width: 7; stroke-linejoin: round; }
+.belt-teeth { fill: none; stroke: #6e675f; stroke-width: 5; }
+.belt-v { fill: none; stroke: #6e675f; stroke-width: 4; }
+.sprocket { fill: #a39c93; stroke: #6e675f; stroke-width: 0.8; }
+.mark { fill: var(--red); }
+.mark-fixed { fill: var(--ink); }
+.idler { fill: #b8b1a7; stroke: #6e675f; }
+.fanblade { fill: rgba(91,80,71,0.32); stroke: #6e675f; stroke-width: 0.6; }
+.pulley { fill: #8e877d; stroke: #5b5047; stroke-width: 1; }
+.spoke { stroke: #5b5047; stroke-width: 2; stroke-linecap: round; }
+.spoke.wide { stroke-width: 5; stroke: #8e877d; }
+.node { fill: #efe7d9; stroke: #a99f92; stroke-width: 1; }
+.pipe { fill: none; stroke-width: 5; stroke-linecap: round; }
+.fuel-pipe { stroke: #eadcb6; }
+.air-pipe { stroke: #d2e3ec; }
+.flow { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.flow.fuel { stroke: var(--fuel); }
+.flow.air { stroke: var(--air); }
+.flow.elec { stroke: var(--elec); }
+.flow.exh { stroke: var(--exh); }
+.flow.cool { stroke: var(--water); stroke-width: 3.2; }
+.flow.oil { stroke: var(--oil); stroke-width: 2.6; }
+.flow.oil.dirty { stroke: #5a3a1e; }
+.flow.power { stroke: var(--good); stroke-width: 3; }
+.flow.spark-flow { stroke: var(--mustard); stroke-width: 2.6; }
+.flow.heavy { stroke-width: 4; }
+.fuel-fill { fill: color-mix(in srgb, var(--fuel) 50%, #fff6dc); }
+.float { fill: #ddd7cd; stroke: var(--ink); }
+.needle { fill: #5b5047; }
+.pass { fill: none; stroke: #dcd2c2; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
+.pass.air { stroke: #d2e3ec; }
+.jet { fill: #c88a48; stroke: var(--ink); } .jet.air { fill: var(--air); }
+.valvebox { fill: #8e877d; stroke: var(--ink); } .valvebox.open { fill: var(--good); }
+.solenoid { fill: #e6e0f7; stroke: var(--elec); }
+.sol.off .solenoid { stroke: #a99f92; }
+.plunger { fill: #b8b1a7; }
+.screw-line { stroke: #5b5047; stroke-width: 2.5; stroke-linecap: round; }
+.diaph { fill: none; stroke: #5b5047; stroke-width: 2; }
+.check { fill: #8e877d; stroke: #5b5047; } .check.open { fill: var(--good); }
+.link { fill: none; stroke: #5b5047; stroke-width: 2; stroke-linecap: round; }
+.plate { stroke: #5b5047; stroke-width: 3.5; stroke-linecap: round; }
+.mixbar { fill: #e6dccb; }
+.mixneedle { fill: var(--ink); stroke: var(--ink); stroke-width: 2; }
+.o2bar { fill: var(--elec); }
+.adv.base { fill: #8e877d; } .adv.cent { fill: var(--elec); } .adv.vac { fill: var(--air); }
+.dsvg.dim { opacity: 0.45; }
+.bat { fill: #3a3430; }
+.term { fill: #ddd7cd; stroke: var(--ink); }
+.term.pos { fill: var(--red); } .term.neg { fill: #7f7a73; }
+.wire { fill: none; stroke: #7c70c8; stroke-width: 2; stroke-linejoin: round; }
+.wire.gnd { stroke: #9a938a; }
+.keyptr { stroke: var(--red); stroke-width: 3; stroke-linecap: round; }
+.coil { fill: #3a3430; }
+.coilw { fill: none; stroke: #b47a4c; stroke-width: 1.5; }
+.cap { fill: #3a3430; stroke: #7f7a73; stroke-width: 2; }
+.rotor { fill: #ddd7cd; stroke: var(--ink); }
+.body { fill: #8e877d; }
+.reluctor { fill: #a39c93; stroke: var(--ink); }
+.pickup { fill: var(--elec); }
+.igniter { fill: #ddd7cd; }
+.vacuum { fill: #cfc6b8; stroke: #8e877d; }
+.plugbody { fill: #f7f2e8; stroke: #8e877d; stroke-width: 0.8; }
+.sparkdot { fill: var(--mustard); filter: drop-shadow(0 0 4px var(--mustard)); opacity: 0; }
+.ht { fill: none; stroke: #8e3a2a; stroke-width: 2.6; }
+.alt, .starter { fill: #5b5047; }
+.ringgear { fill: none; stroke: #8e877d; stroke-width: 6; stroke-dasharray: 2 2; }
+.pinion { fill: #8e877d; } .pinion.engaged { fill: var(--good); }
+.lamp { fill: #e6dccb; stroke: #a99f92; }
+.lampon { fill: #d9482b; filter: drop-shadow(0 0 4px #d9482b); }
+.lampon.oil { fill: var(--mustard); filter: drop-shadow(0 0 4px var(--mustard)); }
+.fin { stroke: #b8ae9f; stroke-width: 0.9; }
+.radcore { fill: var(--paper-2); opacity: 0.8; }
+.tank { fill: #a39c93; }
+.capk { fill: #ddd7cd; stroke: #8e877d; stroke-width: 0.8; }
+.shroud { stroke: #7f7a73; stroke-width: 3; fill: none; }
+.shroud.broken { stroke: #d9482b; stroke-dasharray: 4 3; }
+.blade { fill: rgba(91,80,71,0.38); }
+.pump { fill: #5b5047; }
+.impeller { stroke: #efe7d9; stroke-width: 1.6; }
+.thermo { fill: #8e877d; } .thermo.open { fill: var(--good); }
+.hosebg { fill: none; stroke: #3a3430; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.thin-hose { fill: none; stroke: #3a3430; stroke-width: 3; }
+.res { fill: rgba(42,36,32,0.06); stroke: #8e877d; }
+.heater { fill: #efdcc8; stroke: #b47a4c; }
+.hvalve { fill: #8e877d; stroke: #5b5047; } .hvalve.open { fill: var(--good); }
+.shaft { stroke: #8e877d; stroke-width: 6; stroke-linecap: round; }
+.shaft.thin { stroke-width: 3; }
+.journal-b { fill: #ddd7cd; stroke: var(--ink); stroke-width: 0.6; }
+.rotor-in { fill: #ddd7cd; stroke: var(--ink); } .rotor-out { fill: none; stroke: #7f7a73; stroke-width: 2; }
+.oilbg { fill: none; stroke: #3a3430; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.filter { fill: #ddd7cd; stroke: var(--ink); }
+.strainer { fill: none; stroke: #7f7a73; stroke-width: 1.4; stroke-dasharray: 2 2; }
+.oilfill { fill: color-mix(in srgb, var(--oil) 62%, #fff3e0); }
+.gauge-track { fill: none; stroke: #e2d8c7; stroke-width: 10; }
+.gauge-spec { fill: none; stroke: var(--good); stroke-width: 10; }
+.gauge-needle { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+.exh-pipe { fill: none; stroke: #8e877d; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+.cat { fill: #a39c93; stroke: #6e675f; }
+.cat-hot .cat { fill: #dba48e; stroke: #d9622b; }
+.cell { fill: #8e877d; } .cat-hot .cell { fill: #d9622b; }
+.o2 { fill: var(--elec); }
+.muffler { fill: #a39c93; stroke: #6e675f; }
+.baffle { stroke: #6e675f; stroke-width: 3; }
+.perf { fill: #6e675f; }
+.m-co { fill: #d9482b; } .m-co2 { fill: var(--good); } .m-o2 { fill: #3d8fd1; } .m-n2 { fill: #9a938a; }
+.housing { fill: rgba(127,122,115,0.12); stroke: #8e877d; stroke-dasharray: 4 3; }
+.stripe { stroke: rgba(42,36,32,0.55); stroke-width: 2; fill: none; }
+.flywheel { fill: #8e877d; stroke: #5b5047; }
+.facing { fill: #b47a4c; }
+.hub { fill: #8e877d; }
+.pplate { fill: #a39c93; stroke: var(--ink); }
+.diaphragm { fill: none; stroke: #5b5047; stroke-width: 2.4; }
+.bearing { fill: #ddd7cd; stroke: var(--ink); }
+.fork { fill: none; stroke: #5b5047; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.cable { fill: none; stroke: #7f7a73; stroke-width: 1.6; }
+.cable.dashed { stroke-dasharray: 5 4; }
+.pedalarm { fill: none; stroke: #5b5047; stroke-width: 4; stroke-linecap: round; }
+.gearbox-g { fill: #d3cabb; stroke: #7f7a73; }
+.gearbox-g.active { fill: color-mix(in srgb, var(--good) 38%, #fff); stroke: var(--good); }
+.gearbox-g.idler { stroke-dasharray: 3 2; }
+.gtooth { stroke: rgba(42,36,32,0.15); stroke-width: 1; }
+.sync { fill: #8e877d; stroke: var(--ink); transition: transform 0.25s; }
+.sync.active { fill: var(--red); }
+.pinion-g { fill: #a39c93; stroke: var(--ink); }
+.carrier { fill: #d3cabb; stroke: #7f7a73; }
+.spider { fill: #8e877d; stroke: var(--ink); }
+.sidegear { fill: #ddd7cd; }
+.tire { fill: #3a3430; stroke: var(--ink); stroke-width: 1.4; }
+.tire.ghost { fill: rgba(58,52,48,0.42); }
+/* gráficos */
+.grid { stroke: #e6dccb; stroke-width: 1; }
+.axis { stroke: #b8ae9f; stroke-width: 1; }
+.refline { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 4 4; }
+.series { fill: none; stroke-width: 2; stroke-linecap: round; }
+.series.active { stroke-width: 3.2; }
+.enddot { stroke: var(--paper); stroke-width: 2; }
+.curdot { fill: var(--ink); stroke: var(--paper); stroke-width: 2; }
+.crosshair { stroke: var(--ink-2); stroke-width: 1; }
+.hdot { stroke: var(--paper); stroke-width: 2; }
+.tip { fill: rgba(251,246,236,0.97); stroke: var(--line-2); }
+.hit { fill: transparent; pointer-events: all; cursor: crosshair; touch-action: pan-y; }
+/* frenos y chasis */
+.pad-r { fill: #8e877d; }
+.servo { fill: #5b5047; }
+.mc { fill: #a39c93; stroke: #6e675f; }
+.brakefluid { fill: #c8a75a; opacity: 0.85; }
+.mcpiston { fill: #ddd7cd; stroke: var(--ink); }
+.disc { fill: #a39c93; stroke: var(--ink); }
+.caliper { fill: var(--red); stroke: var(--ink); }
+.padbrake { fill: #6e675f; } .padbrake.on { fill: var(--mustard); }
+.drum { fill: #d3cabb; stroke: #6e675f; stroke-width: 3; }
+.shoe { fill: none; stroke: #b47a4c; stroke-width: 4; stroke-linecap: round; } .shoe.on { stroke: var(--mustard); }
+.wcyl { fill: #ddd7cd; }
+.brakeline { fill: none; stroke: #e2d3b8; stroke-width: 4; stroke-linejoin: round; }
+.brakeline.p { stroke: #d49a1a; stroke-width: 2.4; }
+.drip { fill: #c8a75a; }
+.swheel { fill: none; stroke: #6e675f; stroke-width: 6; }
+.rackhouse { fill: #a39c93; stroke: #6e675f; }
+.rack { fill: #ddd7cd; }
+.tierod { fill: none; stroke: #5b5047; stroke-width: 3; stroke-linecap: round; }
+.axisline { stroke: var(--ink-3); stroke-dasharray: 3 4; }
+.divider { stroke: var(--line); }
+.bodymount { fill: #8e877d; }
+.knuckle { fill: #7f7a73; }
+.strut { stroke: #6e675f; stroke-width: 10; stroke-linecap: round; }
+.coilspring { fill: none; stroke: #3b66c4; stroke-width: 2; }
+.larm { stroke: #7f7a73; stroke-width: 5; stroke-linecap: round; }
+.ground { stroke: #b8ae9f; stroke-width: 2; }
+.frame { stroke: #8e877d; stroke-width: 8; }
+.hanger { fill: #8e877d; }
+.leaf { fill: none; stroke: #6e675f; stroke-width: 3; }
+.axletube { fill: #a39c93; stroke: var(--ink); }
+.ubolt { stroke: #5b5047; stroke-width: 2; }
+.shackle { stroke: #5b5047; stroke-width: 4; stroke-linecap: round; }
+.shock { stroke: #6e675f; stroke-width: 6; stroke-linecap: round; }
+
+/* ——— mapa de sensores ——— */
+.m-body { fill: var(--paper); stroke: #8e877d; stroke-width: 1.4; }
+.m-line { fill: none; stroke: #b8ae9f; stroke-width: 1; }
+.m-line.dash { stroke-dasharray: 4 4; }
+.m-glass { fill: rgba(78,156,200,0.16); stroke: #7fa9be; stroke-width: 1; }
+.m-wheel { fill: #3a3430; stroke: var(--ink); stroke-width: 1.2; }
+.m-hub { fill: #8e877d; }
+.m-seat { fill: #e6dccb; stroke: #b8ae9f; }
+.m-wheelsteer { fill: none; stroke: var(--red); stroke-width: 2.2; }
+.m-eng { fill: rgba(217,98,43,0.14); stroke: rgba(217,98,43,0.65); stroke-width: 1; }
+.m-gb { fill: rgba(46,148,97,0.12); stroke: rgba(46,148,97,0.55); stroke-width: 1; }
+.m-tank { fill: rgba(212,154,26,0.14); stroke: rgba(212,154,26,0.65); stroke-width: 1; }
+.m-prop { stroke: rgba(46,148,97,0.6); stroke-width: 2; }
+.m-dash { fill: #d6d0c6; stroke: #8e877d; }
+.m-ctrl { fill: rgba(212,154,26,0.2); stroke: rgba(212,154,26,0.7); stroke-dasharray: 2 2; }
+.m-ground { stroke: #b8ae9f; stroke-width: 2; }
+.m-line.thick { stroke-width: 2; stroke: #8e877d; } .m-line.faint { stroke: #ddd2c0; }
+.m-panel { fill: rgba(42,36,32,0.04); stroke: #c9bba5; stroke-width: 1; }
+.m-trim { fill: #3a3430; stroke: var(--ink); stroke-width: 1; }
+.m-rack { stroke: #5b5047; stroke-width: 3; stroke-linecap: round; } .m-rack.thin { stroke-width: 2; }
+.m-amber { fill: var(--mustard); } .m-red { fill: var(--red); } .m-clear { fill: #ebe5da; stroke: #b8ae9f; stroke-width: 0.6; }
+.m-slot { fill: var(--paper); stroke: none; } .m-far { opacity: 0.7; }
+.dsvg text.m-tag { fill: var(--ink-3); font-style: italic; }
+.smark { cursor: pointer; outline: none; }
+.sm-lead { stroke: var(--c); stroke-width: 1; opacity: 0.75; }
+.sm-dot { fill: var(--paper); stroke: var(--c); stroke-width: 1.6; }
+.sm-badge { fill: var(--c); stroke: var(--paper); stroke-width: 1.5; transition: r 0.15s; }
+.dsvg text.sm-num { fill: #fff; font: 700 10.5px var(--font-mono); pointer-events: none; }
+.smap.has-sel .smark:not(.on) { opacity: 0.32; }
+.smark.on .sm-badge { stroke: var(--ink); stroke-width: 2.2; }
+.smark:focus-visible .sm-badge { stroke: var(--red); stroke-width: 2.5; }

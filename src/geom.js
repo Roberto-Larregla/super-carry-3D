@@ -19,10 +19,10 @@ export function engToWorld([x, y, z]) {
 
 // Ciclo de 4 tiempos: φ = 0 inicio de admisión (PMS)
 export const PHASES = [
-  { id: 0, name: 'Admisión', color: '#66bdff' },
-  { id: 1, name: 'Compresión', color: '#f2c94c' },
-  { id: 2, name: 'Explosión', color: '#ff6a3d' },
-  { id: 3, name: 'Escape', color: '#9aa2a8' },
+  { id: 0, name: 'Admisión', color: '#3d8fd1' },
+  { id: 1, name: 'Compresión', color: '#d49a1a' },
+  { id: 2, name: 'Explosión', color: '#d9482b' },
+  { id: 3, name: 'Escape', color: '#8c8a86' },
 ];
 export const cyclePhi = (thetaDeg, i) => (((thetaDeg - FIRE_OFF[i]) % 720) + 720) % 720;
 export const phaseOf = phi => Math.floor(phi / 180) % 4;

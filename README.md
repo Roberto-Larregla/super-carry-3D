@@ -17,14 +17,16 @@ Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su
 | `src/van3d.js` | Chasis, suspensión, frenos, calefacción, combustible, escape, eléctrico e interior |
 | `src/engine3d.js` | Motor F10A completo |
 | `src/viewer3d.js` | Visor 3D (three.js): vistas, cortes, despiece, colores y selección |
+| `src/main.js` | Interfaz: panel con Sistemas, Piezas, Sensores y Datos, hoja deslizable en el celular y controles del visor |
 | `src/diagrams/` | Diagramas animados, mapa de sensores y mapa de precisión |
-| `index.template.html` | Página y estilos |
+| `src/styles/` | Estilos: `app.css` (interfaz, paleta crema, rojo teja, mostaza y petróleo) y `diagramas.css` |
+| `index.template.html` | Estructura de la página |
 | `build.mjs` | Arma el archivo único (JavaScript, tipografías y código fuente adentro) |
 | `tools/` | Pruebas y capturas con Playwright |
 
 ## Precisión
 
-Cada pieza tiene tres notas (ubicación, forma y medidas, datos) en `QUAL` dentro de `src/data.js`, que se muestran en la sección *Qué tan preciso es cada dato* y en el color **Precisión** del visor. La lista `NEEDS` dice qué fotos o medidas subirían la precisión.
+Cada pieza tiene tres notas (ubicación, forma y medidas, datos) en `QUAL` dentro de `src/data.js`, que se muestran en *Datos → Precisión* y en *Color → Precisión* del visor. La lista `NEEDS` dice qué fotos o medidas subirían la precisión.
 
 ## Licencias y fuentes
 

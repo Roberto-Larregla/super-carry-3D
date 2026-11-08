@@ -34,18 +34,18 @@ export const SRC = {
 };
 
 export const SYSTEMS = [
-  { id: 'motor',         name: 'Motor y distribución', short: 'Motor',        color: '#ff8a3d' },
-  { id: 'combustible',   name: 'Alimentación',         short: 'Alimentación', color: '#f2c94c' },
-  { id: 'electrico',     name: 'Encendido y eléctrico',short: 'Eléctrico',    color: '#a08cff' },
-  { id: 'refrigeracion', name: 'Refrigeración',        short: 'Refrigeración',color: '#3cc8e8' },
-  { id: 'lubricacion',   name: 'Lubricación',          short: 'Aceite',       color: '#d9a066' },
-  { id: 'escape',        name: 'Escape y emisiones',   short: 'Escape',       color: '#b9b3aa' },
-  { id: 'transmision',   name: 'Tren motriz',          short: 'Transmisión',  color: '#4fcf8f' },
-  { id: 'chasis',        name: 'Suspensión y dirección',short: 'Suspensión',  color: '#6f9cff' },
-  { id: 'frenos',        name: 'Frenos',               short: 'Frenos',       color: '#ff6b81' },
-  { id: 'carroceria',    name: 'Carrocería e interior',short: 'Carrocería',   color: '#c9d4d8' },
-  { id: 'calefaccion',   name: 'Calefacción y ventilación', short: 'Calefacción', color: '#b8d65a' },
-  { id: 'sensores',      name: 'Sensores e interruptores', short: 'Sensores', color: '#f45cd6' },
+  { id: 'motor',         name: 'Motor y distribución', short: 'Motor',        color: '#d9622b' },
+  { id: 'combustible',   name: 'Alimentación',         short: 'Alimentación', color: '#c99412' },
+  { id: 'electrico',     name: 'Encendido y eléctrico',short: 'Eléctrico',    color: '#6e5bd0' },
+  { id: 'refrigeracion', name: 'Refrigeración',        short: 'Refrigeración',color: '#1e8fb0' },
+  { id: 'lubricacion',   name: 'Lubricación',          short: 'Aceite',       color: '#9c6430' },
+  { id: 'escape',        name: 'Escape y emisiones',   short: 'Escape',       color: '#857d72' },
+  { id: 'transmision',   name: 'Tren motriz',          short: 'Transmisión',  color: '#2e9461' },
+  { id: 'chasis',        name: 'Suspensión y dirección',short: 'Suspensión',  color: '#3b66c4' },
+  { id: 'frenos',        name: 'Frenos',               short: 'Frenos',       color: '#d0394f' },
+  { id: 'carroceria',    name: 'Carrocería e interior',short: 'Carrocería',   color: '#5e7a86' },
+  { id: 'calefaccion',   name: 'Calefacción y ventilación', short: 'Calefacción', color: '#7a9a1e' },
+  { id: 'sensores',      name: 'Sensores e interruptores', short: 'Sensores', color: '#c02f9a' },
 ];
 export const SYS = Object.fromEntries(SYSTEMS.map(s => [s.id, s]));
 
@@ -498,8 +498,8 @@ Object.assign(PARTS, {
 
 export const SENSORS = Object.keys(PARTS).filter(id => PARTS[id].sensor).sort((a, b) => PARTS[a].sensor.n - PARTS[b].sensor.n);
 export const STATUS = {
-  activo: { label: 'Activo', color: '#4fcf8f' },
-  sin_uso: { label: 'Sin uso con el carburador actual', short: 'Sin uso', color: '#f2c94c' },
+  activo: { label: 'Activo', color: '#2e9461' },
+  sin_uso: { label: 'Sin uso con el carburador actual', short: 'Sin uso', color: '#c99412' },
 };
 
 // Ficha técnica completa por sistema

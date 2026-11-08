@@ -30,6 +30,8 @@ const fuente = gzipSync(Buffer.from(JSON.stringify({ version: VERSION, fecha: FE
 
 const out = readFileSync('index.template.html', 'utf8')
   .replace('/*FONTS*/', () => fontCSS)
+  .replace('/*APPCSS*/', () => readFileSync('src/styles/app.css', 'utf8'))
+  .replace('/*DIAGCSS*/', () => readFileSync('src/styles/diagramas.css', 'utf8'))
   .replace('<!--APP-->', () => `<script>\n${js}\n</script>`)
   .replace('<!--FUENTE-->', () => `<script type="application/gzip" id="codigo-fuente" data-formato="json+gzip+base64" data-version="${VERSION}">${fuente}</script>`)
   .replaceAll('{{VERSION}}', VERSION).replaceAll('{{FECHA}}', FECHA).replaceAll('{{SITIO}}', pkg.homepage || '');

@@ -29,7 +29,7 @@ const KINDS = {
   blue:   { c: '#2d5f9e', m: 0.45, r: 0.35 },
   brass:  { c: '#b8953a', m: 0.85, r: 0.35 },
   lead:   { c: '#2a2020', m: 0.0, r: 0.6 },
-  sensor: { c: '#f45cd6', m: 0.0, r: 0.5, e: '#f45cd6', ei: 0.7 },
+  sensor: { c: '#c02f9a', m: 0.0, r: 0.5, e: '#c02f9a', ei: 0.55 },
   // carrocería e interior
   paint:  { c: '#dfe2de', m: 0.02, r: 0.42, cc: 0.7, ccr: 0.12 },
   trim:   { c: '#1b1e20', m: 0.05, r: 0.62 },
@@ -61,8 +61,12 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   host.prepend(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#0c1113');
-  scene.fog = new THREE.Fog('#0c1113', 10, 22);
+  { // fondo de estudio: crema arriba, arena abajo (como una foto de catálogo)
+    const c = document.createElement('canvas'); c.width = 4; c.height = 256; const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, '#f6eee1'); g.addColorStop(0.55, '#efe4d2'); g.addColorStop(1, '#e2d4bd');
+    x.fillStyle = g; x.fillRect(0, 0, 4, 256);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = t; }
+  scene.fog = new THREE.Fog('#e9dcc7', 11, 24);
   const camera = new THREE.PerspectiveCamera(34, 1, 0.02, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.09;
@@ -79,10 +83,11 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   const under = new THREE.DirectionalLight('#ffd7a8', 0.4); under.position.set(0.5, -3, -1); scene.add(under);
 
   // piso
+  const floorShadows = [];
   const shadowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const g = x.createRadialGradient(64, 64, 4, 64, 64, 64); g.addColorStop(0, 'rgba(0,0,0,0.62)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
-  { const grid = new THREE.GridHelper(12, 48, '#22343a', '#172328'); grid.material.transparent = true; grid.material.opacity = 0.7; grid.position.set(-0.9, 0, 0); scene.add(grid);
+  { const grid = new THREE.GridHelper(12, 48, '#c9b89c', '#d9cbb2'); grid.material.transparent = true; grid.material.opacity = 0.75; grid.position.set(-0.9, 0, 0); scene.add(grid);
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 2.2), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
-    sh.rotation.x = -Math.PI / 2; sh.position.set(-0.85, 0.003, 0); scene.add(sh); }
+    sh.rotation.x = -Math.PI / 2; sh.position.set(-0.85, 0.003, 0); sh.userData.shadow = 1; scene.add(sh); floorShadows.push(sh); }
 
   // ——— geometría ———
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -97,6 +102,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   }
 
   const sysColor = id => new THREE.Color(SYS[PARTS[id]?.sys]?.color || '#ffffff');
+  const GHOST = new THREE.Color('#fffaf0');
   const qcache = {}; const qcol = id => (qcache[id] ||= new THREE.Color(QLEV[qual3d(id)].color));
   function makeMat(part, kind, o = {}) {
     const k = KINDS[kind] || KINDS.steel;
@@ -149,6 +155,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
   const ctx = { V, rbox, cylX, cylY, cylZ, tube, helix, add, group, reg, regMesh, makeMat, lite: false, mode: 'van', exk: 1, world: W,
     setLevel: l => { level = l; }, clipAll: m => { m.clippingPlanes = [clip.all]; } };
   const VAN = buildVan(ctx); W.anim = VAN;
+  VAN.ground && VAN.ground.traverse(o => { if (o.userData.shadow && o !== VAN.ground) floorShadows.push(o); });
   mergeStatic();
   for (const m of W.meshes) if (m.userData.eng) m.material.clippingPlanes = [m.material.userData.casing ? clip.casing : clip.all];
   W.explodables.forEach(o => o.userData.base.copy(o.position));
@@ -229,6 +236,8 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
         else if (ud.casing && xray) op = Math.min(op, isEng ? 0.14 : 0.22);
         if (isEng && state.cut === 'long' && ud.side === 'ex') op = Math.min(op, 0.06);
       }
+      // sobre el fondo claro, lo atenuado se vuelve un fantasma claro (si no, las capas oscuras forman una mancha)
+      if (op < 0.13 && !isSel && !(ud.casing && xray)) m.material.color.lerp(GHOST, 0.78);
       const tr = op < 1;
       if (m.material.transparent !== tr) m.material.needsUpdate = true;
       m.material.opacity = op; m.material.transparent = tr; m.material.depthWrite = !tr;
@@ -240,6 +249,8 @@ export function createViewer(host, { labelLayer, onSelect, onTick }) {
       else { m.material.emissive.setRGB(0, 0, 0); m.material.emissiveIntensity = 0; }
     }
     VAN.setLines(bodyMode, focusBody);
+    // la sombra del piso sólo tiene sentido con la carrocería sólida; en rayos X se ve como una mancha
+    { const k = bodyMode === 'solid' && !isEng ? 1 : 0.15; for (const o of floorShadows) o.material.opacity = o.userData.shadow * k; }
     const showIn = isEng ? state.cut !== 'none' : !!xray;
     VAN.engine.A.sparks.forEach(s => s.visible = showIn);
     VAN.engine.A.gas.forEach(g => g.visible = isEng && state.cut !== 'none' && state.exEng < 0.04);

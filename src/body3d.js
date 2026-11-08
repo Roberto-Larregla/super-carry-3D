@@ -353,8 +353,8 @@ export function buildBody(ctx) {
     // pliegue de la cara delantera bajo el parabrisas
     const xc = xFront(1.09) + 0.0015; seamPts.push(V(xc, 1.09, -0.60), V(xc, 1.09, 0.60));
   }
-  const outline = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(outlinePts), new THREE.LineBasicMaterial({ color: '#9fc6d2', transparent: true, opacity: 0.42 }));
-  const seams = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seamPts), new THREE.LineBasicMaterial({ color: '#c3dbe2', transparent: true, opacity: 0.38 }));
+  const outline = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(outlinePts), new THREE.LineBasicMaterial({ color: '#1f5f6b', transparent: true, opacity: 0.5 }));
+  const seams = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seamPts), new THREE.LineBasicMaterial({ color: '#2f6f7b', transparent: true, opacity: 0.38 }));
   body.add(outline, seams);
   outline.userData.noBox = seams.userData.noBox = true;
 

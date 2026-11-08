@@ -73,5 +73,5 @@ export function qualityTable(host, { onPick } = {}) {
 export function qualityCardHTML(id) {
   const lv = qualOf(id);
   const needs = NEEDS.filter(nd => nd.parts.includes(id));
-  return `<div class="qcard"><h4>Precisión de esta pieza</h4><dl class="kv">${lv.map((k, a) => `<div><dt>${QASP[a]}</dt><dd><span class="qpill" style="--q:${QLEV[k].color}"><i></i>${QLEV[k].short}</span> <span class="muted">${QLEV[k].label}</span></dd></div>`).join('')}</dl>${needs.length ? `<p class="muted">La mejoraría: ${needs.map(n => n.label.charAt(0).toLowerCase() + n.label.slice(1)).join('; ')}.</p>` : ''}</div>`;
+  return `<div class="qcard"><h4>Precisión de esta pieza</h4><dl class="kv">${lv.map((k, a) => `<div><dt>${QASP[a]}</dt><dd><span class="qpill" style="--q:${QLEV[k].color}"><i></i>${QLEV[k].label}</span></dd></div>`).join('')}</dl>${needs.length ? `<p class="muted">La mejoraría: ${needs.map(n => n.label.charAt(0).toLowerCase() + n.label.slice(1)).join('; ')}.</p>` : ''}</div>`;
 }

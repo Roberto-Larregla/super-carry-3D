@@ -1,7 +1,7 @@
 import { s, svg, t, callout, clamp, lerp, h, range, seg, button, readout } from '../svgkit.js';
 import { GEARS, REV, FINAL, TIRES, kmh } from '../data.js';
 
-const SERIES = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181']; // validado para fondo oscuro
+const SERIES = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4']; // validado para fondo claro (con leyenda y tabla)
 const fmt1 = v => v.toFixed(1).replace('.', ',');
 const fmt2 = v => v.toFixed(2).replace('.', ',');
 
