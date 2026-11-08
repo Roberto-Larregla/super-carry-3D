@@ -2,8 +2,9 @@
 // Caja de dos mitades unidas al centro, del tablero al piso y algo corrida hacia el copiloto: arriba y adelante el ventilador
 // de jaula (motor al lado conductor), al medio el radiador de calefacción y abajo una cámara con salidas a los pies por ambos
 // costados y hacia la cabina. Del costado izquierdo salen el tubo blanco al desempañador del conductor y el ducto de la rejilla
-// del extremo izquierdo; al derecho va la caja de admisión, con la rejilla de recirculación (esponja detrás) y el ducto que
-// trae el aire de afuera desde una caja al pie del pilar delantero derecho. Cotas internas y ductos ocultos: aproximados.
+// del extremo izquierdo; al derecho, el tubo rígido y la manguera corrugada de la rejilla del extremo derecho, y la caja de
+// admisión con la rejilla de recirculación (esponja detrás), que baja hasta la esquina del piso, por donde entra el aire de
+// afuera. Cotas internas y ductos ocultos: aproximados.
 import * as THREE from 'three';
 import { heatSolve, MODES, tempColor } from './heatersim.js';
 
@@ -103,9 +104,9 @@ export function buildHeater(ctx, { hOut, wpIn }) {
 
   // ════════ RADIADOR DE CALEFACCIÓN (manual, pieza 3) y tubos a la llave ════════
   const core = new THREE.Group(); core.position.set(0.478, 0.695, ZH); core.rotation.z = 0.18; root.add(core);
-  A('calef_radiador', rbox(0.11, 0.032, 0.19, 0.003), 'copper', { parent: core });
-  for (let k = 0; k < 14; k++) A('calef_radiador', rbox(0.004, 0.034, 0.19, 0.0008), 'brass', { parent: core, p: [-0.05 + k * 0.0077, 0, 0] });
-  for (const x of [-0.062, 0.062]) A('calef_radiador', rbox(0.016, 0.04, 0.2, 0.004), 'alu', { parent: core, p: [x, 0, 0] });   // tanques
+  A('calef_radiador', rbox(0.11, 0.032, 0.17, 0.003), 'copper', { parent: core, p: [0, 0, -0.01] });
+  for (let k = 0; k < 14; k++) A('calef_radiador', rbox(0.004, 0.034, 0.17, 0.0008), 'brass', { parent: core, p: [-0.05 + k * 0.0077, 0, -0.01] });
+  for (const x of [-0.062, 0.062]) A('calef_radiador', rbox(0.016, 0.04, 0.18, 0.004), 'alu', { parent: core, p: [x, 0, -0.01] });   // tanques
   core.updateMatrixWorld(true);
   const tankF = core.localToWorld(V(0.062, -0.02, 0));
   const PIN = 0.075, POUT = 0.025, XP = 0.588;
@@ -138,15 +139,15 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   // caja con la rejilla cuadrada de recirculación y una esponja detrás, pegada al costado derecho de la caja
   const ZR = ZH + LC.zw + 0.004;                             // cara derecha de la cámara baja
   const GB = V(0.53, 0.74, ZR + 0.0375);                     // centro de la caja de la rejilla
-  A('calef_admision', rbox(0.11, 0.15, 0.075, 0.014), 'plastic', { p: GB.toArray(), cut: 'xray', double: true });
+  const gbox = dyn(A('calef_admision', rbox(0.11, 0.15, 0.075, 0.014), 'plastic', { p: GB.toArray(), cut: 'xray', double: true }));
   A('calef_admision', rbox(0.088, 0.122, 0.004, 0.002), 'foam', { p: [GB.x, GB.y, GB.z + 0.0395] });            // esponja
   for (let k = 0; k <= 4; k++) A('calef_admision', rbox(0.004, 0.128, 0.006, 0.001), 'dark', { p: [GB.x - 0.044 + k * 0.022, GB.y, GB.z + 0.043] });
   for (let k = 0; k <= 5; k++) A('calef_admision', rbox(0.092, 0.004, 0.006, 0.001), 'dark', { p: [GB.x, GB.y - 0.062 + k * 0.0248, GB.z + 0.043] });
   A('calef_admision', rbox(0.1, 0.012, 0.012, 0.004), 'dark', { p: [GB.x, GB.y - 0.07, GB.z + 0.04] });             // borde de abajo de la rejilla
   A('calef_admision', rbox(0.11, 0.115, 0.022, 0.012), 'plastic', { p: [0.51, 0.795, ZH + ZW + 0.011] });         // boca hacia el ventilador
-  // parte baja: cámara bajo la rejilla, que baja hasta la esquina del piso, adelante
+  // parte baja: cámara bajo la rejilla que baja hasta la esquina del piso, adelante; por abajo entra el aire de afuera (dueño; por fuera no se nota)
   A('calef_admision', rbox(0.115, 0.1, 0.075, 0.012), 'plastic', { p: [0.528, 0.615, GB.z], cut: 'xray', double: true });
-  A('calef_admision', rbox(0.06, 0.13, 0.07, 0.012), 'plastic', { p: [0.59, 0.515, GB.z], r: [0, 0, 0.33] });
+  const lowIn = dyn(A('calef_admision', rbox(0.06, 0.13, 0.07, 0.012), 'plastic', { p: [0.59, 0.515, GB.z], r: [0, 0, 0.33], cut: 'xray', double: true }));
   A('calef_admision', rbox(0.006, 0.03, 0.085, 0.003), 'dark', { p: [0.617, 0.468, GB.z] });                        // pestaña atornillada
   for (const dz of [-0.03, 0.03]) A('calef_admision', cylX(0.005, 0.008, 8), 'steel', { p: [0.614, 0.468, GB.z + dz] });
   // compuerta exterior/recirculación (bisagra abajo, junto a la rejilla) y su palanca con cable
@@ -155,19 +156,6 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   const rlever = group('calef_admision', root, [0.588, 0.705, GB.z + 0.012], EXV.calef_admision);
   A('calef_admision', rbox(0.004, 0.05, 0.01, 0.002), 'steel', { parent: rlever, p: [0, 0.02, 0], ex: null });
   A('calef_admision', rbox(0.012, 0.03, 0.03, 0.004), 'ceramic', { p: [0.596, 0.79, GB.z + 0.02] });             // grapa del cable (foto)
-  // tubo rígido por el costado de la caja: une la parte baja de la admisión con la manguera corrugada
-  A('calef_admision', rbox(0.07, 0.05, 0.06, 0.01), 'plastic', { p: [0.462, 0.58, 0.182] });                       // codo de abajo
-  { const C0 = 0.444, pts = [[0.44, 0.585, 0.186], [0.441, 0.65, 0.204], [0.443, 0.75, 0.215], [0.446, 0.83, 0.211], [0.448, 0.872, 0.206]];
-    A('calef_admision', tube(pts.map(([x, y, z]) => [x - C0, y, z]), 0.029, false, 40), 'plastic', { p: [C0, 0, 0], s: [1.3, 1, 1] }); }
-  A('calef_admision', tube([[0.447, 0.86, 0.206], [0.45, 0.895, 0.212], [0.455, 0.905, 0.235], [0.458, 0.905, 0.252]], 0.032, false, 16), 'plastic');   // codo de arriba
-  // manguera corrugada hasta la caja negra del pie del pilar derecho, por donde entra el aire de afuera (dueño)
-  corrugated('calef_admision', [[0.457, 0.905, 0.25], [0.47, 0.894, 0.31], [0.505, 0.886, 0.40], [0.545, 0.887, 0.465], [0.575, 0.889, 0.50]], 0.03, 'rubber', 'dark');
-  const IBX = V(0.588, 0.872, 0.555);
-  const ibox = dyn(A('calef_admision', rbox(0.062, 0.115, 0.1, 0.022), 'plastic', { p: IBX.toArray(), cut: 'xray', double: true }));
-  A('calef_admision', rbox(0.01, 0.055, 0.055, 0.008), 'dark', { p: [IBX.x - 0.031, IBX.y - 0.012, IBX.z + 0.012] });
-  A('calef_admision', rbox(0.004, 0.13, 0.115, 0.004), 'plastic', { p: [0.621, IBX.y, IBX.z] });                   // pestaña contra la carrocería
-  for (const [dy, dz] of [[-0.05, 0.045], [0.05, -0.045]]) A('calef_admision', cylX(0.005, 0.008, 8), 'steel', { p: [0.618, IBX.y + dy, IBX.z + dz] });
-  A('calef_admision', tube([[0.572, 0.889, 0.497], [0.578, 0.889, 0.51]], 0.033, false, 4), 'plastic');
   H.flap = flap; H.levers.recirc = rlever;
 
   // ════════ DUCTOS Y SALIDAS ════════
@@ -184,7 +172,14 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     A('calef_ductos', g, 'plastic', { double: true }); }
   A('calef_ductos', rbox(0.05, 0.04, 0.40, 0.012), 'plastic', { p: [0.42, 0.958, ZC] });
   for (const z of VENTS.slice(0, 2)) A('calef_ductos', tube([[0.415, 0.965, z * 0.8], [0.398, 1.015, z], [0.385, 1.047, z]], 0.018), 'plastic');
-  A('calef_ductos', tube([[0.43, 0.962, 0.15], [0.43, 0.975, 0.30], [0.415, 1.005, 0.46], [0.395, 1.035, 0.56], [0.385, 1.047, 0.585]], 0.02), 'plastic');   // al extremo derecho, por dentro del tablero
+  // al extremo derecho: tubo rígido que sube por el costado derecho de la caja desde arriba de la salida a los pies (el dueño cree
+  // que sale de la caja) y manguera corrugada que pasa sobre la caja del foco y sube por dentro del tablero (fotos y dueño)
+  A('calefactor', rbox(0.06, 0.05, 0.06, 0.01), 'plastic', { p: [0.445, 0.582, 0.17] });                           // boca baja del costado derecho
+  { const C0 = 0.444, pts = [[0.44, 0.585, 0.186], [0.441, 0.65, 0.204], [0.443, 0.75, 0.215], [0.446, 0.83, 0.211], [0.448, 0.872, 0.206]];
+    A('calef_ductos', tube(pts.map(([x, y, z]) => [x - C0, y, z]), 0.029, false, 40), 'plastic', { p: [C0, 0, 0], s: [1.3, 1, 1] }); }
+  A('calef_ductos', tube([[0.447, 0.86, 0.206], [0.45, 0.895, 0.212], [0.455, 0.905, 0.235], [0.458, 0.905, 0.252]], 0.032, false, 16), 'plastic');   // codo de arriba
+  const RV = [[0.457, 0.905, 0.25], [0.47, 0.895, 0.32], [0.503, 0.895, 0.40], [0.52, 0.925, 0.46], [0.53, 0.975, 0.52], [0.47, 1.02, 0.565], [0.40, 1.042, 0.585], [0.388, 1.047, 0.585]];
+  corrugated('calef_ductos', RV, 0.03, 'rubber', 'dark');
   // al extremo izquierdo: ducto negro que sale del costado izquierdo, sobre el motor del ventilador, y sigue corrugado (dueño)
   const L0 = V(0.447, 0.918, -0.16), L1 = V(0.472, 0.962, -0.25);
   bar('calef_ductos', L0, L1, 0.065, 0.035, 'plastic');
@@ -234,15 +229,14 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   const UP = [throat, [0.41, 0.78, ZH], [0.405, 0.85, ZH], [0.41, 0.905, ZH - 0.02], [0.42, 0.93, -0.01]];
   const out = z => [[0.372, 1.047, z], [0.24, 1.05, z]];
   const AIR = {
-    exterior: curve([[0.70, 0.885, 0.57], [0.62, 0.875, 0.56], IBX, [0.575, 0.889, 0.50], [0.545, 0.887, 0.465], [0.505, 0.886, 0.40], [0.47, 0.894, 0.31], [0.457, 0.905, 0.25], [0.45, 0.893, 0.21],
-      [0.446, 0.83, 0.211], [0.443, 0.75, 0.215], [0.441, 0.65, 0.204], [0.442, 0.588, 0.186], [0.475, 0.585, 0.18], [0.522, 0.615, GB.z], [0.53, 0.70, GB.z]]),
+    exterior: curve([[0.70, 0.36, 0.22], [0.645, 0.43, 0.205], [0.612, 0.47, GB.z], [0.59, 0.515, GB.z], [0.566, 0.578, GB.z], [0.53, 0.62, GB.z], [0.53, 0.70, GB.z]]),
     recirc: curve([[0.25, 0.74, 0.42], [0.36, 0.74, 0.34], [0.46, 0.742, 0.27], [GB.x, GB.y, GB.z + 0.045], [GB.x, 0.722, GB.z]]),
     ducto: curve([[0.53, 0.70, GB.z], [0.522, 0.775, GB.z - 0.012], [0.505, 0.805, ZH + ZW + 0.012], [S.x, S.y, ZH + 0.05], [S.x + 0.03, S.y + 0.045, ZH], [S.x - 0.01, S.y + 0.062, ZH], [S.x - 0.055, S.y + 0.03, ZH], [S.x - 0.06, S.y - 0.03, ZH], throat]),
     nucleo: curve([throat, [0.44, 0.73, ZH], [0.465, 0.70, ZH], [0.48, 0.67, ZH], [0.477, 0.625, ZH], LCC]),
     cara0: curve([...UP, [0.42, 0.955, -0.10], [0.405, 1.0, VENTS[0]], [0.388, 1.04, VENTS[0]], ...out(VENTS[0])]),
     cara1: curve([...UP, [0.42, 0.955, 0.05], [0.405, 1.0, VENTS[1]], [0.388, 1.04, VENTS[1]], ...out(VENTS[1])]),
     cara2: curve([...UP, [0.43, 0.925, -0.12], L0, L1, [0.468, 0.988, -0.33], [0.44, 1.012, -0.45], [0.405, 1.036, -0.545], [0.389, 1.047, -0.58], ...out(-0.585)]),
-    cara3: curve([...UP, [0.42, 0.955, 0.10], [0.43, 0.964, 0.16], [0.43, 0.975, 0.30], [0.415, 1.005, 0.46], [0.395, 1.035, 0.56], [0.385, 1.047, 0.58], ...out(0.585)]),
+    cara3: curve([throat, [0.424, 0.735, ZH + 0.05], [0.43, 0.68, ZH + ZW - 0.006], [0.437, 0.615, ZH + ZW - 0.006], [0.44, 0.588, 0.15], [0.44, 0.60, 0.19], [0.441, 0.65, 0.204], [0.443, 0.75, 0.215], [0.446, 0.83, 0.211], [0.45, 0.893, 0.21], ...RV.slice(0, -1), ...out(0.585)]),
     piesI: curve([LCC, [0.46, 0.55, ZH - 0.05], [0.45, 0.522, ZH - 0.09], [0.44, 0.515, ZH - 0.14], [0.40, 0.50, -0.25], [0.34, 0.49, -0.36]]),
     piesD: curve([LCC, [0.45, 0.55, ZH + 0.05], [0.445, 0.522, ZH + 0.09], [0.43, 0.515, ZH + 0.15], [0.38, 0.50, 0.28], [0.31, 0.49, 0.38]]),
     piesC: curve([LCC, [0.43, 0.55, ZH], [0.40, 0.522, ZH + 0.03], [0.36, 0.515, ZH + 0.04], [0.26, 0.50, ZH + 0.05]]),
@@ -374,6 +368,6 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     set(o) { Object.assign(st, o); const r = recompute(); animate(0); return r; },
     get state() { return st; },
     get result() { return st.last; },
-    groups: { caja: [core, fan, dFace], mandos: [fanKnob, knobs.mode, knobs.temp], admision: [flap, rlever, ibox] },
+    groups: { caja: [core, fan, dFace], mandos: [fanKnob, knobs.mode, knobs.temp], admision: [flap, rlever, gbox, lowIn] },
   };
 }

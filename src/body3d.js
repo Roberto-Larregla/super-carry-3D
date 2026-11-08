@@ -399,6 +399,13 @@ export function buildBody(ctx) {
     B(rbox(0.012, 0.118, 0.182, 0.014), 'chrome', 'lamp', { part: 'luces', p: [fx(yc) + 0.004, yc, zc], r: [0, 0, lean] });
     B(cylX(0.016, 0.02, 14), 'lamp', 'lamp', { part: 'luces', p: [fx(yc) + 0.010, yc, zc] });
     B(rbox(0.008, 0.129, 0.194, 0.018), 'lens', 'glass', { part: 'luces', p: [fx(yc) + 0.014, yc, zc], r: [0, 0, lean] });
+    // por dentro: la parte de atrás del foco asoma en el rincón bajo el tablero, con su cable (foto del lado copiloto)
+    const hx = fx(yc) - 0.006, hy = yc + 0.01;
+    B(rbox(0.062, 0.104, 0.165, 0.03), 'trim', 'int', { part: 'luces', p: [hx - 0.031, hy, zc] });
+    B(rbox(0.006, 0.05, 0.075, 0.012), 'dark', 'int', { part: 'luces', p: [hx - 0.062, hy - 0.01, zc + s * 0.02] });
+    B(rbox(0.02, 0.01, 0.15, 0.004), 'trim', 'int', { part: 'luces', p: [hx - 0.01, hy - 0.056, zc] });
+    for (const dz of [-0.06, 0.06]) B(cylY(0.005, 0.008, 8), 'chrome', 'int', { part: 'luces', p: [hx - 0.012, hy - 0.05, zc + dz] });
+    B(tube([[hx - 0.035, hy + 0.05, zc - s * 0.07], [hx - 0.048, hy + 0.068, zc - s * 0.01], [hx - 0.046, hy + 0.045, zc + s * 0.05], [hx - 0.02, hy - 0.02, zc + s * 0.085]], 0.0022), 'white', 'int', { part: 'luces' });
   }
   function placeFront(geo, yc) { // la forma está en x = 0; se recuesta como la cara delantera alrededor de y = yc
     geo.translate(0, -yc, 0); geo.rotateZ(lean); geo.translate(fx(yc) - 0.002, yc, 0);
