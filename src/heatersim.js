@@ -2,6 +2,7 @@
 // Tipo agua caliente (manual secc. 7): la palanca COOL–HOT abre por cable la llave de agua del radiador de calefacción;
 // el ventilador tiene 3 velocidades (1 y 2 por la resistencia, 3 con 12 V directos). En este furgón el aire que pasa
 // por el radiador sale a los pies (y al parabrisas) y las rejillas de arriba reciben aire que no pasa por él (dueño).
+// En modo parabrisas casi no sale aire por el vidrio (dueño): se puede simular con la falla de la compuerta.
 // Temperaturas, caudales y potencias son valores típicos para mostrar proporciones.
 
 export const HK = {
@@ -24,6 +25,7 @@ export const HFAILS = {
   llave: { name: 'Llave de agua trabada' },
   resistencia: { name: 'Resistencia cortada' },
   radiador: { name: 'Radiador de calefacción tapado' },
+  desempanador: { name: 'Compuerta del parabrisas desajustada' },
 };
 
 export function heatSolve({ mode = 'pies', recirc = true, temp = 1, fan = 2, engine = 'caliente', fail = 'ok', on = true }) {
@@ -38,16 +40,18 @@ export function heatSolve({ mode = 'pies', recirc = true, temp = 1, fan = 2, eng
   const waterFlow = on ? valve * (fail === 'radiador' ? 0.35 : 1) : 0;
   const Thot = Tin + eps * Math.max(0, Tw - Tin);
   const flowCore = Q * M.core, flowFace = Q * (1 - M.core);
+  // con la compuerta desajustada no llega a la posición del parabrisas: casi todo sigue saliendo a los pies
+  const def = fail === 'desempanador' ? Math.min(M.def, 0.08) : M.def, foot = M.foot + (M.def - def);
   const out = {
     cara: flowFace > 0.001 ? Tin + 0.6 * Q : null,
-    pies: flowCore * M.foot > 0.001 ? Thot : null,
-    vidrio: flowCore * M.def > 0.001 ? Thot : null,
+    pies: flowCore * foot > 0.001 ? Thot : null,
+    vidrio: flowCore * def > 0.001 ? Thot : null,
   };
-  const flows = { cara: flowFace, pies: flowCore * M.foot, vidrio: flowCore * M.def };
+  const flows = { cara: flowFace, pies: flowCore * foot, vidrio: flowCore * def };
   const kW = (Q * HK.qMax / 3600) * 1.2 * 1.005 * M.core * Math.max(0, Thot - Tin);
   const Tret = waterFlow > 0.01 ? Tw - Math.min(14, kW * 4.5 / Math.max(0.15, waterFlow)) : Tw;
   return { mode, recirc, temp, fan, fanEff, engine, fail, on, Tw, Tret, valve, waterFlow, Q, m3h: Q * HK.qMax, Tin, Thot, eps, out, flows, kW,
-    exhaust: !recirc && Q > 0, resistorOn: fanEff === 1 || fanEff === 2 };
+    resistorOn: fanEff === 1 || fanEff === 2 };
 }
 
 // color de una temperatura: azul frío → crema → rojo caliente (en hex)

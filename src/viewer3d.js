@@ -51,6 +51,10 @@ const KINDS = {
   fluid:  { c: '#d9ad55', m: 0.0, r: 0.25, e: '#7a5212', ei: 0.3 },
   resv:   { c: '#f1ece0', m: 0.0, r: 0.3 },
   hose2:  { c: '#5a524b', m: 0.0, r: 0.75 },
+  // calefacción
+  beige:  { c: '#cbbf9f', m: 0.0, r: 0.85 },
+  beigeD: { c: '#a3977a', m: 0.0, r: 0.9 },
+  foam:   { c: '#bba47a', m: 0.0, r: 0.98 },
 };
 const NOTINT = new Set(['water', 'oil', 'sensor', 'fluid']);
 const BODYKINDS = new Set(['paint', 'trim', 'glass', 'tint', 'rim', 'floorp', 'felt', 'seat', 'tire', 'shade', 'lens', 'machined', 'bar', 'mat', 'dash']);
@@ -292,7 +296,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       W.allBox.expandByObject(o);
       if (o.userData.eng) W.engBox.expandByObject(o);
       if (o.userData.brk && o.visible) W.brkBox.expandByObject(o);
-      if (o.userData.cal && o.visible && o.userData.part !== 'calef_mangueras' && o.userData.part !== 'calef_extractor') W.calBox.expandByObject(o);
+      if (o.userData.cal && o.visible && o.userData.part !== 'calef_mangueras') W.calBox.expandByObject(o);
     });
     W.partBoxes.carroceria = W.allBox.clone(); W.anchors.carroceria = V(-0.9, 1.8 + state.exVan * 1.25, 0.7);
   }
