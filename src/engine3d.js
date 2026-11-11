@@ -186,7 +186,9 @@ export function buildEngine(ctx, parent) {
     MAINS.forEach(([x]) => { for (const s of [1, -1]) P('culata', cylY(0.0075, 0.007, 6), 'chrome', { p: [x, HEAD_TOP + 0.0035, s * 0.056] }); });
   }
   const cvr = P('tapa_valvulas', rbox(0.36, 0.036, 0.134, 0.012), 'alu', { p: [-0.188, HEAD_TOP + 0.018, 0], casing: true, double: true });
-  P('tapa_valvulas', cylY(0.017, 0.012, 24), 'dark', { p: [-0.06, HEAD_TOP + 0.042, 0.026] });
+  P('tapa_valvulas', cylY(0.025, 0.014, 28), 'dark', { p: [-0.235, HEAD_TOP + 0.043, 0.03] });                         // tapa de llenado de aceite: en la mitad de atrás, hacia el lado de arriba (foto)
+  P('tapa_valvulas', cylY(0.019, 0.006, 8), 'dark', { p: [-0.235, HEAD_TOP + 0.052, 0.03] });
+  P('tapa_valvulas', tube([[-0.15, HEAD_TOP + 0.036, 0.0], [-0.15, HEAD_TOP + 0.06, 0.008], [-0.125, HEAD_TOP + 0.078, 0.03], [-0.09, HEAD_TOP + 0.085, 0.07]], 0.008, false, 20), 'alu');   // codo del respiradero (foto)
   if (!lite) {
     for (const zz of [-0.035, 0, 0.035]) P('tapa_valvulas', rbox(0.3, 0.004, 0.006, 0.002), 'alu', { p: [-0.2, HEAD_TOP + 0.037, zz], casing: true });
     P('tapa_valvulas', cylZ(0.006, 0.02, 12), 'alu', { p: [-0.26, HEAD_TOP + 0.024, 0.073] });
@@ -371,8 +373,13 @@ export function buildEngine(ctx, parent) {
     orientY(P('filtro_aceite', cylY(0.024, 0.026, 20), 'alu', { p: M.clone().addScaledVector(dn, -0.002).toArray() }), UP.toArray());
     orientY(P('filtro_aceite', cylY(0.036, 0.072, 28), 'blue', { p: M.clone().addScaledVector(dn, 0.012 + 0.036).toArray() }), UP.toArray());
     if (!lite) for (let k = 0; k < 5; k++) orientY(P('filtro_aceite', cylY(0.0367, 0.002, 28), 'blue', { p: M.clone().addScaledVector(dn, 0.024 + k * 0.012).toArray() }), UP.toArray()); }
-  P('varilla', tube([[-0.29, 0.0, 0.086], [-0.29, 0.0 + UP.y * 0.16, 0.086 + UP.z * 0.16], [-0.29, 0.0 + UP.y * 0.3, 0.086 + UP.z * 0.3]], 0.004), 'steel', {});
-  { const hd = P('varilla', new THREE.TorusGeometry(0.012, 0.0035, 8, 20), 'amber', { p: [-0.29, UP.y * 0.315, 0.086 + UP.z * 0.315] }); hd.rotation.y = Math.PI / 2; }
+  // varilla del aceite: se mide levantando el asiento del conductor, atrás, cerca de la tapa de llenado (dueño). El tubo sale
+  // del costado bajo del block, detrás del 4.º cilindro, y sube pegado a la culata (recorrido aproximado).
+  { const WLEFT = V(0, UP.z, -UP.y), b = V(-0.385, 0.035, -0.058);
+    const m1 = b.clone().addScaledVector(UP, 0.12).addScaledVector(WLEFT, 0.06), m2 = b.clone().addScaledVector(UP, 0.25).addScaledVector(WLEFT, 0.16), tp = b.clone().addScaledVector(UP, 0.37).addScaledVector(WLEFT, 0.2);
+    P('varilla', tube([b, m1, m2, tp], 0.0045, false, 40), 'steel', {});
+    P('varilla', cylY(0.007, 0.014, 10), 'steel', { p: b.toArray() });
+    const hd = P('varilla', new THREE.TorusGeometry(0.013, 0.0038, 8, 20), 'amber', { p: tp.clone().addScaledVector(UP, 0.014).toArray() }); hd.rotation.y = Math.PI / 2; hd.rotation.x = -TILT; }
 
   // ════════ ADMISIÓN, TERMOSTATO Y CARBURADOR ════════
   const XPL = -0.19, PLEN = V(XPL, 0.285, 0.195);
@@ -414,22 +421,8 @@ export function buildEngine(ctx, parent) {
   const carbG = group('carburador', parent, PLEN.clone().addScaledVector(WZ, 0.058).toArray(), ex('carburador'));
   carbG.rotation.x = -TILT; // ejes del grupo = ejes del furgón; el venturi apunta a la derecha (+z)
   const cb = (geo, kind, p, o = {}) => add('carburador', geo, kind, { parent: carbG, p, ex: null, ...o });
-  cb(rbox(0.062, 0.062, 0.008, 0.003), 'dark', [0, 0, 0.004]);
-  cb(rbox(0.056, 0.05, 0.064, 0.008), 'alu', [0, 0.002, 0.04]);
-  cb(cylZ(0.0175, 0.003, 24), 'dark', [0, 0.002, 0.0735]);
-  cb(rbox(0.052, 0.036, 0.05, 0.006), 'alu', [0, -0.04, 0.044]);
-  cb(cylX(0.0035, 0.072, 10), 'chrome', [0, 0.002, 0.017]);
-  cb(rbox(0.004, 0.034, 0.012, 0.0015), 'steel', [0.037, 0.014, 0.017], { r: [0.45, 0, 0] });
-  cb(cylX(0.009, 0.026, 12), 'dark', [-0.037, -0.046, 0.04]);
-  cb(cylX(0.0035, 0.016, 8), 'chrome', [0.033, -0.036, 0.03]);
-  if (!lite) {
-    cb(rbox(0.054, 0.004, 0.052, 0.001), 'steel', [0, -0.0215, 0.044]);
-    cb(cylX(0.014, 0.008, 18), 'alu', [-0.032, -0.008, 0.052]);
-    cb(cylX(0.012, 0.012, 16), 'dark', [0.034, 0.02, 0.06]);
-    cb(cylX(0.003, 0.012, 8), 'chrome', [0.033, -0.036, 0.056]);
-    cb(cylY(0.0025, 0.012, 8), 'chrome', [0.012, 0.032, 0.022]);
-  }
-  cb(tube([[0, 0.002, 0.066], [0, 0.002, 0.094]], 0.024), 'plastic');                    // boca del carburador
+  // el cuerpo, la cuba, las mariposas y los surtidores se arman en fuel3d.js (vista Alimentación)
+  cb(tube([[0, 0.002, 0.07], [0, 0.002, 0.094]], 0.024), 'plastic', [0, 0, 0], { cut: 'carb', double: true });                    // boca del carburador
   // filtro de aire de este furgón (foto bajo el asiento del copiloto): cilindro negro horizontal con abrazadera,
   // montado de costado en la boca del carburador y apuntando hacia el lado derecho
   const afG = group('filtro_aire', carbG, [0, 0.004, 0], [0, 0.05 * exk, 0.2 * exk]);
@@ -578,5 +571,5 @@ export function buildEngine(ctx, parent) {
     collA: V(XA, 0.079, ZA), collB: V(XB2, 0.079, ZB), distCenter: dPt(0, 0.15, 0), distAxis: DAX.clone(),
   };
   function setTilt(on) { if (oilMesh) { oilMesh.geometry.dispose(); oilMesh.geometry = oilGeo(on ? oilTilt : oilUp); } }
-  return { update, A, pts, setTilt };
+  return { update, A, pts, setTilt, carbG };
 }

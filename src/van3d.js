@@ -8,6 +8,7 @@ import { buildBody, buildWheel, BODY, sideSheet, onSide, FUEL_LID } from './body
 import { PARTS } from './data.js';
 import { buildBrakes, hangingPedal } from './brakes3d.js';
 import { buildHeater } from './heater3d.js';
+import { buildFuel } from './fuel3d.js';
 
 const EXV = {
   carroceria: [0, 1.25, 0], asientos: [0, 0.9, 0], interior: [0, 0.55, 0], radiador: [0.32, 0.05, 0], deposito: [0.32, 0.15, 0.12], calefactor: [0.35, 0.35, 0],
@@ -39,8 +40,8 @@ export function buildVan(ctx) {
   // ════════ INTERIOR: asientos, piso de carga, cajas de rueda, forros y tablero ════════
   const I = (geo, kind, p, o = {}) => A(o.part || 'interior', geo, kind, { p, body: o.part === 'asientos' ? 'seat' : 'int', ex: 'ex' in o ? o.ex : EXV[o.part || 'interior'], ...o });
   for (const s of [1, -1]) {
-    I(rbox(0.46, 0.10, 0.44, 0.045), 'seat', [-0.29, 0.845, s * 0.33], { part: 'asientos' });
-    I(rbox(0.40, 0.035, 0.40, 0.01), 'trim', [-0.29, 0.79, s * 0.33], { part: 'asientos' });
+    I(rbox(0.50, 0.10, 0.44, 0.045), 'seat', [-0.20, 0.845, s * 0.33], { part: 'asientos' });      // el cojín llega al frente de la caja (foto con la puerta abierta)
+    I(rbox(0.44, 0.035, 0.40, 0.01), 'trim', [-0.20, 0.79, s * 0.33], { part: 'asientos' });
     I(rbox(0.10, 0.56, 0.45, 0.05), 'seat', [-0.555, 1.13, s * 0.33], { part: 'asientos', r: [0, 0, 0.17] });
     I(rbox(0.09, 0.19, 0.31, 0.05), 'seat', [-0.612, 1.475, s * 0.33], { part: 'asientos', r: [0, 0, 0.17] });
     I(rbox(0.70, 0.24, 0.18, 0.06), 'floorp', [-WB, 0.745, s * 0.585]);                  // caja de rueda
@@ -50,8 +51,10 @@ export function buildVan(ctx) {
   I(rbox(1.76, 0.012, 1.34, 0.004), 'floorp', [-1.51, 0.624, 0]);                         // piso de carga
   for (let k = -4; k <= 4; k++) I(rbox(1.68, 0.008, 0.034, 0.003), 'floorp', [-1.52, 0.633, k * 0.105]);
   I(rbox(0.022, 0.17, 1.34, 0.006), 'floorp', [-0.62, 0.70, 0]);                          // escalón tras los asientos
-  I(rbox(0.56, 0.012, 1.30, 0.004), 'floorp', [-0.335, 0.784, 0]);                       // plataforma de los asientos (tapa del motor)
-  I(rbox(0.022, 0.32, 1.30, 0.006), 'floorp', [-0.045, 0.625, 0]);                        // frente de la plataforma
+  I(rbox(0.735, 0.012, 1.30, 0.004), 'floorp', [-0.2475, 0.784, 0]);                        // plataforma de los asientos (tapa del motor)
+  I(rbox(0.022, 0.32, 1.30, 0.006), 'floorp', [0.125, 0.625, 0]);                         // frente de la caja de los asientos: unos 10 cm delante de las torres (foto)
+  I(rbox(0.014, 0.085, 0.30, 0.006), 'floorp', [-0.606, 0.715, -0.02]);                  // tapa atornillada en el escalón: acceso a la parte de atrás del motor (foto del piso de carga)
+  for (const [dy, dz] of [[-0.03, -0.13], [-0.03, 0.13], [0.03, -0.13], [0.03, 0.13]]) I(cylX(0.005, 0.004, 6), 'chrome', [-0.613, 0.715 + dy, -0.02 + dz]);
   I(rbox(0.50, 0.012, 1.26, 0.004), 'floorp', [0.36, 0.452, 0]);                          // piso de la cabina
   for (const s of [1, -1]) I(rbox(0.44, 0.008, 0.50, 0.004), 'mat', [0.34, 0.461, s * 0.33]);   // pisos de goma
   // tablero (fotos): plástico gris oscuro; al centro, salidas de aire, mandos, radio 1-DIN y cenicero
@@ -77,7 +80,7 @@ export function buildVan(ctx) {
     const path = new THREE.CatmullRomCurve3([V(0.6, 0.33, s * 0.4), V(-0.2, 0.33, s * 0.4), V(-1.2, 0.33, s * 0.4), V(-1.42, 0.41, s * 0.4), V(-2.32, 0.42, s * 0.4)], false, 'catmullrom', 0.2);
     A('bastidor', new THREE.ExtrudeGeometry(railShape, { steps: 60, extrudePath: path }), 'steel');
   }
-  for (const [x, y] of [[0.42, 0.33], [-0.16, 0.33], [-0.96, 0.33], [-1.52, 0.42], [-2.3, 0.42]]) A('bastidor', rbox(0.06, 0.07, 0.78, 0.01), 'steel', { p: [x, y, 0] });
+  for (const [x, y] of [[0.42, 0.33], [0.0, 0.18], [-0.96, 0.33], [-1.52, 0.42], [-2.3, 0.42]]) A('bastidor', rbox(0.06, 0.07, 0.78, 0.01), 'steel', { p: [x, y, 0] });
 
   // ════════ RUEDAS ════════
   for (const [x, z, s] of [[0, TF / 2, 1], [0, -TF / 2, -1], [-WB, TR / 2, 1], [-WB, -TR / 2, -1]]) {
@@ -89,10 +92,15 @@ export function buildVan(ctx) {
   const helix = ctx.helix;
   for (const s of [1, -1]) {
     const ex = [0, 0, s * 0.3];
-    A('susp_del', cylY(0.022, 0.42, 16), 'steel', { p: [-0.02, 0.6, s * 0.485], r: [-s * 0.08, 0, 0], ex });
-    A('susp_del', cylY(0.032, 0.2, 16), 'dark', { p: [-0.015, 0.47, s * 0.495], r: [-s * 0.08, 0, 0], ex });
-    A('susp_del', helix(0.058, 0.2, 5.5, 0.008), 'steel', { p: [-0.025, 0.66, s * 0.48], r: [-s * 0.08, 0, 0], ex });
-    A('susp_del', cylY(0.075, 0.02, 20), 'dark', { p: [-0.03, 0.775, s * 0.475], r: [-s * 0.08, 0, 0], ex });
+    // el puntal sube inclinado hacia adentro y hacia atrás: su apoyo de arriba queda bajo cada asiento, unos 10 cm detrás del eje
+    // (en las fotos bajo los asientos la torre está a media caja; inclinación estimada a partir de ellas)
+    const SL = 0.207, sx = y => -(y - 0.3) * Math.tan(SL);
+    A('susp_del', cylY(0.022, 0.42, 16), 'steel', { p: [sx(0.6), 0.6, s * 0.485], r: [-s * 0.08, 0, SL], ex });
+    A('susp_del', cylY(0.032, 0.2, 16), 'dark', { p: [sx(0.47), 0.47, s * 0.495], r: [-s * 0.08, 0, SL], ex });
+    A('susp_del', helix(0.058, 0.2, 5.5, 0.008), 'steel', { p: [sx(0.66), 0.66, s * 0.48], r: [-s * 0.08, 0, SL], ex });
+    A('susp_del', cylY(0.075, 0.02, 20), 'dark', { p: [sx(0.775), 0.775, s * 0.475], r: [-s * 0.08, 0, SL], ex });
+    A('susp_del', cylY(0.042, 0.03, 20), 'rubber', { p: [sx(0.795), 0.795, s * 0.473], r: [-s * 0.08, 0, SL], ex });          // apoyo de goma y tuerca (lo que se ve bajo el asiento)
+    A('susp_del', cylY(0.008, 0.03, 6), 'machined', { p: [sx(0.815), 0.815, s * 0.471], r: [-s * 0.08, 0, SL], ex });
     A('susp_del', rbox(0.08, 0.16, 0.06, 0.015), 'iron', { p: [0, 0.27, s * 0.5], ex });
     A('susp_del', tube([[0.0, 0.18, s * 0.53], [0.06, 0.2, s * 0.42], [0.12, 0.22, s * 0.32]], 0.016), 'steel', { ex });
     A('susp_del', tube([[0.0, 0.18, s * 0.53], [-0.08, 0.2, s * 0.42], [-0.15, 0.22, s * 0.32]], 0.014), 'steel', { ex });
@@ -107,16 +115,19 @@ export function buildVan(ctx) {
     A('direccion', tube([[0.16, 0.3, s * 0.36], [0.15, 0.29, s * 0.45], [0.12, 0.28, s * 0.51]], 0.009), 'steel');
   }
   A('direccion', cylZ(0.034, 0.07, 16), 'alu', { p: [0.165, 0.31, -0.25] }); // caja del piñón
-  A('direccion', tube([[0.165, 0.33, -0.25], [0.2, 0.6, -0.29], [0.27, 1.0, DZ], [0.28, 1.06, DZ]], 0.016), 'steel');
+  // columna: del volante baja casi vertical entre los pedales de embrague y freno hasta un fuelle en el piso (fotos);
+  // bajo el piso, un eje intermedio con crucetas va al piñón de la cremallera
+  A('direccion', tube([[0.283, 1.07, DZ], [0.33, 0.93, DZ], [0.385, 0.70, DZ], [0.43, 0.475, DZ]], 0.016, false, 30), 'dark');
+  A('direccion', tube([[0.31, 0.99, DZ], [0.36, 0.80, DZ]], 0.03, false, 6), 'plastic');                       // funda de la columna
+  A('direccion', rbox(0.05, 0.03, 0.09, 0.006), 'steel', { p: [0.372, 0.80, DZ], r: [0, 0, -0.22] });           // abrazadera bajo el tablero
+  A('direccion', new THREE.ConeGeometry(0.04, 0.05, 18), 'rubber', { p: [0.433, 0.478, DZ] });                  // fuelle en el piso
+  A('direccion', tube([[0.432, 0.45, DZ], [0.36, 0.40, -0.30], [0.22, 0.345, -0.26], [0.165, 0.33, -0.25]], 0.011, false, 24), 'steel');
+  for (const q of [[0.42, 0.44, -0.325], [0.2, 0.34, -0.256]]) A('direccion', new THREE.SphereGeometry(0.018, 10, 8), 'steel', { p: q });   // crucetas
   { const sw = A('direccion', new THREE.TorusGeometry(0.19, 0.016, 10, 40), 'dark', { p: [0.29, 1.09, DZ] }); sw.lookAt(V(0.29 - 0.42, 1.09 + 0.9, DZ));
     const hub = A('direccion', cylZ(0.04, 0.05, 16), 'dark', { p: [0.29, 1.085, DZ] }); hub.lookAt(V(0.29 - 0.42, 1.085 + 0.9, DZ));
     for (const a of [0, 2.1, 4.2]) { const sp = A('direccion', rbox(0.17, 0.018, 0.012, 0.005), 'dark', { p: [0.29, 1.09, DZ] }); sp.lookAt(V(0.29 - 0.42, 1.09 + 0.9, DZ)); sp.rotateZ(a); sp.translateX(0.085); } }
 
-  // pedal de embrague (colgante, a la izquierda de la columna; foto) y acelerador de piso. Los frenos van en brakes3d.js
-  { const g = new THREE.Group(); g.position.set(0.465, 0.915, -0.44); root.add(g); hangingPedal(ctx, 'embrague', g, { ex: EXV.embrague });
-    A('embrague', ctx.cylZ(0.008, 0.06, 12), 'machined', { p: [0.465, 0.915, -0.44] }); }
-  A('carburador', rbox(0.012, 0.19, 0.06, 0.01), 'steel', { p: [0.385, 0.56, -0.115], r: [0, 0, 0.35] });   // acelerador de piso
-  A('carburador', cylZ(0.008, 0.08, 10), 'steel', { p: [0.42, 0.47, -0.115] });
+  // (los pedales van más abajo: el de freno en brakes3d.js, el de embrague tras montar el motor y el acelerador en fuel3d.js)
 
   // ════════ MOTOR F10A COMPLETO (el mismo de la vista Motor) ════════
   const eng = new THREE.Group(); eng.position.set(...ENG); eng.rotation.x = TILT; root.add(eng); eng.updateMatrixWorld(true);
@@ -143,77 +154,124 @@ export function buildVan(ctx) {
     A('s_veloc', cylZ(0.008, 0.012, 6), 'brass', { parent: eng, p: [a[0], a[1], 0.058], ex: EXV.s_veloc }); }
   eng.updateMatrixWorld(true);
 
+  // ════════ PEDAL Y PIOLA DEL EMBRAGUE (fotos de los pedales; manual secc. 11) ════════
+  // Pedal colgante a la izquierda de la columna. Junto al eje lleva una palanquita hacia adelante: al pisar, sube y tira de la
+  // piola, que baja por el soporte con la tuerca de regulación, cruza el piso y va por el bastidor hasta la palanca de
+  // desembrague, en la campana. La palanca gira la horquilla, que empuja el collarín.
+  const CZ = -0.425, CPIV = V(0.505, 0.915, CZ), CEX = [0.3, 0.25, 0], JP = [0.05, -0.012], JZ = -0.014;
+  const cg = group('pedal_embrague', root, CPIV.toArray(), CEX);
+  const C = (geo, kind, o = {}) => add('pedal_embrague', geo, kind, { parent: cg, ...o });
+  C(cylZ(0.008, 0.06, 12), 'machined');
+  for (const dz of [-0.024, 0.024]) C(rbox(0.07, 0.11, 0.004, 0.002), 'steel', { p: [0.005, -0.015, dz] });
+  C(rbox(0.08, 0.006, 0.052, 0.002), 'steel', { p: [0.01, 0.042, 0] });
+  const cpedal = new THREE.Group(); cg.add(cpedal);
+  hangingPedal(ctx, 'pedal_embrague', cpedal, { side: -1 });
+  add('pedal_embrague', rbox(0.056, 0.014, 0.005, 0.002), 'steel', { parent: cpedal, p: [JP[0] / 2, JP[1] / 2 - 0.002, JZ] });       // palanquita de la piola
+  add('pedal_embrague', cylZ(0.004, 0.016, 10), 'machined', { parent: cpedal, p: [JP[0], JP[1], JZ] });                              // pasador
+  const cjoint = new THREE.Group(); cg.add(cjoint);                                                                                   // unión de la piola: cuelga del pasador
+  add('pedal_embrague', rbox(0.012, 0.034, 0.014, 0.003), 'steel', { parent: cjoint, p: [0, -0.014, 0] });
+  add('pedal_embrague', cylY(0.0028, 0.05, 8), 'machined', { parent: cjoint, p: [0, -0.055, 0] });
+  const BRK = [JP[0], -0.115, JZ];                                                                                                    // soporte con la regulación (foto: tuerca de bronce)
+  C(rbox(0.05, 0.005, 0.03, 0.002), 'dark', { p: [BRK[0] + 0.012, BRK[1], BRK[2]] });
+  C(rbox(0.005, 0.04, 0.03, 0.002), 'dark', { p: [BRK[0] + 0.036, BRK[1] + 0.018, BRK[2]] });
+  C(cylY(0.0052, 0.05, 10), 'steel', { p: [BRK[0], BRK[1] - 0.004, BRK[2]] });
+  C(cylY(0.0088, 0.008, 6), 'brass', { p: [BRK[0], BRK[1] + 0.008, BRK[2]] });
+  C(cylY(0.0088, 0.007, 6), 'steel', { p: [BRK[0], BRK[1] - 0.008, BRK[2]] });
+  const cwire = add('pedal_embrague', cylY(0.0016, 1, 6), 'machined', { parent: cg }); cwire.userData.dyn = true;                    // alma de la piola, a la vista
+  // funda: del soporte al piso y por el bastidor izquierdo hasta el soporte de la campana (recorrido según el manual, espejado)
+  const relS = [-0.455, 0.085, -0.128], relL = 0.092, relB = V(-0.345, relS[1] - relL + 0.004, relS[2] - 0.016);
+  { const b0 = CPIV.clone().add(V(BRK[0], BRK[1] - 0.03, BRK[2])), e = EL(relB.x, relB.y, relB.z);
+    A('pedal_embrague', tube([b0, [0.565, 0.62, CZ - 0.02], [0.555, 0.47, CZ - 0.015], [0.5, 0.39, -0.415], [0.25, 0.36, -0.345], [0.02, 0.36, -0.33], [-0.2, 0.33, -0.3], [e.x + 0.1, e.y + 0.01, e.z - 0.05], e], 0.0052, false, 110), 'rubber');
+    A('pedal_embrague', cylY(0.011, 0.008, 14), 'rubber', { p: [0.553, 0.456, CZ - 0.015] }); }                                    // pasa-piso
+  // en la campana: soporte de la funda, alma, palanca de desembrague y eje de la horquilla
+  const CE = (geo, kind, o = {}) => add('pedal_embrague', geo, kind, { parent: eng, ex: EXV.embrague, ...o });
+  CE(rbox(0.006, 0.03, 0.022, 0.002), 'steel', { p: [relB.x, relB.y + 0.008, relB.z] });
+  CE(rbox(0.03, 0.006, 0.022, 0.002), 'steel', { p: [relB.x - 0.012, relB.y + 0.024, relB.z + 0.004] });
+  CE(cylZ(0.0075, 0.05, 12), 'machined', { p: [relS[0], relS[1], relS[2] + 0.012] });                                                // eje de la horquilla
+  const rel = group('pedal_embrague', eng, relS, EXV.embrague);
+  add('pedal_embrague', rbox(0.016, relL + 0.016, 0.006, 0.003), 'steel', { parent: rel, p: [0, -relL / 2, -0.016] });
+  add('pedal_embrague', cylZ(0.0045, 0.014, 10), 'machined', { parent: rel, p: [0, -relL, -0.016] });
+  add('pedal_embrague', cylZ(0.011, 0.012, 14), 'steel', { parent: rel, p: [0, 0, -0.016] });
+  const rwire = add('pedal_embrague', cylX(0.0016, 1, 6), 'machined', { parent: eng, ex: EXV.embrague }); rwire.userData.dyn = true;
+  { const sp = add('pedal_embrague', ctx.helix(0.005, 0.05, 8, 0.001).rotateZ(Math.PI / 2), 'steel', { parent: eng, p: [relS[0] - 0.03, relS[1] - relL * 0.6, relS[2] - 0.016], ex: EXV.embrague }); sp.userData.dyn = true; }
+  const clutch = { k: 0, t: 0 };
+  function poseClutch(k) {
+    const a = 0.30 * k, c = Math.cos(a), sn = Math.sin(a);
+    cpedal.rotation.z = a;
+    const px = JP[0] * c - JP[1] * sn, py = JP[0] * sn + JP[1] * c;
+    cjoint.position.set(px, py, JZ);
+    const top = py - 0.08, bot = BRK[1] + 0.02;                                           // alma entre la unión y la regulación
+    cwire.position.set((px + BRK[0]) / 2, (top + bot) / 2, JZ); cwire.scale.y = Math.max(0.002, Math.hypot(px - BRK[0], top - bot)); cwire.rotation.z = Math.atan2(BRK[0] - px, top - bot);
+    const pull = py - JP[1];                                                              // lo que sube el pasador es lo que avanza la palanca de desembrague
+    rel.rotation.z = pull / relL;
+    const tx = relS[0] + Math.sin(rel.rotation.z) * relL, x0 = relB.x - 0.003;
+    rwire.position.set((tx + x0) / 2, relB.y - 0.004, relB.z); rwire.scale.x = Math.max(0.002, x0 - tx);
+  }
+  poseClutch(0);
+
   // ════════ FRENOS (detalle en brakes3d.js; vista Frenos) ════════
   const BR = buildBrakes(ctx, { ELv, E });
 
   // ════════ REFRIGERACIÓN ════════
+  // Radiador: justo detrás del frente de la caja de los asientos, algo corrido a la derecha, con la tapa al lado del conductor
+  // y la entrada de la manguera superior al lado del copiloto (fotos bajo los dos asientos). Inclinación: supuesta.
   const fanW = EL(0.088, 0.115, 0);
-  A('radiador', rbox(0.035, 0.34, 0.38, 0.01), 'copper', { p: [fanW.x + 0.075, fanW.y, fanW.z], r: [0, 0, 0.05] });
-  A('radiador', rbox(0.05, 0.05, 0.4, 0.01), 'dark', { p: [fanW.x + 0.075, fanW.y + 0.19, fanW.z] });
-  A('radiador', rbox(0.05, 0.05, 0.4, 0.01), 'dark', { p: [fanW.x + 0.075, fanW.y - 0.19, fanW.z] });
-  A('radiador', cylY(0.02, 0.03, 12), 'chrome', { p: [fanW.x + 0.075, fanW.y + 0.225, fanW.z + 0.12] });
+  const RAD = V(0.068, fanW.y + 0.01, 0.03), RL = -0.12;                // centro e inclinación (arriba hacia adelante)
+  const rg = group('radiador', root, RAD.toArray(), EXV.radiador); rg.rotation.z = RL;
+  const RA = (geo, kind, o = {}) => add('radiador', geo, kind, { parent: rg, ...o });
+  RA(rbox(0.035, 0.34, 0.38, 0.01), 'copper');
+  RA(rbox(0.05, 0.05, 0.4, 0.01), 'dark', { p: [0, 0.19, 0] });
+  RA(rbox(0.05, 0.05, 0.4, 0.01), 'dark', { p: [0, -0.19, 0] });
+  RA(cylY(0.017, 0.03, 14), 'steel', { p: [0, 0.225, -0.13] });                               // boca de llenado
+  RA(cylY(0.024, 0.012, 20), 'chrome', { p: [0, 0.244, -0.13] });                             // tapa (lado conductor)
+  RA(cylX(0.016, 0.04, 14), 'dark', { p: [-0.04, 0.19, 0.12] });                              // entrada de la manguera superior (lado copiloto)
+  RA(cylX(0.016, 0.04, 14), 'dark', { p: [-0.04, -0.19, -0.12] });                            // salida inferior
+  rg.updateMatrixWorld(true);
+  const rIn = rg.localToWorld(V(-0.06, 0.19, 0.12)), rOut = rg.localToWorld(V(-0.06, -0.19, -0.12)), rCap = rg.localToWorld(V(0.018, 0.236, -0.13));
+  // cubierta del ventilador: del marco del radiador al aro que rodea las aspas
   A('radiador', new THREE.TorusGeometry(0.165, 0.008, 8, 40), 'plastic', { p: [fanW.x + 0.035, fanW.y, fanW.z], r: [0, Math.PI / 2, 0] });
+  { const g = new THREE.CylinderGeometry(0.168, 0.2, 0.05, 28, 1, true); g.rotateZ(Math.PI / 2); A('radiador', g, 'plastic', { p: [fanW.x + 0.058, fanW.y, fanW.z + 0.03], double: true, op: 0.9 }); }
   const th = ELv(E.pts.thermOut), wpIn = ELv(E.pts.wpIn), hOut = ELv(E.pts.heaterOut);
-  A('mangueras', tube([[th.x, th.y, th.z], [th.x + 0.08, th.y + 0.04, th.z + 0.02], [fanW.x + 0.075, fanW.y + 0.19, fanW.z + 0.15]], 0.016), 'hose');
-  A('mangueras', tube([[fanW.x + 0.075, fanW.y - 0.19, fanW.z - 0.15], [wpIn.x + 0.06, wpIn.y - 0.06, wpIn.z], [wpIn.x, wpIn.y, wpIn.z]], 0.016), 'hose');
-  // depósito de expansión tras la torre de la suspensión izquierda (foto bajo el asiento del conductor)
-  A('deposito', rbox(0.085, 0.13, 0.085, 0.02), 'ceramic', { p: [-0.04, 0.57, -0.375], op: 0.75 });
-  A('deposito', cylY(0.024, 0.016, 16), 'ceramic', { p: [-0.04, 0.643, -0.375] });
-  A('deposito', tube([[-0.04, 0.65, -0.375], [-0.02, 0.66, -0.25], [fanW.x + 0.075, fanW.y + 0.24, fanW.z + 0.04], [fanW.x + 0.075, fanW.y + 0.225, fanW.z + 0.12]], 0.004), 'hose');
-  // depósito del limpiaparabrisas, junto al anterior y más afuera (misma foto)
-  A('deposito_limpia', rbox(0.20, 0.13, 0.12, 0.03), 'ceramic', { p: [-0.18, 0.60, -0.54], op: 0.8 });
-  A('deposito_limpia', cylY(0.03, 0.016, 18), 'ceramic', { p: [-0.13, 0.672, -0.55] });
-  A('deposito_limpia', cylY(0.016, 0.05, 12), 'dark', { p: [-0.25, 0.52, -0.56] });
-  A('deposito_limpia', tube([[-0.25, 0.50, -0.56], [0.0, 0.45, -0.58], [0.40, 0.62, -0.58], [0.55, 1.10, -0.40], [0.58, 1.15, 0.0]], 0.003), 'hose');
-  // cánister de vapores de bencina tras la torre derecha (foto bajo el asiento del copiloto; identificación probable)
-  A('canister', rbox(0.09, 0.15, 0.12, 0.012), 'dark', { p: [-0.31, 0.64, 0.53] });
-  A('canister', cylY(0.032, 0.03, 18), 'dark', { p: [-0.31, 0.73, 0.51] });
-  { const ci = ELv(E.pts.carbInlet); A('canister', tube([[-0.31, 0.75, 0.51], [-0.30, 0.76, 0.38], [ci.x + 0.02, ci.y + 0.04, ci.z + 0.06]], 0.004), 'hose'); }
-  A('canister', tube([[-0.31, 0.565, 0.56], [-0.45, 0.40, 0.45], [-1.10, 0.33, 0.30], [-1.30, 0.40, 0.24]], 0.004), 'hose');
+  A('mangueras', tube([[th.x, th.y, th.z], [th.x + 0.05, th.y + 0.05, th.z + 0.03], [rIn.x - 0.06, rIn.y + 0.03, rIn.z + 0.02], rIn], 0.016), 'hose');
+  A('mangueras', tube([rOut, [rOut.x - 0.05, rOut.y - 0.02, rOut.z], [wpIn.x + 0.06, wpIn.y - 0.06, wpIn.z], [wpIn.x, wpIn.y, wpIn.z]], 0.016), 'hose');
+  // depósito de expansión: entre la torre izquierda y el motor, adelante (foto bajo el asiento del conductor)
+  const DEP = V(-0.055, 0.585, -0.33);
+  A('deposito', rbox(0.095, 0.13, 0.085, 0.022), 'ceramic', { p: DEP.toArray(), op: 0.78 });
+  A('deposito', cylY(0.026, 0.016, 18), 'ceramic', { p: [DEP.x, DEP.y + 0.073, DEP.z] });
+  A('deposito', cylY(0.005, 0.012, 8), 'ceramic', { p: [DEP.x - 0.012, DEP.y + 0.085, DEP.z + 0.004] });
+  A('deposito', tube([[DEP.x - 0.012, DEP.y + 0.09, DEP.z + 0.004], [DEP.x - 0.03, DEP.y + 0.085, DEP.z + 0.03], [rCap.x - 0.07, rCap.y - 0.04, rCap.z - 0.07], [rCap.x - 0.02, rCap.y - 0.012, rCap.z - 0.02]], 0.0045), 'hose');
+  // depósito del limpiaparabrisas: detrás del anterior, también por dentro de la torre (misma foto)
+  const LAV = V(-0.275, 0.60, -0.34);
+  A('deposito_limpia', rbox(0.21, 0.13, 0.115, 0.03), 'ceramic', { p: LAV.toArray(), op: 0.8 });
+  A('deposito_limpia', cylY(0.03, 0.014, 18), 'ceramic', { p: [LAV.x + 0.03, LAV.y + 0.07, LAV.z - 0.012] });
+  A('deposito_limpia', cylY(0.016, 0.05, 12), 'dark', { p: [LAV.x - 0.075, LAV.y - 0.08, LAV.z - 0.01] });
+  A('deposito_limpia', tube([[LAV.x - 0.075, LAV.y - 0.1, LAV.z - 0.01], [0.0, 0.45, -0.58], [0.40, 0.62, -0.58], [0.55, 1.10, -0.40], [0.58, 1.15, 0.0]], 0.003), 'hose');
+  const CAN = V(-0.21, 0.64, 0.415);   // cánister: tras la torre derecha, sobre el borde del paso de rueda (foto bajo el asiento del copiloto)
 
   // ════════ CALEFACCIÓN (detalle en heater3d.js; vista Calefacción) ════════
   const HT = buildHeater(ctx, { hOut, wpIn });
   out.fans.push(HT.fan);
 
-  // ════════ ALIMENTACIÓN ════════
-  const carbIn = ELv(E.pts.carbInlet);
-  // estanque bajo el piso, del lado de la tapa de bencina (copiloto): posición supuesta
-  A('estanque', rbox(0.48, 0.2, 0.3, 0.04), 'steel', { p: [-1.34, 0.29, 0.20] });
-  { const f = onSide(FUEL_LID.x, FUEL_LID.y, 1, -0.012);   // cuello de llenado: de la tapa (foto) al estanque (posición supuesta)
-    A('estanque', tube([f.toArray(), [f.x - 0.03, f.y - 0.03, f.z - 0.07], [-0.64, 0.45, 0.50], [-0.98, 0.41, 0.40], [-1.14, 0.37, 0.30]], 0.022), 'rubber'); }
-  // estanque → filtro → bomba → carburador, por el larguero derecho; retorno por el mismo larguero (manual, secc. 4)
-  const RZ = 0.346; // cara interior del larguero derecho
-  A('filtro_comb', cylX(0.021, 0.07, 16), 'ceramic', { p: [-1.04, 0.29, RZ], op: 0.85 });
-  A('filtro_comb', cylX(0.004, 0.014, 8), 'plastic', { p: [-1.082, 0.29, RZ] });
-  A('filtro_comb', cylX(0.004, 0.014, 8), 'plastic', { p: [-0.998, 0.29, RZ] });
-  A('bomba_comb', cylX(0.024, 0.09, 16), 'dark', { p: [-0.86, 0.29, RZ] });
-  A('bomba_comb', rbox(0.06, 0.012, 0.036, 0.003), 'steel', { p: [-0.86, 0.318, RZ + 0.016] });
-  A('bomba_comb', tube([[-1.2, 0.25, 0.20], [-1.16, 0.25, 0.30], [-1.12, 0.27, RZ - 0.01], [-1.089, 0.29, RZ]], 0.004), 'hose');
-  A('bomba_comb', tube([[-0.991, 0.29, RZ], [-0.95, 0.29, RZ], [-0.905, 0.29, RZ]], 0.004), 'hose');
-  A('bomba_comb', tube([[-0.815, 0.29, RZ], [-0.62, 0.3, RZ - 0.01], [-0.5, 0.42, 0.27], [carbIn.x + 0.03, carbIn.y - 0.04, carbIn.z + 0.04], [carbIn.x, carbIn.y, carbIn.z]], 0.004), 'hose');
-  { const cr = ELv(E.pts.carbReturn);
-    A('bomba_comb', tube([[cr.x, cr.y, cr.z], [cr.x + 0.03, cr.y - 0.05, cr.z + 0.05], [-0.52, 0.42, 0.29], [-0.64, 0.31, RZ - 0.016], [-1.2, 0.31, RZ - 0.016], [-1.3, 0.35, 0.28], [-1.3, 0.39, 0.12]], 0.003), 'hose'); }
+  // ════════ ALIMENTACIÓN (detalle en fuel3d.js; vista Alimentación) ════════
+  const FU = buildFuel(ctx, { E, eng, CAN });
   A('controlador', rbox(0.12, 0.03, 0.09, 0.008), 'dark', { p: [0.50, 0.86, 0.40] });
-  { const a = PARTS.s_bencina.sensor.at.w; // aforador en la tapa del estanque
-    A('s_bencina', cylY(0.04, 0.012, 24), 'steel', { p: [a[0], a[1] - 0.012, a[2]] });
-    A('s_bencina', cylY(0.012, 0.012, 12), 'dark', { p: [a[0], a[1], a[2]] }); }
 
   // ════════ ELÉCTRICO ════════
   // batería: bajo el piso de carga, a mitad del furgón y un poco hacia el lado del conductor (dato del dueño)
-  const BAT = V(-0.95, 0.505, -0.255);
+  const BAT = V(-1.37, 0.505, -0.19);   // bajo la tapa que se ve abierta en la foto del piso de carga
   A('bateria', rbox(0.2, 0.17, 0.13, 0.012), 'plastic', { p: BAT.toArray() });
   A('bateria', rbox(0.21, 0.012, 0.14, 0.004), 'dark', { p: [BAT.x, BAT.y + 0.088, BAT.z] });
   A('bateria', cylY(0.012, 0.025, 10), 'red', { p: [BAT.x + 0.06, BAT.y + 0.105, BAT.z + 0.03] });
   A('bateria', cylY(0.012, 0.025, 10), 'dark', { p: [BAT.x - 0.06, BAT.y + 0.105, BAT.z + 0.03] });
   A('bateria', rbox(0.24, 0.012, 0.03, 0.003), 'steel', { p: [BAT.x, BAT.y - 0.088, BAT.z - 0.05] });                          // bandeja y fijación
   { const st = EL(-0.465, -0.06, 0.134);   // cable positivo al motor de partida y masa al bastidor
-    A('bateria', tube([[BAT.x + 0.06, BAT.y + 0.12, BAT.z + 0.03], [BAT.x + 0.14, BAT.y + 0.10, BAT.z + 0.05], [-0.70, 0.46, -0.16], [st.x - 0.03, st.y + 0.04, st.z - 0.02], st.toArray()], 0.006), 'red');
+    A('bateria', tube([[BAT.x + 0.06, BAT.y + 0.12, BAT.z + 0.03], [BAT.x + 0.14, BAT.y + 0.10, BAT.z + 0.05], [-0.95, 0.45, -0.12], [st.x - 0.03, st.y + 0.04, st.z - 0.02], st.toArray()], 0.006), 'red');
     A('bateria', tube([[BAT.x - 0.06, BAT.y + 0.12, BAT.z + 0.03], [BAT.x - 0.12, BAT.y + 0.06, BAT.z - 0.06], [BAT.x - 0.14, 0.40, -0.40]], 0.005), 'dark'); }
   A('bobina', cylY(0.03, 0.11, 16), 'dark', { p: [-0.78, 0.5, 0.2] });
   const dc = ELv(E.pts.distCenter), dAx = E.pts.distAxis.clone().applyQuaternion(eng.quaternion), dc1 = dc.clone().addScaledVector(dAx, 0.04);
   A('bobina', tube([[-0.78, 0.565, 0.2], [-0.77, 0.6, 0.12], [dc1.x - 0.02, dc1.y + 0.02, dc1.z + 0.06], dc1.toArray(), [dc.x, dc.y, dc.z]], 0.004), 'lead');
-  A('interior', rbox(0.17, 0.008, 0.22, 0.004), 'floorp', { p: [dc.x - 0.01, 0.638, dc.z], body: 'int' });   // tapa de acceso al distribuidor
-  A('interior', rbox(0.19, 0.006, 0.24, 0.004), 'trim', { p: [dc.x - 0.01, 0.633, dc.z], body: 'int' });
+  A('interior', rbox(0.36, 0.008, 0.29, 0.004), 'floorp', { p: [BAT.x, 0.638, BAT.z], body: 'int' });   // tapa del piso de carga sobre la batería (foto)
+  A('interior', rbox(0.38, 0.006, 0.31, 0.004), 'trim', { p: [BAT.x, 0.633, BAT.z], body: 'int' });
 
   // ════════ ESCAPE ════════
   const ca = ELv(E.pts.collA), cbx = ELv(E.pts.collB), dn = V(0, -1, 0).applyQuaternion(eng.quaternion), mrg = V(-0.56, 0.14, 0.06);
@@ -238,13 +296,14 @@ export function buildVan(ctx) {
   A('diferencial', new THREE.SphereGeometry(0.11, 24, 18), 'iron', { p: [-1.8, RW, 0], s: [1, 0.9, 0.8] });
   A('diferencial', cylX(0.05, 0.12, 20), 'iron', { p: [-1.7, RW, 0] });
   A('diferencial', cylZ(0.036, 1.0, 20), 'steel', { p: [-WB, RW, 0] });
-  A('palanca', tube([[0.12, 0.46, -0.06], [0.12, 0.7, -0.05], [0.1, 0.92, -0.05]], 0.009), 'steel');
-  A('palanca', new THREE.SphereGeometry(0.03, 14, 12), 'dark', { p: [0.1, 0.94, -0.05] });
-  A('palanca', rbox(0.1, 0.05, 0.08, 0.01), 'dark', { p: [0.12, 0.44, -0.06] }); // caja de la palanca
+  A('palanca', tube([[0.235, 0.46, -0.03], [0.225, 0.7, -0.02], [0.2, 0.90, -0.02]], 0.009), 'steel');                       // sale del piso frente a la caja de la calefacción (foto)
+  A('palanca', new THREE.CapsuleGeometry(0.017, 0.085, 6, 14), 'dark', { p: [0.194, 0.955, -0.02], r: [0, 0, 0.12] });           // empuñadura larga de goma (foto)
+  A('palanca', new THREE.ConeGeometry(0.045, 0.06, 16), 'rubber', { p: [0.235, 0.485, -0.03] });                                   // fuelle
+  A('palanca', rbox(0.1, 0.05, 0.08, 0.01), 'dark', { p: [0.235, 0.43, -0.03] }); // caja de la palanca
   for (const [k, gx] of [[0, -0.585], [1, -0.64]]) {
     const lv = EL(gx, 0.03, 0.084), lv2 = EL(gx, 0.055, 0.1);
     A('palanca', rbox(0.012, 0.05, 0.008, 0.002), 'steel', { p: lv.clone().lerp(lv2, 0.5).toArray(), parent: undefined });
-    A('palanca', tube([[0.09 - k * 0.03, 0.43, -0.03 + k * 0.03], [-0.05, 0.39 - k * 0.01, 0.06 + k * 0.025], [-0.3, 0.4, 0.13 + k * 0.02], [lv2.x + 0.06, lv2.y + 0.02, lv2.z + 0.03], lv2.toArray()], 0.005), 'dark');
+    A('palanca', tube([[0.2 - k * 0.03, 0.42, -0.0 + k * 0.03], [0.14, 0.395 - k * 0.01, 0.2 + k * 0.02], [0.0, 0.385 - k * 0.01, 0.275 + k * 0.02], [-0.3, 0.4, 0.22 + k * 0.02], [lv2.x + 0.06, lv2.y + 0.02, lv2.z + 0.03], lv2.toArray()], 0.005), 'dark');   // por la derecha del radiador
   }
   const fork = EL(-0.47, 0.06, 0.13);
   A('embrague', tube([[0.465, 0.935, -0.44], [0.41, 0.55, -0.43], [0.36, 0.43, -0.38], [0.0, 0.36, -0.2], [-0.25, 0.36, 0.05], [fork.x, fork.y, fork.z]], 0.004), 'dark');
@@ -311,9 +370,27 @@ export function buildVan(ctx) {
     BD.outline.visible = !hidden && !solid; BD.outline.material.opacity = focusBody ? 0.75 : 0.42;
     BD.seams.visible = !hidden; BD.seams.material.color.set(solid ? '#5c6468' : '#2f6f7b'); BD.seams.material.opacity = solid ? 0.7 : (focusBody ? 0.6 : 0.4);
   }
+  // al elegir un pedal en el modelo, se pisa solo y muestra qué mueve (ciclo: pisar, sostener, soltar, pausa)
+  const cyc = t => { const u = t % 3.2; return u < 0.8 ? u / 0.8 : u < 1.5 ? 1 : u < 2.3 ? 1 - (u - 1.5) / 0.8 : 0; };
+  const ease = k => k * k * (3 - 2 * k);
+  const demos = [
+    { ids: ['pedal_embrague', 'embrague'], k: 0, t: 0, pose: poseClutch },
+    { ids: ['pedal_freno', 's_freno'], k: 0, t: 0, pose: k => BR.demoPedal(k), skip: m => m === 'brk' },
+    { ids: ['pedal_acel'], k: 0, t: 0, pose: k => FU.demo('pedal', k), skip: m => m === 'ali' },
+    { ids: ['ahogador'], k: 0, t: 0, pose: k => FU.demo('choke', k), skip: m => m === 'ali' },
+  ];
+  function tick(dt, sel, mode) {
+    let active = false;
+    for (const d of demos) {
+      if (d.skip && d.skip(mode)) { d.t = 0; d.k = 0; continue; }
+      if (d.ids.includes(sel)) { d.t += dt; d.k = ease(cyc(d.t)); d.pose(d.k); active = true; }
+      else if (d.k > 0 || d.t > 0) { d.t = 0; d.k = Math.max(0, d.k - dt * 3); d.pose(d.k); active = d.k > 0; }
+    }
+    return active;
+  }
   // ruedas con sus discos y tambores; adelante y atrás por separado (una rueda bloqueada no gira)
   function setWheels(aF, aR) { out.wheels.forEach((w, i) => { w.rotation.z = i < 2 ? aF : aR; }); BR.spinRotors(aF, aR); }
-  return { update, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, setWheels };
+  return { update, tick, demos, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, fuel: FU, setWheels };
 }
 
 // Flecha "adelante" y lados (conductor a la izquierda) dibujados en el piso

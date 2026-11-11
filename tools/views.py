@@ -16,7 +16,7 @@ async def main(dev, body, mode, views, cams):
         pg.on("pageerror", lambda e: logs.append('[pageerror] ' + str(e)[:300]))
         await pg.goto(URL_DOC); await pg.wait_for_timeout(2500)
         await pg.evaluate("window.__viewer.isRunning() && document.querySelector('#tb-run').click()")
-        if mode == 'eng': await pg.evaluate("document.querySelector('#modebar [data-mode=eng]').click()"); await pg.wait_for_timeout(1200)
+        if mode == 'eng': await pg.evaluate("window.__app.openSys('motor')"); await pg.wait_for_timeout(1200)
         if body != 'ghost' and mode == 'van': await pg.evaluate(f"document.querySelector('#tb-body [data-v={body}]').click()"); await pg.wait_for_timeout(600)
         await pg.evaluate("document.querySelector('#modelo').scrollIntoView()"); await pg.wait_for_timeout(200); await pg.evaluate("window.scrollBy(0,-50)")
         bb = await pg.evaluate("(()=>{const r=document.querySelector('#viewer').getBoundingClientRect();return [r.x, r.y + window.scrollY, r.width, r.height]})()")

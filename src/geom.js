@@ -4,7 +4,7 @@
 // +z = lado admisión (carburador), −z = lado escape (bujías). El cigüeñal está en (0, 0, 0).
 export const WB = 1.84, TF = 1.21, TR = 1.20, RW = 0.28;   // RW: radio bajo carga del 175/70 R13 (Ø libre 575 mm)
 export const TILT = -0.87;              // ≈ 50°: culata hacia la izquierda, admisión arriba (ilustrativo)
-export const ENG = [-0.24, 0.30, 0.03];  // posición del eje del cigüeñal (cara delantera del block) en el furgón
+export const ENG = [-0.10, 0.30, 0.03];  // eje del cigüeñal (cara delantera del block) en el furgón: el radiador queda justo tras el frente de la caja de los asientos y el alternador a la altura de la torre derecha (fotos bajo los asientos)
 export const CYL_X = [-0.07, -0.148, -0.226, -0.304]; // cilindros 1..4 (1 = lado polea)
 export const FIRE_OFF = [0, 540, 180, 360];           // desfase del ciclo (°) → orden 1-3-4-2
 export const DIR = -1;                  // giro horario visto desde la polea

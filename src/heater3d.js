@@ -78,7 +78,7 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   const SP0 = V(0.537, 0.612, ZH - LC.zw + 0.004), SP1 = V(0.545, 0.645, -0.125);
   A('calefactor', rbox(0.05, 0.05, 0.026, 0.008), 'plastic', { p: [0.535, 0.61, ZH - LC.zw - 0.008] });
   A('calefactor', tube([SP0, SP0.clone().lerp(SP1, 0.5).add(V(0, 0.002, -0.002)), SP1], 0.032, false, 10), 'plastic');
-  // collarín delantero: ducto a las salidas del centro y del copiloto del parabrisas
+  // collarín delantero: ducto a la salida del parabrisas del lado del copiloto
   A('calefactor', rbox(0.02, 0.045, 0.06, 0.006), 'plastic', { p: [LC.x1 + 0.008, 0.615, -0.045] });
 
   // ════════ VENTILADOR: motor al lado conductor y rotor de jaula dentro del caracol (manual, piezas 5 y 6) ════════
@@ -184,20 +184,22 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   const L0 = V(0.447, 0.918, -0.16), L1 = V(0.472, 0.962, -0.25);
   bar('calef_ductos', L0, L1, 0.065, 0.035, 'plastic');
   corrugated('calef_ductos', [L1, [0.468, 0.988, -0.33], [0.44, 1.012, -0.45], [0.405, 1.036, -0.545], [0.389, 1.047, -0.585]], 0.026, 'rubber', 'dark');
-  // desempañador: 3 salidas en la base del parabrisas (conductor, centro y copiloto; dueño)
-  const DEF = [-0.36, ZC, 0.36];
-  for (const z of DEF) {
-    A('calef_ductos', rbox(0.065, 0.006, 0.18, 0.004), 'dark', { p: [0.545, 1.126, z] });
-    for (let k = 0; k < 6; k++) A('calef_ductos', rbox(0.058, 0.004, 0.005, 0.001), 'plastic', { p: [0.545, 1.13, z - 0.075 + k * 0.03] });
+  // desempañador: 2 ranuras largas y angostas en la base del parabrisas, una frente al conductor y otra frente al copiloto (dueño)
+  const DEFZ = 0.34, DEFL = 0.30;
+  for (const z of [-DEFZ, DEFZ]) {
+    A('calef_ductos', rbox(0.026, 0.006, DEFL + 0.016, 0.004), 'dark', { p: [0.548, 1.126, z] });
+    A('calef_ductos', rbox(0.012, 0.004, DEFL, 0.002), 'rubber', { p: [0.548, 1.1285, z] });
+    for (let k = 0; k < 2; k++) A('calef_ductos', rbox(0.014, 0.005, 0.004, 0.001), 'plastic', { p: [0.548, 1.129, z - 0.05 + k * 0.1] });
+    A('calef_ductos', rbox(0.024, 0.03, DEFL - 0.02, 0.008), 'plastic', { p: [0.549, 1.107, z] });           // boquilla bajo la ranura
   }
-  // el centro y el copiloto reciben el aire por un ducto que sube por delante de la caja (recorrido supuesto, no se ve)
-  A('calef_ductos', tube([[0.582, 0.615, -0.045], [0.598, 0.66, -0.046], [0.6, 0.80, -0.046], [0.596, 0.92, -0.043], [0.578, 1.02, -0.036], [0.556, 1.09, -0.03], [0.55, 1.108, ZC]], 0.022, false, 60), 'plastic');
-  A('calef_ductos', tube([[0.594, 0.95, -0.04], [0.588, 0.99, 0.06], [0.572, 1.05, 0.22], [0.556, 1.095, 0.33], [0.55, 1.108, 0.36]], 0.02, false, 50), 'plastic');
+  // la del copiloto recibe el aire por un ducto que sube por delante de la caja (recorrido supuesto, no se ve)
+  const DR = [[0.582, 0.615, -0.045], [0.598, 0.66, -0.046], [0.6, 0.80, -0.046], [0.596, 0.93, -0.02], [0.585, 1.0, 0.10], [0.568, 1.06, 0.24], [0.553, 1.098, DEFZ]];
+  A('calef_ductos', tube(DR, 0.022, false, 70), 'plastic');
   // el del conductor, por el tubo blanco: sube de la boquilla baja, pasa frente al motor del ventilador y sigue en una manguera beige
   const WT = [SP1.clone().add(V(0, -0.005, 0.005)), [0.556, 0.75, -0.16], [0.567, 0.835, -0.198], [0.575, 0.90, -0.226]];
   A('calef_tubo', tube(WT, 0.026, false, 40), 'white');
   A('calef_tubo', tube([[0.572, 0.876, -0.216], [0.576, 0.906, -0.229]], 0.03, false, 4), 'white');               // campana del tubo
-  corrugated('calef_tubo', [[0.575, 0.90, -0.226], [0.574, 0.95, -0.255], [0.567, 1.02, -0.30], [0.556, 1.075, -0.34], [0.55, 1.105, -0.36]], 0.03, 'beige', 'beigeD', 0.016);
+  corrugated('calef_tubo', [[0.575, 0.90, -0.226], [0.574, 0.95, -0.255], [0.567, 1.02, -0.30], [0.556, 1.075, -0.335], [0.551, 1.098, -DEFZ]], 0.03, 'beige', 'beigeD', 0.016);
 
   // ════════ MANDOS (foto): salida del aire (4), recirculación/exterior, COOL–HOT y ventilador OFF–3 ════════
   const CM = V(0.369, 1.045, ZC - 0.012);
@@ -218,8 +220,8 @@ export function buildHeater(ctx, { hOut, wpIn }) {
 
   // ════════ MANGUERAS: agua caliente del múltiple de admisión → llave → radiador → vuelve a la bomba ════════
   const hin = V(XP, 0.44, PIN), hrt = V(XP, 0.44, POUT);
-  const HIN = [hOut, V(hOut.x + 0.1, hOut.y + 0.06, hOut.z - 0.1), V(-0.12, 0.66, -0.2), V(0.08, 0.60, -0.18), V(0.22, 0.42, -0.06), V(0.40, 0.40, 0.08), V(hin.x - 0.01, 0.41, hin.z), hin];
-  const HRT = [hrt, V(hrt.x - 0.02, 0.40, hrt.z), V(0.3, 0.39, 0.03), V(0.08, 0.3, 0.05), V(0.04, 0.17, 0.0), V(-0.14, 0.17, -0.05), V(wpIn.x + 0.03, wpIn.y - 0.03, wpIn.z + 0.01), wpIn];
+  const HIN = [hOut, V(hOut.x + 0.05, hOut.y - 0.06, hOut.z + 0.07), V(-0.22, 0.30, 0.31), V(0.0, 0.27, 0.31), V(0.17, 0.29, 0.27), V(0.36, 0.38, 0.15), V(hin.x - 0.01, 0.41, hin.z), hin];   // por la derecha del radiador, bajo el piso
+  const HRT = [hrt, V(hrt.x - 0.02, 0.40, hrt.z), V(0.36, 0.36, 0.0), V(0.2, 0.2, -0.02), V(0.07, 0.12, -0.03), V(-0.04, 0.13, -0.06), V(wpIn.x + 0.04, wpIn.y - 0.05, wpIn.z - 0.01), wpIn];   // por debajo del radiador
   A('calef_mangueras', tube(HIN, 0.009, false, 90), 'hose', { press: 'hin' });
   A('calef_mangueras', tube(HRT, 0.009, false, 90), 'hose', { press: 'hout' });
 
@@ -240,9 +242,10 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     piesI: curve([LCC, [0.46, 0.55, ZH - 0.05], [0.45, 0.522, ZH - 0.09], [0.44, 0.515, ZH - 0.14], [0.40, 0.50, -0.25], [0.34, 0.49, -0.36]]),
     piesD: curve([LCC, [0.45, 0.55, ZH + 0.05], [0.445, 0.522, ZH + 0.09], [0.43, 0.515, ZH + 0.15], [0.38, 0.50, 0.28], [0.31, 0.49, 0.38]]),
     piesC: curve([LCC, [0.43, 0.55, ZH], [0.40, 0.522, ZH + 0.03], [0.36, 0.515, ZH + 0.04], [0.26, 0.50, ZH + 0.05]]),
-    vidrioI: curve([LCC, [0.52, 0.605, ZH - 0.06], [0.537, 0.615, -0.09], SP1, ...WT.slice(1), [0.574, 0.95, -0.255], [0.567, 1.02, -0.30], [0.556, 1.075, -0.34], [0.55, 1.105, -0.36], [0.545, 1.13, -0.36], [0.47, 1.26, -0.36]]),
-    vidrioC: curve([LCC, [0.55, 0.61, ZH - 0.04], [0.582, 0.615, -0.045], [0.598, 0.66, -0.046], [0.60, 0.80, -0.046], [0.596, 0.92, -0.043], [0.578, 1.02, -0.036], [0.556, 1.09, -0.03], [0.55, 1.108, ZC], [0.545, 1.13, ZC], [0.47, 1.26, ZC]]),
-    vidrioD: curve([LCC, [0.55, 0.61, ZH - 0.04], [0.582, 0.615, -0.045], [0.598, 0.66, -0.046], [0.60, 0.80, -0.046], [0.594, 0.95, -0.04], [0.588, 0.99, 0.06], [0.572, 1.05, 0.22], [0.556, 1.095, 0.33], [0.55, 1.108, 0.36], [0.545, 1.13, 0.36], [0.47, 1.26, 0.36]]),
+    vidrioI: curve([LCC, [0.52, 0.605, ZH - 0.06], [0.537, 0.615, -0.09], SP1, ...WT.slice(1), [0.574, 0.95, -0.255], [0.567, 1.02, -0.30], [0.556, 1.075, -0.335], [0.551, 1.1, -DEFZ], [0.546, 1.13, -DEFZ + 0.06], [0.47, 1.26, -DEFZ + 0.1]]),
+    vidrioI2: curve([[0.551, 1.1, -DEFZ], [0.546, 1.13, -DEFZ - 0.07], [0.47, 1.26, -DEFZ - 0.11]]),
+    vidrioD: curve([LCC, [0.55, 0.61, ZH - 0.04], ...DR, [0.546, 1.13, DEFZ - 0.06], [0.47, 1.26, DEFZ - 0.1]]),
+    vidrioD2: curve([DR[DR.length - 1], [0.546, 1.13, DEFZ + 0.07], [0.47, 1.26, DEFZ + 0.11]]),
   };
   const WATER = { ida: curve(HIN), rad: curve([hin, VP, [XP, 0.60, PIN], [XP, tankF.y - 0.03, PIN], [tankF.x, tankF.y, PIN], [0.42, 0.672, ZH + 0.04], [tankF.x, tankF.y, POUT], [XP, tankF.y - 0.03, POUT], [XP, 0.56, POUT], hrt]), vuelta: curve(HRT) };
 
@@ -299,7 +302,7 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     w.nucleo = on ? Q * MODES[st.mode].core : 0;
     for (let i = 0; i < 4; i++) w['cara' + i] = on ? f.cara / 2 : 0;
     w.piesI = w.piesD = on ? f.pies * 0.45 : 0; w.piesC = on ? f.pies * 0.3 : 0;
-    w.vidrioI = w.vidrioC = w.vidrioD = on ? f.vidrio * 0.5 : 0;
+    w.vidrioI = w.vidrioD = on ? f.vidrio * 0.6 : 0; w.vidrioI2 = w.vidrioD2 = on ? f.vidrio * 0.5 : 0;
     w.ida = w.rad = w.vuelta = r.waterFlow;
     return w;
   };

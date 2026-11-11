@@ -6,7 +6,7 @@
 
 Modelo 3D interactivo de mi **Suzuki Super Carry 1000 (SK410) 1996**: furgón ciego, volante a la izquierda, caja de 5 velocidades y carburador no catalítico.
 
-Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su lugar (con corte, rayos X y animación), los frenos en detalle (pedal, servo, bomba tándem, discos, tambores y freno de mano, con presión, cortes, fallas y desgaste), la calefacción en detalle (caja, ventilador, toma de aire, salidas y mandos, con el recorrido del aire y del agua), todos los sistemas, el mapa de sensores, diagramas animados, ficha técnica, plan de mantención, diagnóstico y un mapa de qué tan preciso es cada dato mostrado.
+Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su lugar (con corte, rayos X y animación), los frenos en detalle (pedal, servo, bomba tándem, discos, tambores y freno de mano, con presión, cortes, fallas y desgaste), la calefacción en detalle (caja, ventilador, toma de aire, salidas y mandos, con el recorrido del aire y del agua), la alimentación en detalle (estanque, bomba, líneas, carburador en corte, acelerador y ahogador, con el recorrido de la bencina y del aire), todos los sistemas, el mapa de sensores, diagramas animados, ficha técnica, plan de mantención, diagnóstico y un mapa de qué tan preciso es cada dato mostrado.
 
 ## Cómo está hecho
 
@@ -14,11 +14,13 @@ Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su
 |---|---|
 | `src/data.js` | Piezas, descripciones, datos técnicos, fuentes, mantención, diagnóstico y precisión de cada dato |
 | `src/body3d.js` | Carrocería medida en las fotos, luces, parachoques, parrilla y ruedas |
-| `src/van3d.js` | Chasis, suspensión, combustible, escape, eléctrico e interior |
+| `src/van3d.js` | Chasis, suspensión, dirección, embrague con su pedal y piola, escape, eléctrico e interior |
 | `src/brakes3d.js` | Frenos completos: pedal, servofreno, bomba tándem, depósito, cañerías, válvula DSP, discos, tambores y freno de mano |
 | `src/brakesim.js` | Cálculo simple del frenado: del pie a la presión, la desaceleración y el recorrido del pedal |
 | `src/heater3d.js` | Calefacción: caja, ventilador, radiador, compuertas, llave de agua, toma de aire, ductos, salidas y mandos, con el aire y el agua animados |
 | `src/heatersim.js` | Cálculo simple de la calefacción: temperatura de cada salida según los mandos |
+| `src/fuel3d.js` | Alimentación: estanque, filtro, bomba, líneas, cánister, carburador por dentro, pedal del acelerador y ahogador, con la bencina y el aire animados |
+| `src/fuelsim.js` | Cálculo simple de la alimentación: mezcla, vacío, rpm y consumo según el pedal y el ahogador |
 | `src/engine3d.js` | Motor F10A completo |
 | `src/viewer3d.js` | Visor 3D (three.js): vistas, cortes, despiece, colores y selección |
 | `src/main.js` | Interfaz: panel con Sistemas, Piezas, Sensores y Datos, hoja deslizable en el celular y controles del visor |

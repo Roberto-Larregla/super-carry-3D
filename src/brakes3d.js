@@ -12,24 +12,34 @@ const RZ = 0.562;             // plano medio del tambor trasero (|z|)
 const GAP_PAD = 0.0015, GAP_SHOE = 0.0045;   // holguras exageradas para que se vea el movimiento
 const HOT = new THREE.Color('#e8402f'), HOTE = new THREE.Color('#ff3b1f'), GLOW = new THREE.Color('#ff6a1a');
 
-// Pedal colgante como en las fotos: brazo de platina que baja y se dobla hacia atrás, y pisadera de aluminio
-// (con agujeros) inclinada, mirando hacia arriba y hacia el pie. Coordenadas desde el eje del pedal.
-export const PAD = { c: [-0.068, -0.338], tilt: -0.44 };      // centro e inclinación de la pisadera (rad)
-export function hangingPedal(ctx, part, parent, { ex = null } = {}) {
-  const { V, rbox, tube, cylX, add } = ctx;
+// Pedal colgante como en las fotos: brazo de platina (ancho en el sentido de la marcha, delgado visto de frente) que baja
+// pegado a la columna y abajo se abre hacia afuera; pisadera de goma con cubrepedal de aluminio de 5 botones, inclinada
+// hacia el pie. `side`: hacia qué lado queda la pisadera respecto del brazo (+1 derecha: freno; −1 izquierda: embrague).
+// Coordenadas desde el eje del pedal.
+export const PAD = { c: [-0.068, -0.338], tilt: -0.44, off: 0.034 };      // centro e inclinación de la pisadera (rad) y corrimiento lateral
+export function hangingPedal(ctx, part, parent, { ex = null, side = 1 } = {}) {
+  const { rbox, tube, cylX, add } = ctx;
   const A = (geo, kind, o = {}) => add(part, geo, kind, { parent, ex, ...o });
+  // placa de esquinas redondeadas: ancho en z, alto en y, espesor en x (centrada)
+  const plate = (th, h, w, r) => { const sh = new THREE.Shape(), x = w / 2, y = h / 2;
+    sh.moveTo(-x + r, -y); sh.lineTo(x - r, -y); sh.absarc(x - r, -y + r, r, -Math.PI / 2, 0, false); sh.lineTo(x, y - r); sh.absarc(x - r, y - r, r, 0, Math.PI / 2, false);
+    sh.lineTo(-x + r, y); sh.absarc(-x + r, y - r, r, Math.PI / 2, Math.PI, false); sh.lineTo(-x, -y + r); sh.absarc(-x + r, -y + r, r, Math.PI, Math.PI * 1.5, false);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: false, curveSegments: 6 }); g.translate(0, 0, -th / 2); g.rotateY(Math.PI / 2); return g; };
   const t = PAD.tilt, up = [Math.sin(-t), Math.cos(-t)], fr = [Math.cos(-t), -Math.sin(-t)];   // en el plano de la pisadera y hacia adelante
-  const [cx, cy] = PAD.c, off = 0.010;
-  const at = (u, k = off) => [cx + up[0] * u + fr[0] * k, cy + up[1] * u + fr[1] * k, 0];
-  // platina: sección de 22 × 8 mm (un tubo aplastado en z)
-  const arm = A(tube([[0, 0.012, 0], [0.004, -0.09, 0], [0.002, -0.19, 0], [-0.016, -0.25, 0], at(0.045), at(0.005)], 0.011, false, 64), 'steel');
-  arm.scale.set(1, 1, 0.38);
-  A(rbox(0.006, 0.05, 0.03, 0.002), 'steel', { p: at(0.022, 0.0075), r: [0, 0, t] });                 // placa donde se apernan
-  A(rbox(0.010, 0.096, 0.076, 0.012), 'machined', { p: at(0, 0), r: [0, 0, t] });                      // pisadera
-  for (const [u, w] of [[0.026, -0.022], [0.026, 0], [0.026, 0.022], [0.0, -0.011], [0.0, 0.011], [-0.026, 0]]) {
-    const p = at(u, -0.0052); A(cylX(0.0058, 0.0016, 14), 'dark', { p: [p[0], p[1], w], r: [0, 0, t] });
+  const [cx, cy] = PAD.c, zc = side * PAD.off, SQ = 0.25;
+  const at = (u, k = 0, z = zc) => [cx + up[0] * u + fr[0] * k, cy + up[1] * u + fr[1] * k, z];
+  // platina de 26 × 6,5 mm: un tubo aplastado de lado (las cotas en z van divididas por el aplastamiento)
+  const zq = z => z / SQ, e = at(0.02, 0.014, side * 0.012);
+  const arm = A(tube([[0, 0.014, 0], [0.006, -0.085, 0], [0.004, -0.185, 0], [-0.012, -0.25, zq(side * 0.002)], [e[0] + 0.012, e[1] + 0.03, zq(side * 0.007)], [e[0], e[1], zq(e[2])]], 0.013, false, 72), 'steel');
+  arm.scale.set(1, 1, SQ);
+  A(rbox(0.005, 0.046, 0.04, 0.002), 'steel', { p: at(0.012, 0.0105, side * 0.02), r: [0, 0, t] });      // placa soldada tras la pisadera
+  A(plate(0.012, 0.074, 0.056, 0.009), 'rubber', { p: at(0, 0.002), r: [0, 0, t] });                       // pisadera de goma original
+  A(plate(0.004, 0.086, 0.068, 0.012), 'brushed', { p: at(0, -0.0055), r: [0, 0, t] });                    // cubrepedal de aluminio
+  for (const [u, w] of [[0.02, -0.017], [0.02, 0.017], [-0.002, 0], [-0.024, -0.017], [-0.024, 0.017]]) {  // botones antideslizantes
+    A(cylX(0.0058, 0.0016, 16), 'steel', { p: at(u, -0.0082, zc + w), r: [0, 0, t] });
+    A(cylX(0.0036, 0.0012, 12), 'brushed', { p: at(u, -0.0094, zc + w), r: [0, 0, t] });
   }
-  A(rbox(0.0012, 0.008, 0.05, 0.0005), 'dark', { p: at(-0.04, -0.0052), r: [0, 0, t] });              // relieve del logo
+  A(rbox(0.0008, 0.005, 0.03, 0.0004), 'steel', { p: at(0.036, -0.0078), r: [0, 0, t] });                 // relieve de la marca (sin logo)
   return arm;
 }
 
@@ -61,26 +71,32 @@ export function buildBrakes(ctx, { ELv, E }) {
 
   const R = { press: [], rotors: [], disc: [], drum: [], pads: [], cal: [], shoes: [], wc: [], mcP: null, leaks: {}, bubbles: [], boxes: {} };
 
-  // ════════ PEDAL (colgante, lado conductor; foto) ════════
-  const PIV = V(0.465, 0.915, -0.22);
-  A('pedal_freno', rbox(0.07, 0.11, 0.004, 0.002), 'steel', { p: [0.47, 0.90, -0.248], ex: [0.3, 0.25, 0] });
-  A('pedal_freno', rbox(0.07, 0.11, 0.004, 0.002), 'steel', { p: [0.47, 0.90, -0.192], ex: [0.3, 0.25, 0] });
-  A('pedal_freno', rbox(0.08, 0.006, 0.07, 0.002), 'steel', { p: [0.475, 0.957, -0.22], ex: [0.3, 0.25, 0] });
-  A('pedal_freno', cylZ(0.008, 0.07, 12), 'machined', { p: PIV.toArray(), ex: [0.3, 0.25, 0] });
+  // ════════ PEDAL (colgante, a la derecha de la columna; fotos) ════════
+  // Al pisarlo empuja la varilla del servofreno (horquilla) y se separa del interruptor de la luz de freno, que cierra el circuito.
+  const PZ = -0.235;
+  const PX = 0.505, PIV = V(PX, 0.915, PZ);   // las pisaderas quedan cerca de la pared delantera, a la altura de la caja de la calefacción (fotos)
+  A('pedal_freno', rbox(0.07, 0.11, 0.004, 0.002), 'steel', { p: [PX + 0.005, 0.90, PZ - 0.024], ex: [0.3, 0.25, 0] });
+  A('pedal_freno', rbox(0.07, 0.11, 0.004, 0.002), 'steel', { p: [PX + 0.005, 0.90, PZ + 0.024], ex: [0.3, 0.25, 0] });
+  A('pedal_freno', rbox(0.08, 0.006, 0.052, 0.002), 'steel', { p: [PX + 0.01, 0.957, PZ], ex: [0.3, 0.25, 0] });
+  A('pedal_freno', cylZ(0.008, 0.06, 12), 'machined', { p: PIV.toArray(), ex: [0.3, 0.25, 0] });
   const pedal = group('pedal_freno', root, PIV.toArray(), [0.3, 0.25, 0]);
-  hangingPedal(ctx, 'pedal_freno', pedal);
+  hangingPedal(ctx, 'pedal_freno', pedal, { side: 1 });
   A('pedal_freno', rbox(0.012, 0.016, 0.03, 0.003), 'steel', { parent: pedal, p: [-0.006, -0.075, 0] });          // horquilla
-  A('pedal_freno', helix(0.006, 0.06, 7, 0.0012), 'steel', { p: [0.47, 0.885, -0.205], r: [0, 0, 0.5], ex: [0.3, 0.25, 0] });  // resorte de retorno
-  // interruptor de luz de freno (sensor 7) apoyado en el brazo del pedal
-  A('s_freno', rbox(0.03, 0.022, 0.024, 0.005), 'dark', { p: [0.49, 0.868, -0.22], ex: [0.3, 0.25, 0] });
-  A('s_freno', cylX(0.004, 0.022, 8), 'chrome', { p: [0.467, 0.868, -0.22], ex: [0.3, 0.25, 0] });
-  A('s_freno', cylX(0.009, 0.006, 6), 'steel', { p: [0.473, 0.868, -0.22], ex: [0.3, 0.25, 0] });
+  A('pedal_freno', helix(0.006, 0.06, 7, 0.0012), 'steel', { p: [PX + 0.005, 0.885, PZ + 0.015], r: [0, 0, 0.5], ex: [0.3, 0.25, 0] });  // resorte de retorno
+  // interruptor de luz de freno (sensor 7), detrás del brazo: en reposo el brazo le mantiene hundido el vástago
+  const sw = group('s_freno', root, [PX - 0.037, 0.868, PZ], [0.3, 0.25, 0]);
+  A('s_freno', rbox(0.03, 0.022, 0.024, 0.005), 'dark', { parent: sw, ex: null });
+  A('s_freno', cylX(0.009, 0.006, 6), 'steel', { parent: sw, p: [0.017, 0, 0], ex: null });
+  A('s_freno', rbox(0.004, 0.034, 0.03, 0.002), 'steel', { parent: sw, p: [0.013, 0.012, 0], ex: null });             // soporte en el puente de los pedales
+  A('s_freno', rbox(0.05, 0.004, 0.03, 0.002), 'steel', { parent: sw, p: [0.036, 0.03, 0], ex: null });
+  const swPin = dyn(A('s_freno', cylX(0.0035, 0.016, 8), 'chrome', { parent: sw, p: [0.022, 0, 0], ex: null }));
+  for (const dz of [-0.007, 0.007]) A('s_freno', rbox(0.012, 0.003, 0.005, 0.001), 'brass', { parent: sw, p: [-0.02, 0, dz], ex: null });   // terminales
 
   // ════════ SERVOFRENO + BOMBA TÁNDEM (posición aprox.: bajo el tablero, delante del pedal) ════════
-  const yaw = 0.96, pitch = -0.14;
+  const yaw = 1.2, pitch = -0.14;
   const ax = V(Math.cos(pitch) * Math.cos(yaw), Math.sin(pitch), -Math.cos(pitch) * Math.sin(yaw)).normalize();
   const ay = V(0, 1, 0).sub(ax.clone().multiplyScalar(ax.y)).normalize(), az = ax.clone().cross(ay);
-  const CLEV = V(0.459, 0.84, -0.22);
+  const CLEV = V(PX - 0.006, 0.84, PZ);
   const M = CLEV.clone().addScaledVector(ax, 0.10);
   const mc = group('bomba_freno', root, M.toArray(), [0.35, 0.3, -0.15]);
   mc.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ax, ay, az));
@@ -271,7 +287,7 @@ export function buildBrakes(ctx, { ELv, E }) {
 
   // ════════ VACÍO: manguera del servofreno al múltiple de admisión ════════
   const cv = MCW(0.12, 0.052, 0.012), mani = ELv(E.pts.carbInlet).add(V(0.03, -0.045, -0.03));
-  A('servofreno', tube([cv, cv.clone().add(V(0.02, 0.04, 0)), V(0.42, 0.66, -0.22), V(0.20, 0.50, -0.16), V(-0.02, 0.56, -0.07), mani.clone().add(V(0.04, 0.05, -0.03)), mani], 0.0062, false, 60), 'hose', { press: 'v', ex: [0.2, 0.2, -0.1], noAnchor: true });
+  A('servofreno', tube([cv, cv.clone().add(V(0.02, 0.04, 0)), V(0.42, 0.66, -0.25), V(0.22, 0.56, -0.26), V(0.05, 0.63, -0.22), V(-0.1, 0.6, -0.12), mani.clone().add(V(0.04, 0.05, -0.03)), mani], 0.0062, false, 60), 'hose', { press: 'v', ex: [0.2, 0.2, -0.1], noAnchor: true });
 
   // ════════ marcas de fallas (sólo se ven al simularlas) ════════
   const mark = (part, geo, kind, p) => { const m = dyn(A(part, geo, kind, { p: p.toArray(), pick: false, noAnchor: true })); m.visible = false; return m; };
@@ -315,6 +331,7 @@ export function buildBrakes(ctx, { ELv, E }) {
     const kF = Math.min(1, r.pf / 4), kR = Math.min(1, Math.max(r.pr / 4, hbE));
     // pedal y varilla
     pedal.rotation.z = (r.travel / 1000) / 0.342;
+    swPin.position.x = 0.022 + Math.min(0.006, pedal.rotation.z * 0.047);   // el vástago sale apenas el brazo se aleja (0,5–1 mm de juego, manual)
     const rodT = Math.max(0, r.travel - BK.freePlay) / 1000 / BK.pedalRatio;
     bst.rod.position.x = -0.05 + rodT; bst.prod.position.x = 0.075 + rodT;
     const assistK = r.fail === 'vacio' ? 0 : Math.min(1, r.assist / BK.servoMax);
@@ -441,6 +458,7 @@ export function buildBrakes(ctx, { ELv, E }) {
   recompute();
   return {
     planes, bind, setCuts, tick, paint, recompute, startStop, spinRotors,
+    demoPedal(k) { pedal.rotation.z = 0.2 * k; swPin.position.x = 0.022 + Math.min(0.006, pedal.rotation.z * 0.047); },   // fuera de la vista Frenos: sólo el pedal y el interruptor
     stopSeq() { st.lastResult = null; if (st.seq) { st.seq = null; st.v = 0; st.pedalF = st.on ? st.force : 0; recompute(); } },
     set(o) { Object.assign(st, o); return recompute(); },
     get state() { return st; },

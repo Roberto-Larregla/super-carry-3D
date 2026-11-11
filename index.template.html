@@ -36,16 +36,11 @@
   <section class="viewer" id="viewer" aria-label="Modelo 3D">
     <div id="labels"></div>
     <div class="vstack">
-      <div class="modesw" id="modebar" role="tablist" aria-label="Qué mostrar">
-        <button type="button" role="tab" data-mode="van" aria-selected="true">Furgón</button>
-        <button type="button" role="tab" data-mode="eng" aria-selected="false">Motor</button>
-        <button type="button" role="tab" data-mode="brk" aria-selected="false">Frenos</button>
-        <button type="button" role="tab" data-mode="cal" aria-selected="false">Calefacción</button>
-      </div>
-      <div class="focuspill" id="focuspill" hidden><span></span><button type="button" aria-label="Mostrar todo el furgón">×</button></div>
+      <div class="crumb" id="crumb" hidden><button type="button" id="crumb-back" aria-label="Volver al furgón completo"><svg class="ic" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg><span>Furgón</span></button><b id="crumb-name"></b></div>
       <div class="hud" id="enghud" hidden></div>
       <div class="bhud" id="brkhud" hidden aria-live="off"></div>
       <div class="bhud" id="calhud" hidden aria-live="off"></div>
+      <div class="bhud" id="alihud" hidden aria-live="off"></div>
       <div class="qlegend" id="qlegend" hidden><p>Color = lo más débil entre <b>ubicación</b> y <b>forma</b> de cada pieza</p><div id="qlegend-keys"></div><button type="button" class="btn ghost sm" data-nav="datos:precision">Ver el mapa de precisión</button></div>
     </div>
     <p class="hint" id="hint"><b>Arrastra</b> para girar · <b>pellizca</b> para acercar · <b>toca</b> una pieza</p>
@@ -54,6 +49,7 @@
     <div class="dock" id="dock" role="toolbar" aria-label="Controles del modelo">
       <button type="button" class="dk run" id="tb-press" data-only="brk" hidden aria-pressed="false"><svg class="ic" viewBox="0 0 24 24"><path d="M7.5 3l3.2 8.6"/><rect x="8" y="11" width="10" height="8.5" rx="1.6" transform="rotate(-14 13 15)"/></svg><span>Pisar</span></button>
       <button type="button" class="dk run" id="tb-heat" data-only="cal" hidden aria-pressed="false"><svg class="ic" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg><span>Encender</span></button>
+      <button type="button" class="dk run" id="tb-fuel" data-only="ali" hidden aria-pressed="false"><svg class="ic" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Encender</span></button>
       <button type="button" class="dk run" id="tb-run" data-only="van eng" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg><span>Arrancar</span></button>
       <button type="button" class="dk" data-pop="vista" aria-expanded="false" aria-controls="pop-vista"><svg class="ic" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Vista</span></button>
       <button type="button" class="dk" data-pop="capas" aria-expanded="false" aria-controls="pop-capas"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4l9 5-9 5-9-5z"/><path d="M3 14l9 5 9-5"/></svg><span>Capas</span></button>
@@ -64,6 +60,8 @@
       <button type="button" class="dk" data-pop="taller" data-only="brk" hidden aria-expanded="false" aria-controls="pop-taller"><svg class="ic" viewBox="0 0 24 24"><path d="M14.6 6.2a4.2 4.2 0 0 0 5.2 5.2l-8.6 8.6a2.3 2.3 0 0 1-3.2-3.2l8.6-8.6a4.2 4.2 0 0 1-2-2z"/><path d="M14.6 6.2l2.6-2.6"/></svg><span>Taller</span></button>
       <button type="button" class="dk" data-pop="mandos" data-only="cal" hidden aria-expanded="false" aria-controls="pop-mandos"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12M20 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg><span>Mandos</span></button>
       <button type="button" class="dk" data-pop="ctaller" data-only="cal" hidden aria-expanded="false" aria-controls="pop-ctaller"><svg class="ic" viewBox="0 0 24 24"><path d="M14.6 6.2a4.2 4.2 0 0 0 5.2 5.2l-8.6 8.6a2.3 2.3 0 0 1-3.2-3.2l8.6-8.6a4.2 4.2 0 0 1-2-2z"/><path d="M14.6 6.2l2.6-2.6"/></svg><span>Taller</span></button>
+      <button type="button" class="dk" data-pop="acel" data-only="ali" hidden aria-expanded="false" aria-controls="pop-acel"><svg class="ic" viewBox="0 0 24 24"><path d="M8 20l2.5-13.5a1.6 1.6 0 0 1 1.6-1.3h1.4a1.6 1.6 0 0 1 1.6 1.9L13 20"/><path d="M5 20h14"/></svg><span>Acelerador</span></button>
+      <button type="button" class="dk" data-pop="ataller" data-only="ali" hidden aria-expanded="false" aria-controls="pop-ataller"><svg class="ic" viewBox="0 0 24 24"><path d="M14.6 6.2a4.2 4.2 0 0 0 5.2 5.2l-8.6 8.6a2.3 2.3 0 0 1-3.2-3.2l8.6-8.6a4.2 4.2 0 0 1-2-2z"/><path d="M14.6 6.2l2.6-2.6"/></svg><span>Taller</span></button>
     </div>
 
     <div class="pop" id="pop-vista" hidden role="dialog" aria-label="Vista">
@@ -72,8 +70,7 @@
     <div class="pop" id="pop-capas" hidden role="dialog" aria-label="Capas">
       <div data-only="van"><h4>Carrocería</h4><div class="segbtns" id="tb-body"><button type="button" data-v="solid" aria-pressed="true">Sólida</button><button type="button" data-v="ghost" aria-pressed="false">Rayos X</button><button type="button" data-v="hidden" aria-pressed="false">Oculta</button></div></div>
       <div data-only="eng" hidden><h4>Corte del motor</h4><div class="segbtns col" id="tb-cut"><button type="button" data-v="none" aria-pressed="true">Sin corte</button><button type="button" data-v="xray" aria-pressed="false">Rayos X</button><button type="button" data-v="long" aria-pressed="false">Largo</button><button type="button" data-v="trans" aria-pressed="false">Transversal</button></div></div>
-      <div data-only="brk cal" hidden><h4>Ver por dentro</h4><div class="segbtns" id="tb-bcut"><button type="button" data-v="none" aria-pressed="true">Sin corte</button><button type="button" data-v="in" aria-pressed="false">Cortes</button></div><p class="pnote" id="tb-bcut-note">Abre el caliper, el tambor, el cilindro de rueda, la bomba, el servo y la válvula DSP.</p></div>
-      <label class="checkopt" data-only="van"><input type="checkbox" id="tb-rack" checked> Parrilla de techo</label>
+      <div data-only="brk cal ali" hidden><h4>Ver por dentro</h4><div class="segbtns" id="tb-bcut"><button type="button" data-v="none" aria-pressed="true">Sin corte</button><button type="button" data-v="in" aria-pressed="false">Cortes</button></div><p class="pnote" id="tb-bcut-note">Abre el caliper, el tambor, el cilindro de rueda, la bomba, el servo y la válvula DSP.</p></div>
       <label class="checkopt"><input type="checkbox" id="tb-labels"> Nombres de las piezas</label>
     </div>
     <div class="pop" id="pop-color" hidden role="dialog" aria-label="Color">
@@ -109,6 +106,19 @@
       <div><h4>Simular una falla</h4><div class="segbtns col" id="tb-hfail"><button type="button" data-v="ok" aria-pressed="true">Todo bien</button><button type="button" data-v="termostato" aria-pressed="false">Termostato pegado abierto</button><button type="button" data-v="llave" aria-pressed="false">Llave de agua trabada</button><button type="button" data-v="resistencia" aria-pressed="false">Resistencia cortada</button><button type="button" data-v="radiador" aria-pressed="false">Radiador tapado</button><button type="button" data-v="desempanador" aria-pressed="false">Compuerta del parabrisas</button></div></div>
       <div><h4>Mostrar el recorrido</h4><label class="checkopt"><input type="checkbox" id="tb-hair-show" checked> del aire</label> &nbsp; <label class="checkopt"><input type="checkbox" id="tb-hwater-show" checked> del agua</label></div>
     </div>
+    <div class="pop" id="pop-acel" hidden role="dialog" aria-label="Acelerador y ahogador">
+      <div><h4>Pedal del acelerador</h4><div class="segbtns" id="tb-accseg"><button type="button" data-v="0" aria-pressed="true">Ralentí</button><button type="button" data-v="20" aria-pressed="false">Suave</button><button type="button" data-v="50" aria-pressed="false">Medio</button><button type="button" data-v="100" aria-pressed="false">A fondo</button></div></div>
+      <div class="row"><input type="range" id="tb-acc" min="0" max="100" value="0" aria-label="Recorrido del pedal"><div class="rangeval"><span>Suelto</span><output id="tb-acc-v" for="tb-acc">0 %</output><span>A fondo</span></div></div>
+      <button type="button" class="btn sm" id="tb-kick">Pisar de golpe</button>
+      <div class="row"><h4><label for="tb-choke">Ahogador (perilla)</label></h4><input type="range" id="tb-choke" min="0" max="100" step="5" value="0"><div class="rangeval"><span>Adentro</span><output id="tb-choke-v" for="tb-choke">Adentro</output><span>Tirado</span></div></div>
+      <div><h4>Motor</h4><div class="segbtns" id="tb-feng"><button type="button" data-v="caliente" aria-pressed="true">Caliente</button><button type="button" data-v="frio" aria-pressed="false">Frío</button></div></div>
+      <p class="pnote"><b>Pisar de golpe</b> muestra el chorro de la bomba de aceleración. En frío, tira el ahogador para ver cómo cambia la mezcla.</p>
+    </div>
+    <div class="pop" id="pop-ataller" hidden role="dialog" aria-label="Taller de la alimentación">
+      <div><h4>Simular una falla</h4><div class="segbtns col" id="tb-ffail"><button type="button" data-v="ok" aria-pressed="true">Todo bien</button><button type="button" data-v="filtro" aria-pressed="false">Filtro de bencina tapado</button><button type="button" data-v="bomba" aria-pressed="false">Bomba de bencina débil</button><button type="button" data-v="aguja" aria-pressed="false">Aguja del flotador que no cierra</button><button type="button" data-v="aire" aria-pressed="false">Entrada de aire falsa</button><button type="button" data-v="solenoide" aria-pressed="false">Solenoide de corte sin corriente</button><button type="button" data-v="filtroaire" aria-pressed="false">Filtro de aire sucio</button></div></div>
+      <div class="row"><h4><label for="tb-flevel">Bencina en el estanque</label></h4><input type="range" id="tb-flevel" min="0" max="100" value="60"><div class="rangeval"><span>Vacío</span><output id="tb-flevel-v" for="tb-flevel">22 L</output><span>37 L</span></div></div>
+      <div><h4>Mostrar el recorrido</h4><label class="checkopt"><input type="checkbox" id="tb-ffuel-show" checked> de la bencina</label> &nbsp; <label class="checkopt"><input type="checkbox" id="tb-fair-show" checked> del aire</label> &nbsp; <label class="checkopt"><input type="checkbox" id="tb-fvap-show" checked> de los vapores</label></div>
+    </div>
     <p id="viewer-msg" hidden>Este navegador no pudo iniciar el modelo 3D (WebGL). El panel con los sistemas, las piezas y los datos sigue funcionando.</p>
   </section>
 
@@ -136,11 +146,11 @@
     <p>Un Suzuki Super Carry 1000 (SK410) de 1996, furgón ciego con volante a la izquierda, en 3D: la carrocería está medida en fotos del furgón y adentro va cada sistema, con el motor F10A completo en su lugar. Toca cualquier pieza para ver qué es, sus datos, cómo se mantiene y qué falla suele dar.</p>
     <dl class="howto">
       <dt><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="3.5"/></svg></dt><dd><b>Arrastra</b> para girar, <b>pellizca</b> o usa la rueda del mouse para acercar y arrastra con dos dedos para moverlo.</dd>
-      <dt><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></dt><dd><b>Sistemas</b> muestra cada sistema en el modelo, con su esquema animado, datos, mantención y fallas.</dd>
+      <dt><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></dt><dd><b>Sistemas</b> es la entrada a todo: toca un sistema y el modelo lo abre, con su esquema animado, datos, mantención y fallas. <b>Motor</b>, <b>Alimentación</b>, <b>Frenos</b> y <b>Calefacción</b> tienen vista detallada, con mandos propios; arriba a la izquierda, <b>← Furgón</b> vuelve al furgón completo.</dd>
       <dt><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/><circle cx="12" cy="12" r="3"/></svg></dt><dd><b>Piezas</b> tiene el buscador: escribe “bomba” o “filtro” y toca la que quieras.</dd>
-      <dt><svg class="ic" viewBox="0 0 24 24"><path d="M12 4l9 5-9 5-9-5z"/><path d="M3 14l9 5 9-5"/></svg></dt><dd>Abajo del modelo: <b>arranca</b> el motor, cambia la <b>vista</b>, deja la carrocería en <b>rayos X</b>, píntalo <b>por sistema</b> o <b>sepáralo</b> en piezas. <b>Motor</b> (arriba) muestra el motor solo, en corte y en movimiento.</dd>
-      <dt><svg class="ic" viewBox="0 0 24 24"><path d="M7.5 3l3.2 8.6"/><rect x="8" y="11" width="10" height="8.5" rx="1.6" transform="rotate(-14 13 15)"/></svg></dt><dd><b>Frenos</b> deja los frenos solos: <b>pisa</b> el pedal y mira cómo la presión llega a cada rueda, ábrelos en <b>corte</b> y en <b>Taller</b> prueba fallas, desgaste y el freno de mano.</dd>
-      <dt><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg></dt><dd><b>Calefacción</b> muestra la caja, el ventilador y los ductos: mueve los <b>mandos</b> como en el tablero y mira por dónde entra y sale el aire y cómo llega el agua caliente del motor.</dd>
+      <dt><svg class="ic" viewBox="0 0 24 24"><path d="M12 4l9 5-9 5-9-5z"/><path d="M3 14l9 5 9-5"/></svg></dt><dd>Abajo del modelo: <b>arranca</b> el motor, cambia la <b>vista</b>, deja la carrocería en <b>rayos X</b>, píntalo <b>por sistema</b> o <b>sepáralo</b> en piezas.</dd>
+      <dt><svg class="ic" viewBox="0 0 24 24"><path d="M7.5 3l3.2 8.6"/><rect x="8" y="11" width="10" height="8.5" rx="1.6" transform="rotate(-14 13 15)"/></svg></dt><dd>En <b>Frenos</b>, <b>pisa</b> el pedal y mira cómo la presión llega a cada rueda, ábrelos en <b>corte</b> y en <b>Taller</b> prueba fallas, desgaste y el freno de mano.</dd>
+      <dt><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg></dt><dd>En <b>Calefacción</b>, mueve los <b>mandos</b> como en el tablero y mira por dónde entra y sale el aire. En <b>Alimentación</b>, pisa el <b>acelerador</b>, tira el ahogador y abre el carburador en corte para ver por dónde pasan la bencina y el aire. Al tocar un pedal en el modelo, se pisa solo y muestra qué mueve.</dd>
     </dl>
     <p class="fine">Modelo conceptual con fines educativos. Antes de intervenir frenos, dirección o combustible, confirma los datos en el manual de servicio original. Las piezas marcadas “aprox.” tienen forma o ubicación esquemática; la sección Datos → Precisión dice qué tan confiable es cada dato.</p>
     <p class="fine">Versión {{VERSION}} · {{FECHA}}. Funciona sin internet. Hecho con three.js (licencia MIT) y las tipografías Barlow e IBM Plex Mono (licencia SIL OFL).</p>

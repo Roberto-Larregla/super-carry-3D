@@ -14,7 +14,7 @@ async def main(dev, steps):
         await pg.goto(URL_DOC); await pg.wait_for_timeout(2500)
         async def shot(n): await pg.screenshot(path=str(ROOT / "shots" / f"brk_{dev}_{n}.png"))
         js = pg.evaluate
-        await js("document.querySelector('#modebar [data-mode=brk]').click()"); await pg.wait_for_timeout(1800); await shot('1_iso')
+        await js("window.__app.openSys('frenos')"); await pg.wait_for_timeout(1800); await shot('1_iso')
         if 'press' in steps or 'all' in steps:
             await js("document.querySelector('#tb-press').click()"); await pg.wait_for_timeout(1200); await shot('2_pisado')
         if 'cut' in steps or 'all' in steps:
