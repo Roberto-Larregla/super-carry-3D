@@ -21,6 +21,8 @@ Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su
 | `src/heatersim.js` | Cálculo simple de la calefacción: temperatura de cada salida según los mandos |
 | `src/fuel3d.js` | Alimentación: estanque, filtro, bomba, líneas, cánister, carburador por dentro, pedal del acelerador y ahogador, con la bencina y el aire animados |
 | `src/fuelsim.js` | Cálculo simple de la alimentación: mezcla, vacío, rpm y consumo según el pedal y el ahogador |
+| `src/drive3d.js` | Tren motriz: embrague, caja de 5 marchas con sus engranajes, sincronizadores y horquillas, palanca y cables, cardán, diferencial y palieres |
+| `src/drivesim.js` | Dientes y relaciones de la caja y el diferencial, y un cálculo simple de motor, embrague y furgón para pasar los cambios |
 | `src/engine3d.js` | Motor F10A completo |
 | `src/viewer3d.js` | Visor 3D (three.js): vistas, cortes, despiece, colores y selección |
 | `src/main.js` | Interfaz: panel con Sistemas, Piezas, Sensores y Datos, hoja deslizable en el celular y controles del visor |

@@ -453,7 +453,7 @@ export function buildBrakes(ctx, { ELv, E }) {
     }
     return active;
   }
-  function spinRotors(aF, aR) { R.rotors.forEach((g, i) => { g.rotation.z = i < 2 ? aF : aR; }); }
+  function spinRotors(aF, aR, aRL = aR) { R.rotors.forEach((g, i) => { g.rotation.z = i < 2 ? aF : i === 2 ? aR : aRL; }); }
 
   recompute();
   return {

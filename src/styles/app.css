@@ -394,3 +394,13 @@ dialog.about::backdrop { background: rgba(42,36,32,0.45); }
   .toast { bottom: 96px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+
+/* vista Transmisión: rejilla de la palanca */
+.hgate { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 8px; }
+.hgate button { font: 700 17px/1 var(--font-display); letter-spacing: 0.02em; padding: 9px 0; min-height: 40px; background: var(--paper); color: var(--ink); border: 1px solid var(--line-2); border-radius: 4px; cursor: pointer; }
+.hgate button.n { grid-column: 1 / -1; font: 600 12.5px/1 var(--font-body); min-height: 30px; padding: 6px 0; color: var(--ink-2); }
+.hgate button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.hgate button:focus-visible { outline: 2px solid var(--petrol); outline-offset: 2px; }
+.btnpair { display: flex; gap: 6px; flex-wrap: wrap; }
+.btnpair .btn[aria-pressed="true"] { background: var(--red); border-color: var(--red); color: #fff; }
+.simbox.tra { border-left-color: #2e9461; }

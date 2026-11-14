@@ -3,6 +3,7 @@ import { createViewer } from './viewer3d.js';
 import { h } from './svgkit.js';
 import { PHASES, cyclePhi, phaseOf } from './geom.js';
 import { FFAILS, MIXTXT, FK } from './fuelsim.js';
+import { DFAILS, GNAME, DK, FINALR, PRIM, gearRatio } from './drivesim.js';
 import { motor } from './diagrams/motor.js';
 import { combustible } from './diagrams/combustible.js';
 import { encendido } from './diagrams/encendido.js';
@@ -64,20 +65,20 @@ const tabOfSys = sys => TABS.find(t => t.id === DIAG_OF_SYS[sys]) || TABS.find(t
 const BLURB = {
   motor: 'F10A de 970 cm³ y 4 cilindros, inclinado bajo los asientos', combustible: 'Estanque, bomba, carburador por dentro, acelerador y ahogador', electrico: 'Encendido, carga, partida, luces y tablero',
   refrigeracion: 'Radiador, bomba de agua, ventilador y termostato', lubricacion: 'Bomba, filtro, cárter y bulbo de aceite', escape: 'Múltiple, catalizador, silenciador y cola',
-  transmision: 'Embrague y su piola, caja de 5, cardán y diferencial', chasis: 'McPherson adelante, resortes atrás y cremallera', frenos: 'Discos adelante, tambores atrás y doble circuito',
+  transmision: 'Embrague, caja de 5 por dentro, palanca, cardán y diferencial', chasis: 'McPherson adelante, resortes atrás y cremallera', frenos: 'Discos adelante, tambores atrás y doble circuito',
   carroceria: 'Furgón ciego, interior, asientos y parrilla', calefaccion: 'Caja, ventilador, toma de aire, salidas y mandos', sensores: 'Los 9 sensores e interruptores, con su cableado',
 };
 // Cada sistema abre su vista del modelo: los que ya están detallados tienen una propia; el resto se marca sobre el furgón completo.
-const SYSVIEW = { motor: 'eng', lubricacion: 'eng', frenos: 'brk', calefaccion: 'cal', combustible: 'ali' };
-const MODESYS = { eng: 'motor', brk: 'frenos', cal: 'calefaccion', ali: 'combustible' };
-const MODENAME = { eng: 'Motor', brk: 'Frenos', cal: 'Calefacción', ali: 'Alimentación' };
+const SYSVIEW = { motor: 'eng', lubricacion: 'eng', frenos: 'brk', calefaccion: 'cal', combustible: 'ali', transmision: 'tra' };
+const MODESYS = { eng: 'motor', brk: 'frenos', cal: 'calefaccion', ali: 'combustible', tra: 'transmision' };
+const MODENAME = { eng: 'Motor', brk: 'Frenos', cal: 'Calefacción', ali: 'Alimentación', tra: 'Transmisión' };
 const GRID = SYSTEMS.filter(sy => sy.id !== 'sensores');      // los sensores tienen su pestaña y aparecen en el sistema al que sirven
 
 // ═══════════ Visor 3D ═══════════
-const viewerEl = $('#viewer'), hud = $('#enghud'), bhud = $('#brkhud'), chud = $('#calhud'), ahud = $('#alihud');
-let viewer, smap = null, quiet = false, bhKey = '', simKey = '', seqWas = null, chKey = '', csimKey = '', ahKey = '', asimKey = '';
+const viewerEl = $('#viewer'), hud = $('#enghud'), bhud = $('#brkhud'), chud = $('#calhud'), ahud = $('#alihud'), thud = $('#trahud');
+let viewer, smap = null, quiet = false, bhKey = '', simKey = '', seqWas = null, chKey = '', csimKey = '', ahKey = '', asimKey = '', thKey = '', tsimKey = '';
 try {
-  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th), onBrake: r => onBrake(r), onHeat: r => onHeat(r), onFuel: r => onFuel(r) });
+  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th), onBrake: r => onBrake(r), onHeat: r => onHeat(r), onFuel: r => onFuel(r), onDrive: r => onDrive(r) });
   window.__viewer = viewer;
 } catch (err) {
   viewerEl.classList.add('nogl'); $('#viewer-msg').hidden = false; $('#dock').hidden = true; console.error(err);
@@ -270,7 +271,7 @@ function renderPart(id) {
   const how = P.diag && TABS.find(t => t.id === P.diag);
   const m0 = mode(), goes = [];
   if (viewer) {
-    for (const [mm, nm] of [['ali', 'Alimentación'], ['brk', 'Frenos'], ['cal', 'Calefacción'], ['eng', 'Motor']]) if (m0 !== mm && viewer.inModeOf(mm, id)) goes.push(`<button type="button" class="btn ghost" data-mode-go="${mm}" data-part-go="${id}">Ver en la vista ${nm}</button>`);
+    for (const [mm, nm] of [['ali', 'Alimentación'], ['tra', 'Transmisión'], ['brk', 'Frenos'], ['cal', 'Calefacción'], ['eng', 'Motor']]) if (m0 !== mm && viewer.inModeOf(mm, id)) goes.push(`<button type="button" class="btn ghost" data-mode-go="${mm}" data-part-go="${id}">Ver en la vista ${nm}</button>`);
     if (m0 !== 'van' && !P.deep) goes.push(`<button type="button" class="btn ghost" data-mode-go="van" data-part-go="${id}">Ver en el furgón</button>`);
   }
   const others = [...new Set([P.serves, ...(P.also || [])].filter(x => x && x !== P.sys && x !== 'sensores'))];
@@ -304,7 +305,7 @@ function renderSys(sys) {
   const guests = all.filter(id => PARTS[id].sys !== sys && PARTS[id].serves !== sys && (PARTS[id].also || []).includes(sys));
   const tb = tabOfSys(sys), specs = SPECS.find(sp => sp.sys === sys), maint = MAINT.filter(m => m.sys === sys), faults = DIAG.filter(d => d.sys === sys);
   const J = [['s-piezas', 'Piezas'], tb && ['s-diag', 'Cómo funciona'], specs && ['s-datos', 'Datos'], maint.length && ['s-mant', 'Mantención'], faults.length && ['s-fallas', 'Fallas']].filter(Boolean);
-  const m = mode(), sim = { frenos: ['brk', 'brksim', ''], calefaccion: ['cal', 'calsim', ' cal'], combustible: ['ali', 'alisim', ' ali'] }[sys];
+  const m = mode(), sim = { frenos: ['brk', 'brksim', ''], calefaccion: ['cal', 'calsim', ' cal'], combustible: ['ali', 'alisim', ' ali'], transmision: ['tra', 'trasim', ' tra'] }[sys];
   const where = SYSVIEW[sys] ? (m === SYSVIEW[sys] ? 'vista detallada' : 'tiene vista detallada') : 'marcadas en el modelo';
   vDetail.innerHTML = vhead(SYS[sys].name, `${plural(own.length, 'pieza', 'piezas')} · ${where}`, true) + `
     <p class="lead">${tb && tb.sys === sys ? tb.p : (BLURB[sys] || '') + '.'}</p>
@@ -322,6 +323,7 @@ function renderSys(sys) {
   if ($('#brksim')) { simKey = ''; viewer && updateSim(viewer.brake()); }
   if ($('#calsim')) { csimKey = ''; viewer && updateCalSim(viewer.heat()); }
   if ($('#alisim')) { asimKey = ''; viewer && updateAliSim(viewer.fuel()); }
+  if ($('#trasim')) { tsimKey = ''; viewer && updateTraSim(viewer.drive()); }
 }
 const maintHTML = m => `<div class="mitem"><b><span class="dot" style="--c:${SYS[m.sys].color}"></span>${m.item}${m.urgent ? ' <span class="pill">Prioridad</span>' : ''}</b><span class="when">${m.every}</span><p>${m.note} ${srcBadge(m.src)}</p></div>`;
 const diagHTML = d => `<article class="dcard" style="--c:${SYS[d.sys].color}"><h5>${d.s}</h5><ol>${d.c.map(c => `<li>${c}</li>`).join('')}</ol><button type="button" class="btn ghost sm" data-part="${d.part}">Ver ${(PARTS[d.part].short || PARTS[d.part].name).replace(/\s*\(.*?\)/g, '').toLowerCase()}</button></article>`;
@@ -358,7 +360,8 @@ function renderDatos() {
         <p><b>Carrocería:</b> medida en fotos de costado, frente y atrás, con la distancia entre ejes (1.840 mm) y la patente (360 × 130 mm) como escala; el error típico es de 2 a 3 cm. Las diagonales de los vanos de la corredera y del portalón de la sección 19 del manual calzan con las fotos.</p>
         <p><b>Qué es aproximado:</b> la forma de las piezas en el 3D y la posición de las marcadas “aprox.” (estanque, radiador, catalizador, silenciador, controlador y varios sensores). La calefacción sigue el despiece del manual y las fotos de la caja, pero sus cotas internas y el recorrido de las mangueras son aproximados. En el motor, el largo de biela, el ángulo de las válvulas, la forma de los balancines y el ángulo exacto del distribuidor son aproximados.</p>
         <p><b>Alimentación:</b> el orden estanque → filtro → bomba → carburador, el retorno, la línea de vapores, la bomba y el filtro en el larguero derecho, los circuitos del carburador y sus ajustes salen del manual; el pedal del acelerador, la perilla del ahogador, el filtro de aire y el cánister, de las fotos. La posición del estanque, el recorrido de las líneas y de las piolas y el interior del carburador son aproximados, y las rpm, el vacío, la mezcla y el consumo de la vista Alimentación son valores típicos.</p>
-        <p><b>Bajo los asientos:</b> el motor, el radiador, los depósitos, el filtro de aire, el cánister y los apoyos de la suspensión se ubicaron con las dos fotos tomadas levantando los asientos; la varilla del aceite, según el dueño. La inclinación de los puntales es una estimación a partir de esas fotos.</p>
+        <p><b>Bajo los asientos:</b> el motor, el radiador, los depósitos, el filtro de aire, el cánister y los apoyos de la suspensión se ubicaron con las dos fotos tomadas levantando los asientos; la manilla de la varilla del aceite es la argolla que el dueño señaló en una de ellas. La inclinación de los puntales es una estimación a partir de esas fotos.</p>
+        <p><b>Transmisión:</b> salen del manual el embrague de diafragma con su disco de cuatro amortiguadores, el orden de los engranajes en los tres ejes de la caja con sus dientes y relaciones, los tres sincronizadores, el mando por dos cables, el cardán de una pieza con yugo deslizante, el diferencial hipoide en portador desmontable y los ajustes y aprietes. La rejilla de la palanca es la que indica el dueño. Son aproximados la distancia entre ejes de la caja, la forma de las carcasas, el selector por dentro, las palancas donde llegan los cables, el largo del cardán y los dientes de satélites y planetarios; los 41/8 dientes de corona y piñón se deducen de la relación 5,125. En la vista Transmisión, par, masa, roce y capacidad del embrague son valores típicos.</p>
         <p><b>Frenos:</b> discos, tambores, pastillas, balatas, pistón del caliper, recorrido del pedal y freno de mano siguen el manual, y el depósito está donde se ve en las fotos. La posición del servo, la bomba, la junta de 5 vías y la válvula DSP es aproximada. La vista Frenos usa valores típicos (palanca del pedal, ayuda del servo, diámetro de la bomba y de los cilindros de rueda, roce) para mostrar las proporciones, no para calcular un frenado real.</p>
         <p><b>Calefacción:</b> el tipo (agua caliente), el ventilador de 3 velocidades con su resistencia, la llave de agua por cable y las piezas de la caja salen del manual; la forma de la caja, los mandos, el tubo blanco al desempañador, la admisión con su rejilla y su esponja, la entrada del aire exterior por abajo de la admisión y las salidas, de las fotos y de lo que cuenta el dueño. El interior de la caja, las compuertas, dónde nace el tubo de la rejilla del extremo derecho, el ducto que lleva aire al parabrisas del lado del copiloto y los recorridos dentro del tablero son aproximados, y las temperaturas de la vista Calefacción son valores típicos.</p>
         <p><b>Sensores:</b> los números de parte del bulbo de aceite, del interruptor de luz de freno y del distribuidor salen del catálogo OEM del SK410; el bulbo de temperatura y el interruptor de retroceso, de catálogos de repuestos. El manual confirma dónde van el bulbo de temperatura, el bulbo de aceite, el aforador y el generador de señal, y da las resistencias y presiones de prueba.</p>
@@ -490,6 +493,7 @@ const VIEWS = {
   eng: [['iso', '3/4'], ['escape', 'Lado escape'], ['admision', 'Lado admisión'], ['frente', 'Frente'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
   brk: [['iso', '3/4'], ['lado', 'Lado conductor'], ['ruedadel', 'Rueda delantera'], ['ruedatras', 'Rueda trasera'], ['pedal', 'Pedal y bomba'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
   cal: [['iso', '3/4'], ['cabina', 'Desde la cabina'], ['caja', 'Caja por dentro'], ['mandos', 'Mandos'], ['admision', 'Toma de aire'], ['arriba', 'Arriba']],
+  tra: [['iso', '3/4'], ['embrague', 'Embrague por dentro'], ['caja', 'Caja por dentro'], ['selector', 'Selector y cables'], ['palanca', 'Palanca'], ['cardan', 'Cardán'], ['dif', 'Diferencial por dentro'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
   ali: [['iso', '3/4'], ['carb', 'Carburador por dentro'], ['palancas', 'Palancas y piolas'], ['estanque', 'Estanque y bomba'], ['pedal', 'Pedal y ahogador'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
 };
 function renderViews(m) { $('#tb-view').innerHTML = VIEWS[m].map(([v, t], i) => `<button type="button" data-v="${v}" aria-pressed="${i === 0}">${t}</button>`).join(''); }
@@ -500,12 +504,14 @@ const syncRun = () => { if (!viewer) return; const on = viewer.isRunning(); run.
 const BCUTNOTE = {
   brk: 'Abre el caliper, el tambor, el cilindro de rueda, la bomba, el servo y la válvula DSP.',
   cal: 'Abre la caja por el lado del conductor (ventilador, radiador y compuertas) y deja transparentes la caja de admisión y la llave de agua.',
+  tra: 'Abre la campana del embrague y la caja por el lado del conductor, y el puente trasero por arriba.',
   ali: 'Abre el carburador por la mitad (se mira desde el frente) y deja transparentes el estanque, la bomba, el filtro de aire, el cánister y la tapa del pedal.',
 };
 const MODETOAST = {
   eng: ['Motor F10A en su lugar. Capas → Corte lo abre; Arrancar lo pone en marcha.', 'Motor F10A en su lugar, sin carrocería. Abre Capas → Corte para verlo por dentro y Arrancar para ponerlo en marcha.'],
   brk: ['Pisar aprieta el pedal; Taller simula fallas, desgaste y freno de mano.', 'Los frenos solos, en su lugar. Pisar aprieta el pedal y la presión pinta cada cañería; Taller simula fallas, desgaste y el freno de mano; Capas → Cortes los abre por dentro.'],
   cal: ['Mandos cambia la salida del aire, la temperatura y el ventilador.', 'La calefacción sola, en su lugar. En Mandos mueves las mismas palancas del tablero y ves por dónde entra y sale el aire; Taller simula fallas; Capas → Cortes abre la caja.'],
+  tra: ['Cambios: pasa las marchas y mira qué engranajes llevan la fuerza.', 'El tren motriz solo, del embrague a las ruedas, abierto en corte. En Cambios enciendes el motor, pasas las marchas y pisas el embrague: lo que lleva la fuerza se pinta naranjo. Taller simula fallas, una curva y una rueda sin agarre.'],
   ali: ['Acelerador mueve el pedal y el ahogador; Vista → Carburador por dentro lo abre.', 'La alimentación sola, del estanque al carburador. En Acelerador pisas el pedal y tiras el ahogador; Vista → Carburador por dentro lo muestra en corte; Taller simula fallas.'],
 };
 // m: vista del modelo · focusPart: pieza a mostrar · opt.sys: sistema que la abre · opt.keep: no tocar la pila de fichas
@@ -518,12 +524,12 @@ function setMode(m, focusPart, opt = {}) {
   $$('[data-only]').forEach(el => el.hidden = !el.dataset.only.split(' ').includes(m));
   renderViews(m);
   $('#tb-explode').value = 0; $('#tb-explode-v').textContent = '0 %';
-  hud.hidden = m !== 'eng'; bhud.hidden = m !== 'brk'; chud.hidden = m !== 'cal'; ahud.hidden = m !== 'ali';
-  viewerEl.classList.toggle('is-eng', m === 'eng'); viewerEl.classList.toggle('is-brk', m === 'brk' || m === 'cal' || m === 'ali');
+  hud.hidden = m !== 'eng'; bhud.hidden = m !== 'brk'; chud.hidden = m !== 'cal'; ahud.hidden = m !== 'ali'; thud.hidden = m !== 'tra';
+  viewerEl.classList.toggle('is-eng', m === 'eng'); viewerEl.classList.toggle('is-brk', m === 'brk' || m === 'cal' || m === 'ali' || m === 'tra');
   $('#tb-bcut-note').textContent = BCUTNOTE[m] || '';
   pressSeg($('#tb-bcut'), viewer.state.bcut ? 'in' : 'none');
   if (m === 'eng') renderHud(viewer.state.theta, true);
-  syncRun(); syncPress(); syncHeat(); syncFuel();
+  syncRun(); syncPress(); syncHeat(); syncFuel(); syncDrive();
   stack = stack.filter(en => en.t !== 'part');
   // qué sistema queda abierto: el que pidió la vista o, si se llegó por una pieza o un botón, el dueño de la vista
   let sys = opt.sys !== undefined ? opt.sys : (stack.length && stack[stack.length - 1].t === 'sys' ? stack[stack.length - 1].id : null);
@@ -536,6 +542,7 @@ function setMode(m, focusPart, opt = {}) {
   if (m === 'brk') { bhKey = ''; onBrake(viewer.brake()); }
   if (m === 'cal') { chKey = ''; viewer.heat({ on: true }); syncHeat(); onHeat(viewer.heat()); }
   if (m === 'ali') { ahKey = ''; viewer.fuel({ on: true, pedal: 0 }); syncFuel(); onFuel(viewer.fuel()); }
+  if (m === 'tra') { thKey = ''; resetDriveUI(); onDrive(viewer.drive()); }
   built.sistemas = false; render();
   if (changed && !focusPart && MODETOAST[m]) toast(MODETOAST[m][isMobile() ? 0 : 1], 7000);
   if (focusPart) setTimeout(() => viewer.select(focusPart), reduced ? 0 : 750);
@@ -838,6 +845,120 @@ function wireFuel() {
   $('#tb-fvap-show').addEventListener('change', e => F({ showVap: e.target.checked }));
 }
 
+// ═══════════ Vista Transmisión: cambios, embrague, camino de la fuerza, diferencial y fallas ═══════════
+function syncDrive() {
+  const b = $('#tb-drive'); if (!b || !viewer) return;
+  const on = viewer.driveState.sim.on;
+  b.setAttribute('aria-pressed', String(on));
+  b.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`;
+  b.setAttribute('aria-label', on ? 'Apagar el motor' : 'Encender el motor');
+}
+const tr3 = x => nf(Math.floor(Math.abs(x) * 1000 + 1e-6) / 1000, 3);   // el manual da las relaciones truncadas a 3 decimales
+const GSHORT = { N: 'N', 1: '1.ª', 2: '2.ª', 3: '3.ª', 4: '4.ª', 5: '5.ª', R: 'R' };
+const CLSTATE = { acoplado: 'acoplado', patina: 'patinando', libre: 'desacoplado', neutro: 'acoplado' };
+const wheelsOf = r => { const l = r.noGrip ? r.kmh / 3.6 / DK.rw * 30 / Math.PI : r.rpmWheel * (1 + 0.16 * r.turn); return [l, r.noGrip ? 2 * r.rpmWheel - l : r.rpmWheel * (1 - 0.16 * r.turn)]; };
+let driveOn = null;
+function onDrive(r) {
+  if (!r || mode() !== 'tra') return;
+  const ds = viewer.driveState;
+  if (r.on !== driveOn) { driveOn = r.on; syncDrive(); }
+  const key = [r.on, r.stalled, r.stallMsg, r.gear, r.phase, r.target, Math.round(r.rpm / 50), Math.round(r.kmh), Math.round(r.rpmIn / 50), r.state, r.grind > 0, r.fail, r.turn, r.noGrip, r.demo, r.brake].join('|');
+  if (key !== thKey) {
+    thKey = key; renderThud(r);
+    pressSeg($('#tb-gear'), String(r.phase === 'idle' ? r.gear : r.target));
+    const sb = $('#tb-dstop'); sb.setAttribute('aria-pressed', String(!!r.brake)); sb.textContent = r.brake ? 'Soltar el freno' : 'Frenar';
+  }
+  const cl = $('#tb-clutch'), cv = Math.round(r.clutch * 100);
+  if (document.activeElement !== cl && +cl.value !== cv) { cl.value = cv; $('#tb-clutch-v').textContent = cv === 0 ? 'Suelto' : cv === 100 ? 'A fondo' : cv + ' %'; }
+  const ac = $('#tb-dacc'), av = Math.round(ds.throttle * 100);
+  if (document.activeElement !== ac && +ac.value !== av) { ac.value = av; $('#tb-dacc-v').textContent = av + ' %'; }
+  updateTraSim(r);
+}
+function renderThud(r) {
+  const [wl, wr] = wheelsOf(r), split = r.turn || r.noGrip, back = r.kmh < -0.5;
+  const chips = [
+    `<span class="bh"><small>Motor</small><b>${r.on ? nf(Math.round(r.rpm / 50) * 50) + ' rpm' : r.stalled && r.stallMsg !== 'marcha' ? 'Se caló' : 'Detenido'}</b></span>`,
+    `<span class="bh v"><small>Marcha</small><b>${GSHORT[r.gear]}</b></span>`,
+    `<span class="bh"><small>Velocidad</small><b>${nf(Math.abs(r.kmh))} km/h${back ? ' atrás' : ''}</b></span>`,
+    `<span class="bh"><small>Eje de entrada</small><b>${nf(Math.round(Math.abs(r.rpmIn) / 10) * 10)} rpm</b></span>`,
+    `<span class="bh"><small>Cardán</small><b>${nf(Math.round(Math.abs(r.rpmOut) / 10) * 10)} rpm</b></span>`,
+    `<span class="bh"><small>Ruedas${split ? ' izq · der' : ''}</small><b>${split ? nf(Math.abs(wl)) + ' · ' + nf(Math.abs(wr)) : nf(Math.abs(r.rpmWheel)) + ' rpm'}</b></span>`,
+  ];
+  const line = r.gear === 'N' ? (r.on ? 'Punto muerto: giran el eje de entrada y el contraeje, pero ningún manguito está enganchado.' : 'Motor detenido: toca <b>Encender</b> y elige una marcha en <b>Cambios</b>.')
+    : `${GNAME[r.gear]} · ${tr3(r.ratio)} × ${nf(FINALR, 3)} = ${nf(Math.abs(r.total), 2)} vueltas de motor por vuelta de rueda · embrague ${CLSTATE[r.state]}`;
+  const tags = [];
+  if (r.stalled && !r.on) tags.push(`<span class="bt w">${r.stallMsg === 'marcha' ? 'No parte: hay una marcha puesta y el embrague está suelto' : 'Se caló: el embrague se soltó muy rápido o la marcha es muy alta'}</span>`);
+  if (r.state === 'patina' && r.on) tags.push(`<span class="bt w">El embrague patina: ${nf(Math.abs(r.slip) / 10 * 10)} rpm de diferencia</span>`);
+  if (r.grind > 0) tags.push(`<span class="bt w">${r.grindMsg === 'no' ? 'Rasca y no entra: falta pisar el embrague' : r.grindMsg === 'sincro' ? 'Rasca al entrar la 2.ª' : 'Rasca al entrar: el embrague no corta del todo'}</span>`);
+  if (r.fail !== 'ok') tags.push(`<span class="bt f">${DFAILS[r.fail].name}</span>`);
+  if (r.noGrip) tags.push('<span class="bt i">Rueda derecha sin agarre: se lleva todo el giro</span>');
+  else if (r.turn) tags.push(`<span class="bt i">Curva a la ${r.turn < 0 ? 'izquierda' : 'derecha'}: la rueda de afuera gira más</span>`);
+  if (r.demo) tags.push('<span class="bt i">Recorrido automático</span>');
+  if (r.brake) tags.push('<span class="bt i">Frenando</span>');
+  thud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
+}
+const DFAILTXT = {
+  disco: 'Los forros están gastados y la prensa ya no aprieta el disco con toda su fuerza. Con poca carga no se nota; al acelerar a fondo en una marcha alta, las rpm suben y el furgón no acelera igual: el disco patina entre el volante y el plato. Se cambia el disco y se revisa la prensa.',
+  juego0: 'La piola quedó sin juego libre: el collarín vive apoyado en los dedos del diafragma y el plato no aprieta del todo. El embrague patina con carga, y el collarín y los dedos se gastan rápido. Se regula la tuerca de la piola hasta tener 20–30 mm de juego en el pedal (manual).',
+  estirada: 'La piola tiene demasiado juego: buena parte del recorrido del pedal se pierde antes de mover la horquilla y, aun a fondo, el plato no alcanza a soltar el disco. El eje de entrada sigue arrastrado por el motor: las marchas rascan al entrar y el furgón quiere avanzar con el pedal pisado. Se regula la piola o se cambia si está estirada.',
+  sincro: 'El anillo de bronce del sincronizador de 2.ª está gastado y ya no iguala la velocidad del engranaje antes de que llegue el manguito: los dientes se encuentran girando distinto y la 2.ª rasca al entrar con el furgón en movimiento. Detenido entra bien. Se cambia el anillo (manual: luz anillo–engranaje bajo 0,5 mm).',
+  cruceta: 'Una cruceta tiene juego en sus rodamientos de agujas: el cardán queda descentrado y vibra, y se siente un golpe seco al soltar el embrague o al pasar de avanzar a retroceder. En el modelo, el tubo del cardán gira bamboleando.',
+};
+function gearPath(g) {
+  const pri = `El eje de entrada (${DK.prim[0]} dientes) mueve el contraeje (${DK.prim[1]}): primera reducción, ${tr3(PRIM)}.`;
+  if (g === 4) return 'El manguito de alta, corrido hacia adelante, engancha el eje de entrada directamente con el eje principal: giran como uno solo (1,000). El contraeje sigue dando vueltas, pero sin llevar fuerza; por eso la 4.ª es la marcha más silenciosa y la que menos pierde.';
+  const [nc, nm] = DK.pair[g], rr = nm / nc, tot = Math.abs(gearRatio(g));
+  const sl = { 1: 'El manguito de baja, corrido hacia atrás,', 2: 'El manguito de baja, corrido hacia adelante,', 3: 'El manguito de alta, corrido hacia atrás,', 5: 'El manguito de 5.ª y marcha atrás, corrido hacia atrás,', R: 'El manguito de 5.ª y marcha atrás, corrido hacia adelante,' }[g];
+  if (g === 'R') return `${pri} El engranaje de marcha atrás del contraeje (${nc}) mueve el piñón loco y éste al engranaje del eje principal (${nm}): ${tr3(rr)}, y con un engranaje de más en la cadena el giro sale invertido. ${sl} lo engancha al eje. Total: ${tr3(PRIM)} × ${tr3(rr)} = ${tr3(tot)}.`;
+  return `${pri} El engranaje de ${GNAME[g]} del contraeje (${nc}) mueve al del eje principal (${nm}): ${tr3(rr)}${rr < 1 ? ', o sea que el eje principal gira más rápido que el contraeje' : ''}. ${sl} lo engancha al eje. Total: ${tr3(PRIM)} × ${tr3(rr)} = ${tr3(tot)}${g === 5 ? ': sobremarcha, el cardán gira más rápido que el motor' : ''}.`;
+}
+function updateTraSim(r) {
+  const box = $('#trasim'); if (!box || !r) return;
+  const key = [r.on, r.stalled, r.gear, r.state, r.fail, r.turn, r.noGrip, Math.round(r.free * 20), Math.round(r.lift * 4)].join('|');
+  if (key === tsimKey) return; tsimKey = key;
+  const g = r.gear, tot = Math.abs(r.total);
+  const how = g === 'N' ? 'Punto muerto: con el embrague acoplado, el disco gira con el motor y arrastra el eje de entrada, el contraeje y todos los engranajes del eje principal, que dan vueltas sueltos sobre él. Como ningún manguito está enganchado, el eje principal y el cardán no reciben fuerza.' : gearPath(g);
+  const cl = r.lift >= 0.999 ? 'Embrague desacoplado: el collarín hundió los dedos del diafragma, el plato se separó y el disco quedó libre. El motor gira sin arrastrar la caja: es el momento de mover la palanca.'
+    : r.lift > 0.02 ? 'Embrague a medio camino: el plato aprieta sólo en parte y el disco patina. Es el punto de contacto, el que se usa un instante para salir desde detenido; sostenerlo calienta y gasta el disco.'
+    : r.state === 'patina' ? 'El pedal está suelto, pero el disco patina: la fuerza que pide el motor es más que la que el embrague puede sujetar.'
+    : 'Embrague acoplado: el diafragma aprieta el plato y el disco queda prensado contra el volante; motor y eje de entrada giran juntos.';
+  const [wl, wr] = wheelsOf(r);
+  const dif = r.noGrip ? 'Una rueda sin agarre: el diferencial reparte la misma fuerza a los dos lados, y la rueda que patina casi no opone resistencia, así que se lleva todo el giro (al doble de la corona) y la otra queda quieta. El furgón no avanza.'
+    : r.turn ? `En curva la rueda de afuera recorre más camino. Los satélites giran sobre su eje y dejan que un planetario se adelante lo mismo que el otro se atrasa: ahora ${nf(Math.abs(wl))} rpm a la izquierda y ${nf(Math.abs(wr))} a la derecha; el promedio sigue siendo el de la corona.`
+    : 'En línea recta los satélites no giran sobre su eje: corona, caja de satélites, planetarios y palieres dan vueltas como un solo bloque.';
+  box.innerHTML = `<h4>Lo que muestra el modelo</h4>
+    <p>${how}</p>
+    <p>${cl}</p>
+    ${r.fail !== 'ok' ? `<p><b>${DFAILS[r.fail].name}.</b> ${DFAILTXT[r.fail]}</p>` : ''}
+    <dl class="kv">
+      ${g !== 'N' ? `<div><dt>Reducción total</dt><dd>${tr3(r.ratio)} (caja) × ${nf(FINALR, 3)} (piñón y corona) = ${nf(tot, 2)} : 1. La fuerza en las ruedas se multiplica casi lo mismo.</dd></div>
+      <div><dt>A 1.000 rpm</dt><dd>${nf(1000 / tot * DK.rw * 2 * Math.PI * 60 / 1000, 1)} km/h con el 175/70 R13</dd></div>` : ''}
+      <div><dt>Juego libre del pedal</dt><dd>≈ ${nf(r.free * DK.pedalMM)} mm antes de que el collarín toque el diafragma (manual: 20–30 mm)</dd></div>
+      <div><dt>Diferencial</dt><dd>${dif}</dd></div>
+    </dl>
+    <p class="muted">El giro se muestra al 4,5 % de la velocidad real para que se alcance a ver; las rpm de los indicadores son las reales. Dientes y relaciones son del manual; el par del motor, la masa, el roce y lo que aguanta el embrague son valores típicos. El movimiento de la prensa está exagerado, y el selector por dentro es esquemático.</p>`;
+}
+function resetDriveUI() {
+  for (const [id, v] of [['#tb-tfail', 'ok'], ['#tb-turn', '0'], ['#tb-gear', 'N']]) pressSeg($(id), v);
+  $('#tb-nogrip').checked = false; $('#tb-autocl').checked = true; $('#tb-tpath').checked = true;
+  viewer.drive({ fail: 'ok', turn: 0, noGrip: false, auto: true, showPath: true, brake: false, throttle: 0, clutch: 0 });
+  driveOn = null; syncDrive();
+}
+function wireDrive() {
+  const T = o => { const r = viewer.drive(o); onDrive(r); return r; };
+  $('#tb-drive').addEventListener('click', () => { T({ on: !viewer.driveState.sim.on }); syncDrive(); });
+  segGroup($('#tb-gear'), v => { const r = T({ gear: isNaN(+v) ? v : +v }); if (!r.on && Math.abs(r.kmh) < 0.5 && v !== 'N') toast('Con el motor detenido la marcha entra igual: enciende el motor para ver pasar la fuerza.', 4200); });
+  $('#tb-autocl').addEventListener('change', e => T({ auto: e.target.checked }));
+  $('#tb-clutch').addEventListener('input', e => { const v = +e.target.value; $('#tb-clutch-v').textContent = v === 0 ? 'Suelto' : v === 100 ? 'A fondo' : v + ' %'; T({ clutch: v / 100 }); });
+  $('#tb-dacc').addEventListener('input', e => { const v = +e.target.value; $('#tb-dacc-v').textContent = v + ' %'; T({ throttle: v / 100, demo: false }); });
+  $('#tb-ddemo').addEventListener('click', () => { closePop(); T({ demo: true }); syncDrive(); });
+  $('#tb-dstop').addEventListener('click', () => T({ brake: !viewer.driveState.sim.brake, throttle: 0, demo: false }));
+  segGroup($('#tb-tfail'), v => { T({ fail: v }); if (v !== 'ok' && isMobile()) toast(`${DFAILS[v].name}: la explicación está en el panel de Transmisión.`, 4500); });
+  segGroup($('#tb-turn'), v => T({ turn: +v }));
+  $('#tb-nogrip').addEventListener('change', e => T({ noGrip: e.target.checked }));
+  $('#tb-tpath').addEventListener('change', e => T({ showPath: e.target.checked }));
+}
+
 // ═══════════ Acerca de ═══════════
 const about = $('#about');
 $('#helpbtn').addEventListener('click', () => { if (about.showModal) about.showModal(); else about.setAttribute('open', ''); });
@@ -859,5 +980,5 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 render();
-if (viewer) { wireBrakes(); wireHeater(); wireFuel(); }
+if (viewer) { wireBrakes(); wireHeater(); wireFuel(); wireDrive(); }
 window.__app = { showTab, openPart, openSys, setSheet, back, get state() { return { tab, stack: stack.map(e => e.t + ':' + e.id), sheet, focus: focusSys }; } };

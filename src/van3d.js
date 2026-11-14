@@ -2,13 +2,13 @@
 // Un solo modelo: el motor F10A completo va montado bajo los asientos.
 import * as THREE from 'three';
 import { WB, TF, TR, RW, TILT, ENG } from './geom.js';
-import { FINAL } from './data.js';
 import { buildEngine } from './engine3d.js';
 import { buildBody, buildWheel, BODY, sideSheet, onSide, FUEL_LID } from './body3d.js';
 import { PARTS } from './data.js';
 import { buildBrakes, hangingPedal } from './brakes3d.js';
 import { buildHeater } from './heater3d.js';
 import { buildFuel } from './fuel3d.js';
+import { buildDrive } from './drive3d.js';
 
 const EXV = {
   carroceria: [0, 1.25, 0], asientos: [0, 0.9, 0], interior: [0, 0.55, 0], radiador: [0.32, 0.05, 0], deposito: [0.32, 0.15, 0.12], calefactor: [0.35, 0.35, 0],
@@ -138,12 +138,8 @@ export function buildVan(ctx) {
   const ELv = v => eng.localToWorld(v.clone());
   out.engine = E;
 
-  // embrague, campana, caja (marco del motor)
-  A('embrague', cylX(0.09, 0.012, 32), 'copper', { parent: eng, p: [-0.41, 0, 0], ex: EXV.embrague });
-  A('embrague', cylX(0.112, 0.022, 32), 'steel', { parent: eng, p: [-0.425, 0, 0], ex: EXV.embrague });
-  A('caja', cylX(0.112, 0.13, 32, 0.15), 'alu', { parent: eng, p: [-0.47, 0, 0], op: 0.38, casing: true, ex: EXV.caja });
-  A('caja', rbox(0.26, 0.17, 0.16, 0.04), 'alu', { parent: eng, p: [-0.66, 0.0, 0], ex: EXV.caja });
-  A('caja', cylX(0.045, 0.12, 20), 'alu', { parent: eng, p: [-0.84, 0, 0], ex: EXV.caja });
+  // embrague, caja, cardán y puente: en drive3d.js (vista Transmisión)
+  ctx.setLevel('tra');
   // interruptor de retroceso y toma del velocímetro (en la caja)
   { const a = PARTS.s_retro.sensor.at.eng;
     A('s_retro', cylZ(0.012, 0.008, 6), 'brass', { parent: eng, p: [a[0], a[1], 0.084], ex: EXV.s_retro });
@@ -158,6 +154,11 @@ export function buildVan(ctx) {
   // Pedal colgante a la izquierda de la columna. Junto al eje lleva una palanquita hacia adelante: al pisar, sube y tira de la
   // piola, que baja por el soporte con la tuerca de regulación, cruza el piso y va por el bastidor hasta la palanca de
   // desembrague, en la campana. La palanca gira la horquilla, que empuja el collarín.
+  // El eje de la horquilla cruza la campana por arriba del eje de entrada; su palanca queda al lado del conductor, hacia abajo,
+  // y la piola la tira hacia adelante (marco de la caja, que va derecha; posición aproximada).
+  const relS = [-0.468, 0.085, -0.128], relL = 0.092, relB = V(-0.345, relS[1] - relL + 0.004, relS[2] - 0.016);
+  const DR = buildDrive(ctx, { eng, E, relS }), GB = DR.gb;
+  ctx.setLevel('tra');
   const CZ = -0.425, CPIV = V(0.505, 0.915, CZ), CEX = [0.3, 0.25, 0], JP = [0.05, -0.012], JZ = -0.014;
   const cg = group('pedal_embrague', root, CPIV.toArray(), CEX);
   const C = (geo, kind, o = {}) => add('pedal_embrague', geo, kind, { parent: cg, ...o });
@@ -179,22 +180,20 @@ export function buildVan(ctx) {
   C(cylY(0.0088, 0.007, 6), 'steel', { p: [BRK[0], BRK[1] - 0.008, BRK[2]] });
   const cwire = add('pedal_embrague', cylY(0.0016, 1, 6), 'machined', { parent: cg }); cwire.userData.dyn = true;                    // alma de la piola, a la vista
   // funda: del soporte al piso y por el bastidor izquierdo hasta el soporte de la campana (recorrido según el manual, espejado)
-  const relS = [-0.455, 0.085, -0.128], relL = 0.092, relB = V(-0.345, relS[1] - relL + 0.004, relS[2] - 0.016);
-  { const b0 = CPIV.clone().add(V(BRK[0], BRK[1] - 0.03, BRK[2])), e = EL(relB.x, relB.y, relB.z);
-    A('pedal_embrague', tube([b0, [0.565, 0.62, CZ - 0.02], [0.555, 0.47, CZ - 0.015], [0.5, 0.39, -0.415], [0.25, 0.36, -0.345], [0.02, 0.36, -0.33], [-0.2, 0.33, -0.3], [e.x + 0.1, e.y + 0.01, e.z - 0.05], e], 0.0052, false, 110), 'rubber');
+  { const b0 = CPIV.clone().add(V(BRK[0], BRK[1] - 0.03, BRK[2])), e = GB.localToWorld(relB.clone());
+    A('pedal_embrague', tube([b0, [0.565, 0.62, CZ - 0.02], [0.555, 0.47, CZ - 0.015], [0.5, 0.39, -0.415], [0.25, 0.36, -0.345], [0.02, 0.36, -0.33], [-0.2, 0.34, -0.3], [e.x + 0.1, e.y + 0.004, e.z - 0.03], e], 0.0052, false, 110), 'rubber');
     A('pedal_embrague', cylY(0.011, 0.008, 14), 'rubber', { p: [0.553, 0.456, CZ - 0.015] }); }                                    // pasa-piso
   // en la campana: soporte de la funda, alma, palanca de desembrague y eje de la horquilla
-  const CE = (geo, kind, o = {}) => add('pedal_embrague', geo, kind, { parent: eng, ex: EXV.embrague, ...o });
+  const CE = (geo, kind, o = {}) => add('pedal_embrague', geo, kind, { parent: GB, ex: null, ...o });
   CE(rbox(0.006, 0.03, 0.022, 0.002), 'steel', { p: [relB.x, relB.y + 0.008, relB.z] });
   CE(rbox(0.03, 0.006, 0.022, 0.002), 'steel', { p: [relB.x - 0.012, relB.y + 0.024, relB.z + 0.004] });
   CE(cylZ(0.0075, 0.05, 12), 'machined', { p: [relS[0], relS[1], relS[2] + 0.012] });                                                // eje de la horquilla
-  const rel = group('pedal_embrague', eng, relS, EXV.embrague);
+  const rel = new THREE.Group(); rel.position.set(...relS); GB.add(rel);
   add('pedal_embrague', rbox(0.016, relL + 0.016, 0.006, 0.003), 'steel', { parent: rel, p: [0, -relL / 2, -0.016] });
   add('pedal_embrague', cylZ(0.0045, 0.014, 10), 'machined', { parent: rel, p: [0, -relL, -0.016] });
   add('pedal_embrague', cylZ(0.011, 0.012, 14), 'steel', { parent: rel, p: [0, 0, -0.016] });
-  const rwire = add('pedal_embrague', cylX(0.0016, 1, 6), 'machined', { parent: eng, ex: EXV.embrague }); rwire.userData.dyn = true;
-  { const sp = add('pedal_embrague', ctx.helix(0.005, 0.05, 8, 0.001).rotateZ(Math.PI / 2), 'steel', { parent: eng, p: [relS[0] - 0.03, relS[1] - relL * 0.6, relS[2] - 0.016], ex: EXV.embrague }); sp.userData.dyn = true; }
-  const clutch = { k: 0, t: 0 };
+  const rwire = add('pedal_embrague', cylX(0.0016, 1, 6), 'machined', { parent: GB, ex: null }); rwire.userData.dyn = true;
+  { const sp = add('pedal_embrague', ctx.helix(0.005, 0.05, 8, 0.001).rotateZ(Math.PI / 2), 'steel', { parent: GB, p: [relS[0] - 0.03, relS[1] - relL * 0.6, relS[2] - 0.016], ex: null }); sp.userData.dyn = true; }
   function poseClutch(k) {
     const a = 0.30 * k, c = Math.cos(a), sn = Math.sin(a);
     cpedal.rotation.z = a;
@@ -203,11 +202,12 @@ export function buildVan(ctx) {
     const top = py - 0.08, bot = BRK[1] + 0.02;                                           // alma entre la unión y la regulación
     cwire.position.set((px + BRK[0]) / 2, (top + bot) / 2, JZ); cwire.scale.y = Math.max(0.002, Math.hypot(px - BRK[0], top - bot)); cwire.rotation.z = Math.atan2(BRK[0] - px, top - bot);
     const pull = py - JP[1];                                                              // lo que sube el pasador es lo que avanza la palanca de desembrague
-    rel.rotation.z = pull / relL;
+    rel.rotation.z = DR.clutchPose(k);                                                    // mismo eje que la horquilla: el giro lo fija el recorrido del collarín
     const tx = relS[0] + Math.sin(rel.rotation.z) * relL, x0 = relB.x - 0.003;
     rwire.position.set((tx + x0) / 2, relB.y - 0.004, relB.z); rwire.scale.x = Math.max(0.002, x0 - tx);
   }
-  poseClutch(0);
+  poseClutch(0); DR.bindClutch(poseClutch);
+  ctx.setLevel('van');
 
   // ════════ FRENOS (detalle en brakes3d.js; vista Frenos) ════════
   const BR = buildBrakes(ctx, { ELv, E });
@@ -284,30 +284,6 @@ export function buildVan(ctx) {
   A('silenciador', tube([[-2.13, 0.245, -0.2], [-2.2, 0.26, -0.25], [-2.34, 0.30, -0.27], [-2.46, 0.32, -0.27]], 0.02), 'steel');
   A('silenciador', cylX(0.025, 0.06, 18), 'chrome', { p: [-2.46, 0.32, -0.27] });                 // cola: foto de atrás
 
-  // ════════ TREN MOTRIZ ════════
-  const gbOut = EL(-0.9, 0, 0);
-  const pin = V(-1.66, 0.27, 0.0);
-  const prop = new THREE.Group(); prop.position.copy(gbOut); prop.lookAt(pin); root.add(prop); reg(prop, 'cardan', EXV.cardan);
-  const plen = gbOut.distanceTo(pin);
-  const propSpin = new THREE.Group(); prop.add(propSpin); out.prop = propSpin;
-  add('cardan', cylZ(0.024, plen - 0.08, 16), 'steel', { parent: propSpin, p: [0, 0, plen / 2], ex: null });
-  add('cardan', new THREE.SphereGeometry(0.034, 12, 10), 'dark', { parent: propSpin, p: [0, 0, 0.03], ex: null });
-  add('cardan', new THREE.SphereGeometry(0.034, 12, 10), 'dark', { parent: propSpin, p: [0, 0, plen - 0.03], ex: null });
-  A('diferencial', new THREE.SphereGeometry(0.11, 24, 18), 'iron', { p: [-1.8, RW, 0], s: [1, 0.9, 0.8] });
-  A('diferencial', cylX(0.05, 0.12, 20), 'iron', { p: [-1.7, RW, 0] });
-  A('diferencial', cylZ(0.036, 1.0, 20), 'steel', { p: [-WB, RW, 0] });
-  A('palanca', tube([[0.235, 0.46, -0.03], [0.225, 0.7, -0.02], [0.2, 0.90, -0.02]], 0.009), 'steel');                       // sale del piso frente a la caja de la calefacción (foto)
-  A('palanca', new THREE.CapsuleGeometry(0.017, 0.085, 6, 14), 'dark', { p: [0.194, 0.955, -0.02], r: [0, 0, 0.12] });           // empuñadura larga de goma (foto)
-  A('palanca', new THREE.ConeGeometry(0.045, 0.06, 16), 'rubber', { p: [0.235, 0.485, -0.03] });                                   // fuelle
-  A('palanca', rbox(0.1, 0.05, 0.08, 0.01), 'dark', { p: [0.235, 0.43, -0.03] }); // caja de la palanca
-  for (const [k, gx] of [[0, -0.585], [1, -0.64]]) {
-    const lv = EL(gx, 0.03, 0.084), lv2 = EL(gx, 0.055, 0.1);
-    A('palanca', rbox(0.012, 0.05, 0.008, 0.002), 'steel', { p: lv.clone().lerp(lv2, 0.5).toArray(), parent: undefined });
-    A('palanca', tube([[0.2 - k * 0.03, 0.42, -0.0 + k * 0.03], [0.14, 0.395 - k * 0.01, 0.2 + k * 0.02], [0.0, 0.385 - k * 0.01, 0.275 + k * 0.02], [-0.3, 0.4, 0.22 + k * 0.02], [lv2.x + 0.06, lv2.y + 0.02, lv2.z + 0.03], lv2.toArray()], 0.005), 'dark');   // por la derecha del radiador
-  }
-  const fork = EL(-0.47, 0.06, 0.13);
-  A('embrague', tube([[0.465, 0.935, -0.44], [0.41, 0.55, -0.43], [0.36, 0.43, -0.38], [0.0, 0.36, -0.2], [-0.25, 0.36, 0.05], [fork.x, fork.y, fork.z]], 0.004), 'dark');
-
   // ════════ SUSPENSIÓN TRASERA ════════
   for (const s of [1, -1]) {
     const z = s * 0.42;
@@ -360,9 +336,7 @@ export function buildVan(ctx) {
   function update(theta) {
     E.update(theta);
     out.fans.forEach(f => { f.rotation.z = theta * 0.8; });
-    const wheelA = -theta / (1.947 * FINAL);
-    setWheels(wheelA, wheelA);
-    if (out.prop) out.prop.rotation.z = theta / 1.95;
+    if (!DR.active) DR.kin(theta, setWheels);
   }
   // líneas de la carrocería: contorno (rayos X) y juntas de puertas (sólida)
   function setLines(mode, focusBody) {
@@ -374,7 +348,7 @@ export function buildVan(ctx) {
   const cyc = t => { const u = t % 3.2; return u < 0.8 ? u / 0.8 : u < 1.5 ? 1 : u < 2.3 ? 1 - (u - 1.5) / 0.8 : 0; };
   const ease = k => k * k * (3 - 2 * k);
   const demos = [
-    { ids: ['pedal_embrague', 'embrague'], k: 0, t: 0, pose: poseClutch },
+    { ids: ['pedal_embrague', 'embrague', 'emb_collarin', 'emb_disco'], k: 0, t: 0, pose: poseClutch, skip: m => m === 'tra' },
     { ids: ['pedal_freno', 's_freno'], k: 0, t: 0, pose: k => BR.demoPedal(k), skip: m => m === 'brk' },
     { ids: ['pedal_acel'], k: 0, t: 0, pose: k => FU.demo('pedal', k), skip: m => m === 'ali' },
     { ids: ['ahogador'], k: 0, t: 0, pose: k => FU.demo('choke', k), skip: m => m === 'ali' },
@@ -389,8 +363,8 @@ export function buildVan(ctx) {
     return active;
   }
   // ruedas con sus discos y tambores; adelante y atrás por separado (una rueda bloqueada no gira)
-  function setWheels(aF, aR) { out.wheels.forEach((w, i) => { w.rotation.z = i < 2 ? aF : aR; }); BR.spinRotors(aF, aR); }
-  return { update, tick, demos, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, fuel: FU, setWheels };
+  function setWheels(aF, aR, aRL = aR) { out.wheels.forEach((w, i) => { w.rotation.z = i < 2 ? aF : i === 2 ? aR : aRL; }); BR.spinRotors(aF, aR, aRL); }   // traseras por separado: derecha, izquierda
+  return { update, tick, demos, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, fuel: FU, drive: DR, setWheels };
 }
 
 // Flecha "adelante" y lados (conductor a la izquierda) dibujados en el piso

@@ -45,8 +45,8 @@ function extrudeX(shape, x0, x1, bevel = 0.003, seg = 10) {
   g.rotateY(-Math.PI / 2); g.translate(x0 - bevel, 0, 0);
   return g;
 }
-function poly(pts) { const s = new THREE.Shape(); s.moveTo(...pts[0]); pts.slice(1).forEach(p => s.lineTo(...p)); s.closePath(); return s; }
-function gearShape(r, teeth, depth = 0.003, hole = 0) {
+export function poly(pts) { const s = new THREE.Shape(); s.moveTo(...pts[0]); pts.slice(1).forEach(p => s.lineTo(...p)); s.closePath(); return s; }
+export function gearShape(r, teeth, depth = 0.003, hole = 0) {
   const s = new THREE.Shape(); const n = teeth * 4;
   for (let i = 0; i <= n; i++) {
     const a = i / n * Math.PI * 2, k = i % 4;
@@ -57,7 +57,7 @@ function gearShape(r, teeth, depth = 0.003, hole = 0) {
   return s;
 }
 // disco dentado / perfil extruido a lo largo de x (centrado)
-function discX(shape, w, seg = 8) { const g = new THREE.ExtrudeGeometry(shape, { depth: w, bevelEnabled: false, curveSegments: seg }); g.rotateY(-Math.PI / 2); g.translate(w / 2, 0, 0); return g; }
+export function discX(shape, w, seg = 8) { const g = new THREE.ExtrudeGeometry(shape, { depth: w, bevelEnabled: false, curveSegments: seg }); g.rotateY(-Math.PI / 2); g.translate(w / 2, 0, 0); return g; }
 function camShape(rb = 0.0145, lift = 0.006) {
   const s = new THREE.Shape();
   for (let i = 0; i <= 72; i++) {
@@ -373,13 +373,17 @@ export function buildEngine(ctx, parent) {
     orientY(P('filtro_aceite', cylY(0.024, 0.026, 20), 'alu', { p: M.clone().addScaledVector(dn, -0.002).toArray() }), UP.toArray());
     orientY(P('filtro_aceite', cylY(0.036, 0.072, 28), 'blue', { p: M.clone().addScaledVector(dn, 0.012 + 0.036).toArray() }), UP.toArray());
     if (!lite) for (let k = 0; k < 5; k++) orientY(P('filtro_aceite', cylY(0.0367, 0.002, 28), 'blue', { p: M.clone().addScaledVector(dn, 0.024 + k * 0.012).toArray() }), UP.toArray()); }
-  // varilla del aceite: se mide levantando el asiento del conductor, atrás, cerca de la tapa de llenado (dueño). El tubo sale
-  // del costado bajo del block, detrás del 4.º cilindro, y sube pegado a la culata (recorrido aproximado).
-  { const WLEFT = V(0, UP.z, -UP.y), b = V(-0.385, 0.035, -0.058);
-    const m1 = b.clone().addScaledVector(UP, 0.12).addScaledVector(WLEFT, 0.06), m2 = b.clone().addScaledVector(UP, 0.25).addScaledVector(WLEFT, 0.16), tp = b.clone().addScaledVector(UP, 0.37).addScaledVector(WLEFT, 0.2);
-    P('varilla', tube([b, m1, m2, tp], 0.0045, false, 40), 'steel', {});
-    P('varilla', cylY(0.007, 0.014, 10), 'steel', { p: b.toArray() });
-    const hd = P('varilla', new THREE.TorusGeometry(0.013, 0.0038, 8, 20), 'amber', { p: tp.clone().addScaledVector(UP, 0.014).toArray() }); hd.rotation.y = Math.PI / 2; hd.rotation.x = -TILT; }
+  // varilla del aceite: argolla de metal que asoma entre la tapa de válvulas y el múltiple de admisión, algo adelante de la tapa
+  // de llenado (foto bajo el asiento del conductor, confirmada por el dueño). El tubo baja por el costado de admisión, entre los
+  // conductos 2 y 3, hasta el block; por dentro la varilla sigue hasta el aceite del cárter (tubo y recorrido interior: aprox.).
+  { const DX = -0.177, b = V(DX, 0.02, 0.09), tp = V(DX, 0.3, 0.128), dir = V(0, 0.985, 0.17).normalize();
+    P('varilla', tube([b, [DX, 0.1, 0.085], [DX, 0.19, 0.097], [DX, 0.235, 0.116], tp], 0.0045, false, 40), 'steel', {});
+    P('varilla', cylY(0.0075, 0.016, 10), 'steel', { p: [DX, 0.024, 0.089] });                                   // boquilla en el block
+    orientY(P('varilla', cylY(0.0062, 0.012, 12), 'dark', { p: tp.clone().addScaledVector(dir, 0.004).toArray() }), dir.toArray());   // tapón de la varilla
+    const hd = P('varilla', new THREE.TorusGeometry(0.0125, 0.0022, 8, 24), 'chrome', { p: tp.clone().addScaledVector(dir, 0.021).toArray() });   // argolla
+    hd.quaternion.setFromUnitVectors(V(0, 0, 1), V(0, -0.35, 0.94).normalize());
+    const [z1, y1] = w2e([0.088, 0.02]), [z2, y2] = w2e([0.104, -0.094]);
+    P('varilla', tube([b, [DX, y1, z1], [DX, y2, z2]], 0.0018, false, 24), 'machined', {}); }                     // la varilla por dentro, hasta el aceite
 
   // ════════ ADMISIÓN, TERMOSTATO Y CARBURADOR ════════
   const XPL = -0.19, PLEN = V(XPL, 0.285, 0.195);
