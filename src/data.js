@@ -744,7 +744,7 @@ export const SPECS = [
     ['Suspensión trasera', 'Puente rígido con paquetes de resortes semielípticos', 'MAN'],
     ['Dirección', 'Piñón y cremallera; radio de giro 4,1 m', 'MAN'],
     ['Alineación', 'Convergencia 2–5 mm · caída 1° · avance 5° · pivote 11° 25′', 'MAN'],
-    ['Neumáticos', 'Tuyos: 175/70 R13 82T (fábrica: 155R12-6PR según el manual)', 'USR'],
+    ['Neumáticos', 'Este furgón: 175/70 R13 82T (fábrica: 155R12-6PR según el manual)', 'USR'],
     ['Entre ejes / trochas', '1.840 mm / 1.210 – 1.200 mm', 'UK'],
   ]},
   { sys: 'frenos', rows: [
