@@ -702,7 +702,7 @@ export const SPECS = [
   { sys: 'combustible', rows: [
     ['Carburador (manual)', 'Mikuni de un cuerpo, tiro horizontal', 'MAN'],
     ['Carburador original (Chile)', '13200-85270, catalítico con controlador', 'OEMC'],
-    ['Carburador actual', 'No catalítico (instalado oct. 2026)', 'USR'],
+    ['Carburador actual', 'No catalítico, de una versión más antigua; ya venía así en oct. 2026', 'USR'],
     ['Ralentí · flotador', '900 ± 50 rpm · altura 5,3–6,3 mm', 'MAN'],
     ['Filtro de aire', 'Elemento seco de poliéster, bajo el asiento derecho', 'MAN'],
     ['Bomba y filtro de bencina', 'Eléctrica + cartucho, en el larguero derecho', 'MAN'],
