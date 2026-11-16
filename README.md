@@ -39,7 +39,7 @@ Cada pieza tiene tres notas (ubicación, forma y medidas, datos) en `QUAL` dentr
 ## Licencias y fuentes
 
 - [three.js](https://threejs.org) — licencia MIT.
-- Tipografías Barlow, Barlow Condensed e IBM Plex Mono — SIL Open Font License 1.1 (textos en `fonts/`).
+- Tipografías Archivo y Michroma — SIL Open Font License 1.1 (textos en `fonts/`).
 - Parte de los datos técnicos viene del manual de servicio del Suzuki SK410; el resto, del catálogo de repuestos OEM y de las fuentes listadas en la página.
 
 Modelo conceptual con fines educativos: antes de intervenir frenos, dirección, combustible, o cualquier otro cambio importante confirma los datos en el manual de taller original.

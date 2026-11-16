@@ -229,7 +229,7 @@ export function combustible(root) {
       if (pumpOn) circ.push('bomba de aceleración');
       if (st.choke) circ.push('cebador (mezcla muy rica para partir en frío)');
     }
-    rd.innerHTML = running ? `<b>Circuitos activos:</b> ${circ.join(' + ')}.<span class="sub">Vacío en el múltiple: ${vac > 0.7 ? 'alto' : vac > 0.3 ? 'medio' : 'bajo'} · Mariposa ${Math.round(st.T)} % · ${orig ? 'El controlador corrige la mezcla con la señal del sensor de oxígeno.' : 'Mezcla fija por chicleres y tornillo de mezcla.'}</span>` : `<b>${circ[0]}.</b><span class="sub">El solenoide necesita 12 V con el contacto puesto: si no llegan, el motor acelera pero se apaga al soltar el pedal.</span>`;
+    rd.innerHTML = running ? `<b>Circuitos activos:</b> ${circ.join(' + ')}.<span class="sub">Vacío en el múltiple: ${vac > 0.7 ? 'alto' : vac > 0.3 ? 'medio' : 'bajo'}; mariposa abierta ${Math.round(st.T)} %. ${orig ? 'El controlador corrige la mezcla con la señal del sensor de oxígeno.' : 'Mezcla fija por chicleres y tornillo de mezcla.'}</span>` : `<b>${circ[0]}.</b><span class="sub">El solenoide necesita 12 V con el contacto puesto: si no llegan, el motor acelera pero se apaga al soltar el pedal.</span>`;
   }
   frame(0.016);
   return { tick(dt) { frame(dt); } };

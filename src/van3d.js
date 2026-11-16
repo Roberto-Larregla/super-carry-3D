@@ -372,19 +372,19 @@ function groundMarks(ctx) {
   const g = new THREE.Group();
   const tex = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; const paint = () => { x.clearRect(0, 0, w, h); draw(x); t.needsUpdate = true; }; paint(); document.fonts && document.fonts.ready.then(paint); return t; };
   const plane = (t, w, h, p, rz = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: 0.9 })); m.rotation.x = -Math.PI / 2; m.rotation.z = rz; m.position.set(...p); m.renderOrder = 2; g.add(m); return m; };
-  const font = (px, wt = 600) => `${wt} ${px}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+  const font = (px, wt = 600) => `${wt} ${px}px "Archivo", system-ui, sans-serif`;
   // flecha hacia +x; el texto se lee desde el lado del conductor (vista 3/4 por defecto)
   const arrow = tex(512, 160, x => {
-    x.fillStyle = 'rgba(194,65,45,0.85)'; x.beginPath(); x.moveTo(12, 80); x.lineTo(92, 20); x.lineTo(92, 56); x.lineTo(240, 56); x.lineTo(240, 104); x.lineTo(92, 104); x.lineTo(92, 140); x.closePath(); x.fill();
-    x.fillStyle = '#2a2420'; x.font = font(50); x.textBaseline = 'middle'; x.fillText('ADELANTE', 252, 84);
+    x.fillStyle = 'rgba(255,181,46,0.9)'; x.beginPath(); x.moveTo(12, 80); x.lineTo(92, 20); x.lineTo(92, 56); x.lineTo(240, 56); x.lineTo(240, 104); x.lineTo(92, 104); x.lineTo(92, 140); x.closePath(); x.fill();
+    x.fillStyle = '#dfe4ee'; x.font = font(52, 700); x.textBaseline = 'middle'; x.fillText('Adelante', 252, 84);
   });
   const ar = plane(arrow, 1.0, 0.31, [1.3, 0.004, 0], Math.PI); ar.userData.noBox = true;
   const side = (txt, sub) => tex(1024, 128, x => {
-    x.fillStyle = '#2a2420'; x.font = font(64); x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText(txt, 512, sub ? 46 : 64);
-    if (sub) { x.fillStyle = '#75685b'; x.font = font(40, 500); x.fillText(sub, 512, 102); }
+    x.fillStyle = '#dfe4ee'; x.font = font(60, 700); x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText(txt, 512, sub ? 46 : 64);
+    if (sub) { x.fillStyle = '#9aa6be'; x.font = font(40, 500); x.fillText(sub, 512, 102); }
   });
-  plane(side('LADO IZQUIERDO', 'conductor · volante'), 1.7, 0.22, [-0.6, 0.004, -1.0], Math.PI);
-  plane(side('LADO DERECHO', 'acompañante'), 1.7, 0.22, [-0.6, 0.004, 1.0], 0);
+  plane(side('Lado izquierdo', 'conductor, con el volante'), 1.7, 0.22, [-0.6, 0.004, -1.0], Math.PI);
+  plane(side('Lado derecho', 'acompañante'), 1.7, 0.22, [-0.6, 0.004, 1.0], 0);
   g.traverse(o => { o.userData.noBox = true; });
   return g;
 }

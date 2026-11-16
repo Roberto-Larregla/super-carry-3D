@@ -14,7 +14,7 @@ export function encendido(root) {
   t(f, 44, 82, 'Chapa', 'lbl lbl-xs', 'middle');
   // batería
   s('rect', { x: 10, y: 112, width: 64, height: 40, rx: 4, class: 'node bat' }, f);
-  t(f, 42, 130, 'Batería', 'lbl lbl-s strong', 'middle'); t(f, 42, 144, '12 V · 24/38 Ah', 'lbl lbl-xs', 'middle');
+  t(f, 42, 130, 'Batería', 'lbl lbl-s strong', 'middle'); t(f, 42, 144, '12 V, 24/38 Ah', 'lbl lbl-xs', 'middle');
   s('rect', { x: 14, y: 106, width: 10, height: 6, class: 'term pos' }, f); s('rect', { x: 58, y: 106, width: 10, height: 6, class: 'term neg' }, f);
   s('path', { d: 'M63,152 L63,166 M55,166 L71,166 M58,170 L68,170 M61,174 L65,174', class: 'wire gnd' }, f);
   // bobina

@@ -13,12 +13,11 @@ const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 
 // tipografías (licencia OFL, ver fonts/) incrustadas como data URI
 const FONTS = [
-  ['Barlow Condensed', 500, 'normal', 'barlow-condensed-latin-500-normal'], ['Barlow Condensed', 600, 'normal', 'barlow-condensed-latin-600-normal'],
-  ['Barlow Condensed', 700, 'normal', 'barlow-condensed-latin-700-normal'], ['Barlow', 400, 'normal', 'barlow-latin-400-normal'],
-  ['Barlow', 400, 'italic', 'barlow-latin-400-italic'], ['Barlow', 500, 'normal', 'barlow-latin-500-normal'], ['Barlow', 600, 'normal', 'barlow-latin-600-normal'],
-  ['IBM Plex Mono', 400, 'normal', 'ibm-plex-mono-latin-400-normal'], ['IBM Plex Mono', 500, 'normal', 'ibm-plex-mono-latin-500-normal'],
+  // [familia, pesos, ancho, archivo]: Archivo es variable (peso 100–900, ancho 62–125 %); Michroma, para las cifras de los instrumentos
+  ['Archivo', '100 900', '62% 125%', 'archivo-latin-wdth-normal'],
+  ['Michroma', '400', '100%', 'michroma-latin-400-normal'],
 ];
-const fontCSS = FONTS.map(([fam, w, st, f]) => `/*fonts/${f}.woff2*/@font-face{font-family:"${fam}";font-style:${st};font-weight:${w};font-display:swap;src:url(data:font/woff2;base64,${readFileSync(join('fonts', f + '.woff2')).toString('base64')}) format("woff2")}`).join('\n');
+const fontCSS = FONTS.map(([fam, w, wd, f]) => `/*fonts/${f}.woff2*/@font-face{font-family:"${fam}";font-style:normal;font-weight:${w};font-stretch:${wd};font-display:swap;src:url(data:font/woff2;base64,${readFileSync(join('fonts', f + '.woff2')).toString('base64')}) format("woff2")}`).join('\n');
 
 // código fuente completo dentro del mismo archivo: con sólo el .html se puede reconstruir y actualizar
 const files = {};

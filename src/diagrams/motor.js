@@ -220,8 +220,8 @@ export function motor(root) {
     const aligned = Math.abs(deg - 360) < 4;
     // lectura
     const firing = [0, 1, 2, 3].find(i => { const ph = ((th - OFF[i]) % 720 + 720) % 720; return ph > 352 && ph < 400; });
-    rd.innerHTML = `<b>${Math.round(deg)}°</b> · Cilindro 1 en <b style="color:${PHASES[P].c}">${PHASES[P].n}</b>. ${PHASES[P].d}` +
-      `<span class="sub">Válvula de admisión ${li > 0.02 ? 'abierta' : 'cerrada'} · escape ${le > 0.02 ? 'abierta' : 'cerrada'}${firing != null ? ` · <b>explota el cilindro ${firing + 1}</b>` : ''}${aligned ? ' · <b>marcas de distribución alineadas</b>: cilindro 1 en PMS de compresión (en este esquema)' : ''}</span>`;
+    rd.innerHTML = `<b>${Math.round(deg)}°</b>: cilindro 1 en <b style="color:${PHASES[P].c}">${PHASES[P].n}</b>. ${PHASES[P].d}` +
+      `<span class="sub">Válvula de admisión ${li > 0.02 ? 'abierta' : 'cerrada'}, escape ${le > 0.02 ? 'abierta' : 'cerrada'}${firing != null ? `; <b>explota el cilindro ${firing + 1}</b>` : ''}${aligned ? ' · <b>marcas de distribución alineadas</b>: cilindro 1 en PMS de compresión (en este esquema)' : ''}</span>`;
     ang.set(Math.round(deg));
   }
   draw();

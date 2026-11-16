@@ -14,9 +14,9 @@
 <meta property="og:image" content="{{SITIO}}preview.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Furgón Super Carry en 3D sobre fondo crema, con las franjas rojo, mostaza y petróleo">
+<meta property="og:image:alt" content="Furgón Super Carry en 3D sobre fondo azul marino, junto al nombre del sitio">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#fbf6ec">
+<meta name="theme-color" content="#2e3034">
 <style>/*FONTS*/</style>
 <style>/*APPCSS*/</style>
 <style>/*DIAGCSS*/</style>
@@ -24,9 +24,9 @@
 <body>
 <header class="topbar">
   <a class="brand" href="#" data-home aria-label="Super Carry 1000: volver al inicio">
-    <svg class="decal" viewBox="0 0 38 22" aria-hidden="true"><path d="M8 0h8L8 22H0z" fill="#c2412d"/><path d="M19 0h8l-8 22h-8z" fill="#e3a72f"/><path d="M30 0h8l-8 22h-8z" fill="#1f5f6b"/></svg>
-    <span class="b1">Super Carry <em>1000</em></span>
-    <span class="b3">SK410 · 1996<br>furgón · motor F10A</span>
+    <span class="mark" aria-hidden="true"></span>
+    <span class="b1">Super Carry 1000</span>
+    <span class="b3">SK410 furgón 1996, motor F10A</span>
   </a>
   <span class="spacer"></span>
   <button type="button" class="iconbtn" id="helpbtn" aria-label="Cómo se usa y qué es" aria-haspopup="dialog">?</button>
@@ -44,7 +44,7 @@
       <div class="bhud" id="trahud" hidden aria-live="off"></div>
       <div class="qlegend" id="qlegend" hidden><p>Color = lo más débil entre <b>ubicación</b> y <b>forma</b> de cada pieza</p><div id="qlegend-keys"></div><button type="button" class="btn ghost sm" data-nav="datos:precision">Ver el mapa de precisión</button></div>
     </div>
-    <p class="hint" id="hint"><b>Arrastra</b> para girar · <b>pellizca</b> para acercar · <b>toca</b> una pieza</p>
+    <p class="hint" id="hint"><b>Arrastra</b> para girar, <b>pellizca</b> para acercar y <b>toca</b> una pieza</p>
     <div class="toast gone" id="toast" role="status"></div>
 
     <div class="dock" id="dock" role="toolbar" aria-label="Controles del modelo">
@@ -89,7 +89,7 @@
       <div class="row"><h4><label for="tb-angle">Girar el cigüeñal a mano</label></h4><input type="range" id="tb-angle" min="0" max="719" value="0"><div class="rangeval"><span>0°</span><output id="tb-angle-v" for="tb-angle">0°</output><span>720°</span></div></div>
     </div>
     <div class="pop" id="pop-pedal" hidden role="dialog" aria-label="Pedal">
-      <div><h4>Fuerza del pie</h4><div class="segbtns col" id="tb-force"><button type="button" data-v="49" aria-pressed="false">Suave · 5 kg</button><button type="button" data-v="147" aria-pressed="true">Normal · 15 kg</button><button type="button" data-v="294" aria-pressed="false">Fuerte · 30 kg</button><button type="button" data-v="490" aria-pressed="false">A fondo · 50 kg</button></div></div>
+      <div><h4>Fuerza del pie</h4><div class="segbtns col" id="tb-force"><button type="button" data-v="49" aria-pressed="false">Suave, 5 kg</button><button type="button" data-v="147" aria-pressed="true">Normal, 15 kg</button><button type="button" data-v="294" aria-pressed="false">Fuerte, 30 kg</button><button type="button" data-v="490" aria-pressed="false">A fondo, 50 kg</button></div></div>
       <div class="row"><input type="range" id="tb-fz" min="0" max="590" step="5" value="147" aria-label="Fuerza del pie"><div class="rangeval"><span>0</span><output id="tb-fz-v" for="tb-fz">15 kg</output><span>60 kg</span></div></div>
       <button type="button" class="btn sm" id="tb-stoptest">Frenada desde 50 km/h</button>
       <p class="pnote"><b>Pisar</b> deja el pie en el pedal con esta fuerza. Con 30 kg y el motor en marcha, el manual pide que el pedal quede a 95 mm o más del piso.</p>
@@ -111,7 +111,7 @@
       <div><h4>Mostrar el recorrido</h4><label class="checkopt"><input type="checkbox" id="tb-hair-show" checked> del aire</label> &nbsp; <label class="checkopt"><input type="checkbox" id="tb-hwater-show" checked> del agua</label></div>
     </div>
     <div class="pop" id="pop-acel" hidden role="dialog" aria-label="Acelerador y ahogador">
-      <div><h4>Pedal del acelerador</h4><div class="segbtns" id="tb-accseg"><button type="button" data-v="0" aria-pressed="true">Ralentí</button><button type="button" data-v="20" aria-pressed="false">Suave</button><button type="button" data-v="50" aria-pressed="false">Medio</button><button type="button" data-v="100" aria-pressed="false">A fondo</button></div></div>
+      <div><h4>Pedal del acelerador</h4><div class="segbtns col" id="tb-accseg"><button type="button" data-v="0" aria-pressed="true">Ralentí</button><button type="button" data-v="20" aria-pressed="false">Suave</button><button type="button" data-v="50" aria-pressed="false">Medio</button><button type="button" data-v="100" aria-pressed="false">A fondo</button></div></div>
       <div class="row"><input type="range" id="tb-acc" min="0" max="100" value="0" aria-label="Recorrido del pedal"><div class="rangeval"><span>Suelto</span><output id="tb-acc-v" for="tb-acc">0 %</output><span>A fondo</span></div></div>
       <button type="button" class="btn sm" id="tb-kick">Pisar de golpe</button>
       <div class="row"><h4><label for="tb-choke">Ahogador (perilla)</label></h4><input type="range" id="tb-choke" min="0" max="100" step="5" value="0"><div class="rangeval"><span>Adentro</span><output id="tb-choke-v" for="tb-choke">Adentro</output><span>Tirado</span></div></div>
@@ -170,7 +170,7 @@
       <dt><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></svg></dt><dd>En <b>Calefacción</b>, mueve los <b>mandos</b> como en el tablero y mira por dónde entra y sale el aire. En <b>Alimentación</b>, pisa el <b>acelerador</b>, tira el ahogador y abre el carburador en corte para ver por dónde pasan la bencina y el aire. En <b>Transmisión</b>, pasa los <b>cambios</b> y mira qué engranajes llevan la fuerza, cómo suelta el embrague y cómo reparte el diferencial en una curva. Al tocar un pedal en el modelo, se pisa solo y muestra qué mueve.</dd>
     </dl>
     <p class="fine">Modelo conceptual con fines educativos. Antes de intervenir frenos, dirección o combustible, confirma los datos en el manual de servicio original. Las piezas marcadas “aprox.” tienen forma o ubicación esquemática; la sección Datos → Precisión dice qué tan confiable es cada dato.</p>
-    <p class="fine">Versión {{VERSION}} · {{FECHA}}. Funciona sin internet. Hecho con three.js (licencia MIT) y las tipografías Barlow e IBM Plex Mono (licencia SIL OFL).</p>
+    <p class="fine">Versión {{VERSION}}, del {{FECHA}}. Funciona sin internet. Hecho con three.js (licencia MIT) y las tipografías Archivo y Michroma (licencia SIL OFL).</p>
   </div>
 </dialog>
 <!--APP-->

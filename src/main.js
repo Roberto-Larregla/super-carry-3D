@@ -130,6 +130,7 @@ function render() {
     pview.scrollTop = scrollMem[tab] || 0;
   }
   updateTabbar();
+  if (sheet === 'peek') setSheet('peek');   // un título en dos líneas agranda la franja visible
 }
 function buildTab(t, force) {
   if (built[t] && !force) return;
@@ -208,21 +209,24 @@ function openPart(id) {
 }
 
 // ——— vistas ———
-const vhead = (title, sub, withBack) => `<div class="vhead">${withBack ? `<button type="button" class="back" data-back aria-label="Volver">${IC.back}</button>` : ''}<h2>${title}${sub ? `<span class="sub">${sub}</span>` : ''}</h2>${IC.chev}</div>`;
-const SPECSTRIP = [['Motor', 'F10A · 970 cm³'], ['Potencia', '41 CV · 30 kW'], ['Caja', '5 vel. + R'], ['Diferencial', '5,125 : 1'], ['Entre ejes', '1.840 mm'], ['Estanque', '37 L']];
+// pestaña con la sección del manual de servicio donde está cada sistema (como las del canto del manual)
+const SEC = { motor: '3', lubricacion: '3', combustible: '4', escape: '3, 5', refrigeracion: '6', calefaccion: '7', electrico: '8–10, 20', transmision: '11–15', chasis: '16–17', frenos: '18', carroceria: '19' };
+const secTab = sys => (SEC[sys] ? `<span class="sec" title="Sección ${SEC[sys]} del manual de servicio"><span class="sr-only">Sección del manual </span>${SEC[sys]}</span>` : '');
+const vhead = (title, sub, withBack, sys) => `<div class="vhead">${withBack ? `<button type="button" class="back" data-back aria-label="Volver">${IC.back}</button>` : ''}<h2>${title}${sub ? `<span class="sub">${sub}</span>` : ''}</h2>${IC.chev}${sys ? secTab(sys) : ''}</div>`;
+const SPECSTRIP = [['Motor', 'F10A, 970 cm³'], ['Potencia', '41 CV (30 kW)'], ['Caja', '5 vel. + R'], ['Diferencial', '5,125 : 1'], ['Entre ejes', '1.840 mm'], ['Estanque', '37 L']];
 
 function renderSistemas() {
   const m = mode(), cur = focusSys || MODESYS[m];
   const avail = GRID.filter(sy => sysAvailable(sy.id));
   views.sistemas.innerHTML = vhead('Sistemas', 'Toca uno para abrirlo en el modelo') + `
-    <div class="idcard"><div class="idtop"><b>Super Carry 1000</b><span>Suzuki SK410 · furgón ciego 1996 · volante a la izquierda</span></div>
+    <div class="idcard"><div class="idtop"><b>Super Carry 1000</b><span>Suzuki SK410, furgón ciego de 1996 con volante a la izquierda</span></div>
       <ul class="specstrip">${SPECSTRIP.map(([k, v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('')}</ul></div>
-    <div class="sysgrid">${avail.map(sy => {
+    <div class="sysidx">${avail.map(sy => {
       const own = Object.keys(PARTS).filter(id => PARTS[id].sys === sy.id && inWorld(id)).length;
       const guests = Object.keys(PARTS).filter(id => PARTS[id].sys !== sy.id && matchFocus(PARTS[id], sy.id) && inWorld(id)).length;
-      return `<button type="button" class="syscard${sy.id === cur ? ' on' : ''}" data-sys="${sy.id}" style="--c:${sy.color}"><b>${sy.short}</b><span>${BLURB[sy.id] || ''}</span><span>${plural(own, 'pieza', 'piezas')}${guests ? ` + ${guests} de otros sistemas` : ''}</span>${SYSVIEW[sy.id] ? '<em class="dv">Vista detallada</em>' : ''}</button>`;
+      return `<button type="button" class="sysrow${sy.id === cur ? ' on' : ''}" data-sys="${sy.id}" style="--c:${sy.color}"><i></i><span class="nm"><b>${sy.short}</b><span>${BLURB[sy.id] || ''}</span><small>${plural(own, 'pieza', 'piezas')}${guests ? ` y ${guests} de otros sistemas` : ''}</small></span>${SYSVIEW[sy.id] ? '<em class="dv">Con mandos</em>' : ''}${secTab(sy.id)}</button>`;
     }).join('')}</div>
-    <p class="muted sysnote">Cada pieza pertenece a un solo sistema, según para qué existe, y puede aparecer como invitada en otros: el radiador de calefacción es de Calefacción y participa en Refrigeración. Los sistemas con <b>vista detallada</b> se abren solos, con sus mandos; el resto se marca sobre el furgón completo.</p>`;
+    <p class="sysnote">Cada pieza pertenece a un solo sistema, según para qué existe, y puede aparecer como invitada en otros: el radiador de calefacción es de Calefacción y participa en Refrigeración. Los sistemas <b>con mandos</b> se abren en una vista propia; el resto se marca sobre el furgón completo. El número de la derecha es la sección del manual de servicio que trata cada sistema.</p>`;
 }
 
 function rowHTML(id, guestOf) {
@@ -252,7 +256,7 @@ function listParts(q) {
 }
 
 function renderSensores() {
-  views.sensores.innerHTML = vhead('Sensores', `${SENSORS.length} sensores e interruptores · se marcan en el modelo`) + `
+  views.sensores.innerHTML = vhead('Sensores', `${SENSORS.length} sensores e interruptores, marcados en el modelo`) + `
     <p class="lead">Dónde está cada uno, qué detecta y adónde manda su señal. Este furgón no tiene computador de inyección: casi todo avisa directo al tablero.</p>
     <figure class="fig smapfig"><div id="senmap"></div><figcaption>Toca un número para abrir su ficha. Los sensores 3 y 4 eran del sistema catalítico original: con el carburador actual ya no influyen.</figcaption></figure>
     <div class="group"><h4>Lista</h4><div class="rows">${SENSORS.map(id => rowHTML(id)).join('')}</div></div>`;
@@ -276,7 +280,7 @@ function renderPart(id) {
   }
   const others = [...new Set([P.serves, ...(P.also || [])].filter(x => x && x !== P.sys && x !== 'sensores'))];
   const alsoIn = others.length ? `<p class="alsoin">Pertenece a <b>${SYS[P.sys].name}</b> y también participa en ${others.map(x => `<button type="button" class="lk" data-opensys="${x}" style="--c:${SYS[x].color}">${SYS[x].short}</button>`).join(' y ')}.</p>` : '';
-  vDetail.innerHTML = vhead(P.name, SYS[P.sys].name + (S ? ` · sensor ${S.n}` : ''), true) + `
+  vDetail.innerHTML = vhead(P.name, SYS[P.sys].name + (S ? `, sensor ${S.n}` : ''), true, P.sys) + `
     <div class="card-head">${sysChip(P.sys)}${P.serves ? sysChip(P.serves) : ''}${P.approx ? '<span class="approx">ubicación aprox.</span>' : ''}</div>
     <p class="lead">${P.desc}</p>
     ${alsoIn}
@@ -307,7 +311,7 @@ function renderSys(sys) {
   const J = [['s-piezas', 'Piezas'], tb && ['s-diag', 'Cómo funciona'], specs && ['s-datos', 'Datos'], maint.length && ['s-mant', 'Mantención'], faults.length && ['s-fallas', 'Fallas']].filter(Boolean);
   const m = mode(), sim = { frenos: ['brk', 'brksim', ''], calefaccion: ['cal', 'calsim', ' cal'], combustible: ['ali', 'alisim', ' ali'], transmision: ['tra', 'trasim', ' tra'] }[sys];
   const where = SYSVIEW[sys] ? (m === SYSVIEW[sys] ? 'vista detallada' : 'tiene vista detallada') : 'marcadas en el modelo';
-  vDetail.innerHTML = vhead(SYS[sys].name, `${plural(own.length, 'pieza', 'piezas')} · ${where}`, true) + `
+  vDetail.innerHTML = vhead(SYS[sys].name, `${plural(own.length, 'pieza', 'piezas')}, ${where}`, true, sys) + `
     <p class="lead">${tb && tb.sys === sys ? tb.p : (BLURB[sys] || '') + '.'}</p>
     ${sim ? (m === sim[0] ? `<div class="simbox${sim[2]}" id="${sim[1]}"></div>` : `<p><button type="button" class="btn sm" data-sys="${sys}">Abrir su vista en 3D</button></p>`) : ''}
     ${SYSVIEW[sys] === 'eng' && m !== 'eng' ? `<p><button type="button" class="btn sm" data-sys="${sys}">Abrir la vista del motor</button></p>` : ''}
@@ -315,7 +319,7 @@ function renderSys(sys) {
     <div class="sect" id="s-piezas"><h3>Piezas</h3><div class="rows">${own.map(id => rowHTML(id)).join('')}</div>
       ${sens.length ? `<h4 class="subh">Sensores de este sistema</h4><div class="rows">${sens.map(id => rowHTML(id)).join('')}</div>` : ''}
       ${guests.length ? `<h4 class="subh">También participan</h4><p class="muted">Piezas de otros sistemas que trabajan con éste. Cada una tiene una sola ficha, en su sistema.</p><div class="rows">${guests.map(id => rowHTML(id, sys)).join('')}</div>` : ''}</div>
-    ${tb ? `<div class="sect" id="s-diag"><h3>${tb.h.replace('Cómo funciona: ', 'Cómo funciona · ')}</h3>${tb.sys !== sys ? `<p class="muted">${tb.p}</p>` : ''}<div class="diag-slot"></div>${tb.eng3d ? '<p><button type="button" class="btn ghost sm" data-eng3d>Ver el motor en 3D, por dentro</button></p>' : ''}</div>` : ''}
+    ${tb ? `<div class="sect" id="s-diag"><h3>${tb.h}</h3>${tb.sys !== sys ? `<p class="muted">${tb.p}</p>` : ''}<div class="diag-slot"></div>${tb.eng3d ? '<p><button type="button" class="btn ghost sm" data-eng3d>Ver el motor en 3D, por dentro</button></p>' : ''}</div>` : ''}
     ${specs ? `<div class="sect" id="s-datos"><h3>Datos técnicos</h3><dl class="kv">${kvRows(specs.rows)}</dl></div>` : ''}
     ${maint.length ? `<div class="sect" id="s-mant"><h3>Mantención</h3><div class="mlist">${maint.map(maintHTML).join('')}</div></div>` : ''}
     ${faults.length ? `<div class="sect" id="s-fallas"><h3>Si algo falla</h3><div class="dcards">${faults.map(diagHTML).join('')}</div></div>` : ''}`;
@@ -421,10 +425,14 @@ $('#crumb-back').addEventListener('click', toVan);
 // ═══════════ Hoja deslizable (celular) ═══════════
 let sheet = 'peek';
 const PEEK = 70;
+function peekH() {                                       // la franja baja muestra entero el encabezado visible
+  const v = [...panel.querySelectorAll('.vhead')].find(e => e.offsetParent), g = $('#grip');
+  return v ? Math.max(PEEK, Math.ceil((g ? g.offsetHeight : 16) + v.offsetHeight + 2)) : PEEK;
+}
 function sheetH(st) {
   const top = $('.stage').getBoundingClientRect().top, tabH = $('#tabbar').offsetHeight;
   const room = window.innerHeight - top - tabH;          // alto disponible entre la barra superior y las pestañas
-  return st === 'peek' ? PEEK : st === 'half' ? Math.round(room * 0.5) : room - 6;
+  return st === 'peek' ? peekH() : st === 'half' ? Math.round(room * 0.5) : room - 6;
 }
 function setSheet(st) {
   if (!isMobile()) return;
@@ -444,7 +452,7 @@ function setSheet(st) {
     const dy = drag.y - e.clientY;
     if (!drag.moved && Math.abs(dy) < 6) return;
     if (!drag.moved) { drag.moved = true; panel.classList.add('dragging'); try { panel.setPointerCapture(e.pointerId); } catch (_) {} }
-    const hh = Math.max(PEEK, Math.min(sheetH('full'), drag.h + dy));
+    const hh = Math.max(sheetH('peek'), Math.min(sheetH('full'), drag.h + dy));
     root.style.setProperty('--sheet-h', hh + 'px');
   };
   const end = e => {
@@ -514,7 +522,7 @@ const MODETOAST = {
   tra: ['Cambios: pasa las marchas y mira qué engranajes llevan la fuerza.', 'El tren motriz solo, del embrague a las ruedas, abierto en corte. En Cambios enciendes el motor, pasas las marchas y pisas el embrague: lo que lleva la fuerza se pinta naranjo. Taller simula fallas, una curva y una rueda sin agarre.'],
   ali: ['Acelerador mueve el pedal y el ahogador; Vista → Carburador por dentro lo abre.', 'La alimentación sola, del estanque al carburador. En Acelerador pisas el pedal y tiras el ahogador; Vista → Carburador por dentro lo muestra en corte; Taller simula fallas.'],
 };
-// m: vista del modelo · focusPart: pieza a mostrar · opt.sys: sistema que la abre · opt.keep: no tocar la pila de fichas
+// m: vista del modelo; focusPart: pieza a mostrar; opt.sys: sistema que la abre; opt.keep: no tocar la pila de fichas
 function setMode(m, focusPart, opt = {}) {
   if (!viewer) return;
   closePop();
@@ -574,6 +582,16 @@ function renderHud(theta, force) {
   $('#tb-angle-v').textContent = Math.round(deg) + '°';
 }
 
+// lecturas de los instrumentos: la cifra va en tipografía de tablero y la unidad aparte, en chico
+function gauges(el) {
+  el.querySelectorAll('.bh > b').forEach(b => {
+    const t = b.textContent.trim(), g = t.match(/^(\d)\.ª$/);
+    if (g || /^[A-Z]$/.test(t)) { b.innerHTML = `<span class="n">${g ? g[1] : t}</span>`; return; }   // marcha: sólo la cifra o la letra, como en un indicador
+    const m = t.match(/^([−\-]?[\d.,]+(?:\s?\/\s?[\d.,]+)?)\s*(.*)$/);
+    if (m) b.innerHTML = `<span class="n">${m[1]}</span>${m[2] ? `<i>${m[2]}</i>` : ''}`;
+  });
+}
+
 // ═══════════ Vista Frenos: pedal, fallas, desgaste y freno de mano ═══════════
 function nf(n, d = 0) { return Number.isFinite(n) ? n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—'; }
 function kgOf(n) { return Math.round(n / 9.81); }
@@ -581,7 +599,7 @@ function mixHex(a, b, t) {
   const pa = a.match(/\w\w/g).map(x => parseInt(x, 16)), pb = b.match(/\w\w/g).map(x => parseInt(x, 16));
   return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
-function pcol(p) { return mixHex('8a6a4f', 'd9341f', Math.min(1, p / 60)); }
+function pcol(p) { return mixHex('7a8599', 'd23a2e', Math.min(1, p / 60)); }
 function syncPress() {
   const b = $('#tb-press'); if (!b || !viewer) return;
   const on = viewer.brakeState.on;
@@ -611,7 +629,7 @@ function renderBhud(r) {
   let line;
   if (r.force > 0.5) {
     const dist = Number.isFinite(r.dist) && r.dist < 400 ? `Desde 50 km/h se detendría en ${nf(r.dist)} m` : 'Casi no frena';
-    line = `${dist} · el pedal baja ${nf(r.travel)} mm y queda a ${nf(r.reserve)} mm del piso`;
+    line = `${dist}; el pedal baja ${nf(r.travel)} mm y queda a ${nf(r.reserve)} mm del piso`;
   } else line = 'Pedal suelto: toca <b>Pisar</b>, o <b>Pedal → Frenada desde 50 km/h</b>';
   const tags = [];
   if (r.lockF) tags.push('<span class="bt w">Se bloquean las delanteras</span>');
@@ -621,8 +639,9 @@ function renderBhud(r) {
   if (r.fail !== 'ok') tags.push(`<span class="bt f">${FAILS[r.fail].name}</span>`);
   if (r.dsp) tags.push('<span class="bt i">La válvula DSP limita atrás</span>');
   if (r.wear.metal) tags.push('<span class="bt w">Metal contra metal</span>');
-  if (r.hb.notches > 0) tags.push(`<span class="bt i">Freno de mano: ${r.hb.notches} ${r.hb.notches === 1 ? 'muesca' : 'muescas'}${r.hb.e > 0 ? ` · sostiene ~${nf(r.hb.grade)} %` : ' · aún suelto'}</span>`);
+  if (r.hb.notches > 0) tags.push(`<span class="bt i">Freno de mano: ${r.hb.notches} ${r.hb.notches === 1 ? 'muesca' : 'muescas'}${r.hb.e > 0 ? `, sostiene ~${nf(r.hb.grade)} %` : ', aún suelto'}</span>`);
   bhud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
+  gauges(bhud);
 }
 const FAILTXT = {
   ok: 'Los dos circuitos están sanos. La cámara primaria de la bomba manda presión a los discos delanteros y la secundaria a los tambores traseros. En una frenada fuerte, la válvula DSP hace que la presión de atrás suba más lento para que las ruedas traseras no se bloqueen primero.',
@@ -641,13 +660,13 @@ function updateSim(r) {
     : ws.padLow || ws.liningLow ? 'Llegaron al límite del manual: hay que cambiarlas.' : 'Dentro de lo que permite el manual.';
   const hbTxt = hb.notches === 0 ? 'Suelto.' : hb.e === 0 ? 'Todavía no aprieta: el cable recién se está estirando.'
     : `Con ${hb.notches} muescas sostiene el furgón en una pendiente de hasta ~${nf(hb.grade)} %.`;
-  box.innerHTML = `<h4>Lo que muestra el modelo</h4>
+  box.innerHTML = `<h4>En el modelo</h4>
     <p>${FAILTXT[r.fail]}</p>
     <dl class="kv">
-      <div><dt>Pastillas</dt><dd>${lim(ws.pad, BK.pad[1])} (nuevas 15,5 · mín. 6,5)</dd></div>
-      <div><dt>Balatas</dt><dd>${lim(ws.lining, BK.lining[1])} (nuevas 7,0 · mín. 3,0)</dd></div>
-      <div><dt>Disco</dt><dd>${lim(ws.disc, BK.disc[1])} (nuevo 10 · mín. 8,5)</dd></div>
-      <div><dt>Depósito</dt><dd>${ws.level > 0.05 ? `${nf(ws.level * 100)} % entre MIN y MAX` : 'En el MIN'} · bajó ${nf(ws.drop)} mL por el desgaste</dd></div>
+      <div><dt>Pastillas</dt><dd>${lim(ws.pad, BK.pad[1])} (nuevas 15,5; mínimo 6,5)</dd></div>
+      <div><dt>Balatas</dt><dd>${lim(ws.lining, BK.lining[1])} (nuevas 7,0; mínimo 3,0)</dd></div>
+      <div><dt>Disco</dt><dd>${lim(ws.disc, BK.disc[1])} (nuevo 10; mínimo 8,5)</dd></div>
+      <div><dt>Depósito</dt><dd>${ws.level > 0.05 ? `${nf(ws.level * 100)} % entre MIN y MAX` : 'En el MIN'}; bajó ${nf(ws.drop)} mL por el desgaste</dd></div>
       <div><dt>Freno de mano</dt><dd>${hbTxt} ${hb.outOfSpec ? '<b class="bad">Pasa de 8 muescas: ajustar el cable (manual).</b>' : 'El manual pide 3 a 8 muescas con 20 kg.'}</dd></div>
     </dl>
     <p class="muted">${wearTxt} A medida que se gastan pastillas y balatas, los pistones quedan más afuera y el nivel del depósito baja: un descenso leve es normal; uno rápido es una fuga (manual).</p>
@@ -663,7 +682,7 @@ function wireBrakes() {
   segGroup($('#tb-fail'), v => { B({ fail: v }); if (v !== 'ok' && isMobile()) toast(`${FAILS[v].name}: la explicación está en el panel de Frenos.`, 4500); });
   const wearNote = () => {
     const r = viewer.brake(), ws = r.wear;
-    $('#tb-wear-note').textContent = `Pastillas ${nf(ws.pad, 1)} mm · balatas ${nf(ws.lining, 1)} mm · disco ${nf(ws.disc, 1)} mm · depósito ${ws.level > 0.05 ? nf(ws.level * 100) + ' %' : 'en el MIN'}`;
+    $('#tb-wear-note').textContent = `Pastillas ${nf(ws.pad, 1)} mm, balatas ${nf(ws.lining, 1)} mm, disco ${nf(ws.disc, 1)} mm, depósito ${ws.level > 0.05 ? nf(ws.level * 100) + ' %' : 'en el MIN'}`;
   };
   $('#tb-wear').addEventListener('input', e => { $('#tb-wear-v').textContent = e.target.value + ' %'; B({ wear: +e.target.value / 100 }); wearNote(); });
   const hbNote = () => {
@@ -695,14 +714,14 @@ function onHeat(r) {
   updateCalSim(r);
 }
 function renderChud(r) {
-  const chip = (lbl, t, flow) => `<span class="bh p" style="--c:${t == null ? '#c9b89c' : tcol(t)}"><small>${lbl}</small><b>${flow ? tfmt(t) : '—'}</b></span>`;
+  const chip = (lbl, t, flow) => `<span class="bh p" style="--c:${t == null ? '#a9aeb5' : tcol(t)}"><small>${lbl}</small><b>${flow ? tfmt(t) : '—'}</b></span>`;
   const chips = [
     `<span class="bh p" style="--c:${tcol(r.Tw)}"><small>Agua</small><b>${nf(r.Tw)} °C</b></span>`,
     chip('Cara', r.out.cara, r.flows.cara > 0.001), chip('Pies', r.out.pies, r.flows.pies > 0.001), chip('Parabrisas', r.out.vidrio, r.flows.vidrio > 0.001),
     `<span class="bh"><small>Ventilador</small><b>${r.fan ? r.fan : 'OFF'}${r.fan && !r.fanEff ? ' ✕' : ''}</b></span>`,
   ];
   const line = !r.on ? 'Apagada: toca <b>Encender</b> para poner el motor en marcha y ver el aire y el agua.'
-    : `${HMODES[r.mode].name} · ${r.recirc ? 'recircula el aire de la cabina' : 'aire de afuera'} · llave ${nf(r.valve * 100)} % · ${r.m3h ? `≈ ${nf(r.m3h)} m³/h` : 'sin aire'}${r.kW > 0.05 ? ` · ≈ ${nf(r.kW, 1)} kW de calor` : ''}`;
+    : `${HMODES[r.mode].name}, ${r.recirc ? 'recirculando el aire de la cabina' : 'con aire de afuera'}; llave al ${nf(r.valve * 100)} %, ${r.m3h ? `≈ ${nf(r.m3h)} m³/h` : 'sin aire'}${r.kW > 0.05 ? ` y ≈ ${nf(r.kW, 1)} kW de calor` : ''}`;
   const tags = [];
   if (r.fail !== 'ok') tags.push(`<span class="bt f">${HFAILS[r.fail].name}</span>`);
   if (r.fan && !r.fanEff && r.on) tags.push('<span class="bt w">Esa velocidad no anda: sólo la 3</span>');
@@ -710,6 +729,7 @@ function renderChud(r) {
   if (r.on && r.mode === 'vidrio' && r.fail === 'desempanador') tags.push('<span class="bt w">Casi no sale aire al parabrisas</span>');
   if (r.on && r.mode !== 'cara' && r.Thot < 30 && r.Q > 0) tags.push('<span class="bt w">Sale casi fría</span>');
   chud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
+  gauges(chud);
 }
 const HMODETXT = {
   cara: 'Cara: la compuerta de arriba cierra el paso al radiador y todo el aire sube sin calentarse a las 4 rejillas del tablero: las dos del centro por el distribuidor que sale de arriba de la caja, la del extremo izquierdo por el ducto negro y corrugado del costado izquierdo y la del extremo derecho por el tubo rígido del costado derecho y la manguera corrugada que pasa sobre la caja del foco. Sirve para ventilar.',
@@ -728,7 +748,7 @@ function updateCalSim(r) {
   const box = $('#calsim'); if (!box || !r) return;
   const key = [r.mode, r.recirc, Math.round(r.temp * 10), r.fan, r.engine, r.fail, Math.round(r.Tw), Math.round(r.Tret)].join('|');
   if (key === csimKey) return; csimKey = key;
-  box.innerHTML = `<h4>Lo que muestra el modelo</h4>
+  box.innerHTML = `<h4>En el modelo</h4>
     <p>${HMODETXT[r.mode]}</p>
     ${r.fail !== 'ok' ? `<p><b>${HFAILS[r.fail].name}.</b> ${HFAILTXT[r.fail].replace(/^[^:]+: (.)/, (m, c) => c.toUpperCase())}</p>` : ''}
     <dl class="kv">
@@ -760,7 +780,7 @@ function syncFuel() {
   b.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`;
   b.setAttribute('aria-label', on ? 'Cortar el contacto' : 'Dar contacto y poner el motor en marcha');
 }
-const MIXCOL = { off: '#c9b89c', muyrica: '#3a2c22', rica: '#8a5a2b', ok: '#3d8f5a', pobre: '#d49a1a', muypobre: '#d9482b' };
+const MIXCOL = { off: '#a9aeb5', muyrica: '#3a2c22', rica: '#8a5a2b', ok: '#3d8f5a', pobre: '#d49a1a', muypobre: '#d9482b' };
 function onFuel(r) {
   if (!r || mode() !== 'ali') return;
   const key = [r.on, r.running, Math.round(r.pedal * 40), Math.round(r.choke * 20), r.engine, r.fail, Math.round(r.rpm / 50), r.state, Math.round(r.bowl * 20), Math.round(viewer.fuelState.level * 100)].join('|');
@@ -787,7 +807,7 @@ function renderAhud(r) {
   const cs = r.running ? circuits(r) : [];
   const line = !r.on ? 'Sin contacto: toca <b>Encender</b> para que la bomba mande bencina y el motor ande.'
     : !r.running ? (r.stall === 'estanque' ? 'El estanque está vacío: la bomba no tiene qué mandar.' : 'El motor se apagó: sin el circuito lento no se sostiene en ralentí. Acelera para que ande con el circuito principal.')
-    : `Mezcla ${MIXTXT[r.state].toLowerCase()} · trabaja ${cs.length ? cs.join(' + ') : 'el circuito lento'} · estanque ${nf(lvl * FK.tank)} L`;
+    : `Mezcla ${MIXTXT[r.state].toLowerCase()}; trabaja ${cs.length ? cs.join(' + ') : 'el circuito lento'}; quedan ${nf(lvl * FK.tank)} L en el estanque`;
   const tags = [];
   if (r.fail !== 'ok') tags.push(`<span class="bt f">${FFAILS[r.fail].name}</span>`);
   if (r.running && r.choke > 0.05 && !r.cold) tags.push('<span class="bt w">Ahogador tirado con el motor caliente</span>');
@@ -795,6 +815,7 @@ function renderAhud(r) {
   if (r.running && r.starve > 0.05) tags.push('<span class="bt w">No llega suficiente bencina</span>');
   if (r.on && lvl < 0.12 && lvl > 0.005) tags.push('<span class="bt i">Estanque en reserva</span>');
   ahud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
+  gauges(ahud);
 }
 const FFAILTXT = {
   filtro: 'El filtro deja pasar poca bencina. En ralentí alcanza, pero al acelerar la cuba se vacía más rápido de lo que se llena: la mezcla queda pobre y el motor tironea y pierde fuerza. Se cambia el filtro completo.',
@@ -817,7 +838,7 @@ function updateAliSim(r) {
   const chk = r.choke > 0.05 ? (r.cold ? 'Ahogador tirado en frío: su mariposa tapa la boca del carburador, la succión sube y saca más bencina. Además la leva de ralentí rápido entreabre el acelerador. Es lo correcto para partir; hay que devolver la perilla apenas el motor ande parejo.'
       : 'Ahogador tirado con el motor caliente: la mezcla queda demasiado rica, sale humo negro y la bencina sin quemar lava el aceite de los cilindros. Hay que devolver la perilla.')
     : (r.cold ? 'Motor frío sin ahogador: parte de la bencina se queda pegada en las paredes frías del múltiple y a los cilindros llega una mezcla pobre. El motor tironea o se apaga; para eso está el ahogador.' : '');
-  box.innerHTML = `<h4>Lo que muestra el modelo</h4>
+  box.innerHTML = `<h4>En el modelo</h4>
     <p>${how}</p>
     ${chk ? `<p>${chk}</p>` : ''}
     ${r.fail !== 'ok' ? `<p><b>${FFAILS[r.fail].name}.</b> ${FFAILTXT[r.fail]}</p>` : ''}
@@ -882,10 +903,10 @@ function renderThud(r) {
     `<span class="bh"><small>Velocidad</small><b>${nf(Math.abs(r.kmh))} km/h${back ? ' atrás' : ''}</b></span>`,
     `<span class="bh"><small>Eje de entrada</small><b>${nf(Math.round(Math.abs(r.rpmIn) / 10) * 10)} rpm</b></span>`,
     `<span class="bh"><small>Cardán</small><b>${nf(Math.round(Math.abs(r.rpmOut) / 10) * 10)} rpm</b></span>`,
-    `<span class="bh"><small>Ruedas${split ? ' izq · der' : ''}</small><b>${split ? nf(Math.abs(wl)) + ' · ' + nf(Math.abs(wr)) : nf(Math.abs(r.rpmWheel)) + ' rpm'}</b></span>`,
+    `<span class="bh"><small>Ruedas${split ? ' izq. / der.' : ''}</small><b>${split ? nf(Math.abs(wl)) + ' / ' + nf(Math.abs(wr)) + ' rpm' : nf(Math.abs(r.rpmWheel)) + ' rpm'}</b></span>`,
   ];
   const line = r.gear === 'N' ? (r.on ? 'Punto muerto: giran el eje de entrada y el contraeje, pero ningún manguito está enganchado.' : 'Motor detenido: toca <b>Encender</b> y elige una marcha en <b>Cambios</b>.')
-    : `${GNAME[r.gear]} · ${tr3(r.ratio)} × ${nf(FINALR, 3)} = ${nf(Math.abs(r.total), 2)} vueltas de motor por vuelta de rueda · embrague ${CLSTATE[r.state]}`;
+    : `${GNAME[r.gear]}: ${tr3(r.ratio)} × ${nf(FINALR, 3)} = ${nf(Math.abs(r.total), 2)} vueltas de motor por vuelta de rueda; embrague ${CLSTATE[r.state]}`;
   const tags = [];
   if (r.stalled && !r.on) tags.push(`<span class="bt w">${r.stallMsg === 'marcha' ? 'No parte: hay una marcha puesta y el embrague está suelto' : 'Se caló: el embrague se soltó muy rápido o la marcha es muy alta'}</span>`);
   if (r.state === 'patina' && r.on) tags.push(`<span class="bt w">El embrague patina: ${nf(Math.abs(r.slip) / 10 * 10)} rpm de diferencia</span>`);
@@ -896,6 +917,7 @@ function renderThud(r) {
   if (r.demo) tags.push('<span class="bt i">Recorrido automático</span>');
   if (r.brake) tags.push('<span class="bt i">Frenando</span>');
   thud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
+  gauges(thud);
 }
 const DFAILTXT = {
   disco: 'Los forros están gastados y la prensa ya no aprieta el disco con toda su fuerza. Con poca carga no se nota; al acelerar a fondo en una marcha alta, las rpm suben y el furgón no acelera igual: el disco patina entre el volante y el plato. Se cambia el disco y se revisa la prensa.',
@@ -926,7 +948,7 @@ function updateTraSim(r) {
   const dif = r.noGrip ? 'Una rueda sin agarre: el diferencial reparte la misma fuerza a los dos lados, y la rueda que patina casi no opone resistencia, así que se lleva todo el giro (al doble de la corona) y la otra queda quieta. El furgón no avanza.'
     : r.turn ? `En curva la rueda de afuera recorre más camino. Los satélites giran sobre su eje y dejan que un planetario se adelante lo mismo que el otro se atrasa: ahora ${nf(Math.abs(wl))} rpm a la izquierda y ${nf(Math.abs(wr))} a la derecha; el promedio sigue siendo el de la corona.`
     : 'En línea recta los satélites no giran sobre su eje: corona, caja de satélites, planetarios y palieres dan vueltas como un solo bloque.';
-  box.innerHTML = `<h4>Lo que muestra el modelo</h4>
+  box.innerHTML = `<h4>En el modelo</h4>
     <p>${how}</p>
     <p>${cl}</p>
     ${r.fail !== 'ok' ? `<p><b>${DFAILS[r.fail].name}.</b> ${DFAILTXT[r.fail]}</p>` : ''}

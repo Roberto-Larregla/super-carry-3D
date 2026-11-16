@@ -74,12 +74,10 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   host.prepend(renderer.domElement);
 
   const scene = new THREE.Scene();
-  { // fondo de estudio: crema arriba, arena abajo (como una foto de catálogo)
-    const c = document.createElement('canvas'); c.width = 4; c.height = 256; const x = c.getContext('2d');
-    const g = x.createLinearGradient(0, 0, 0, 256); g.addColorStop(0, '#f6eee1'); g.addColorStop(0.55, '#efe4d2'); g.addColorStop(1, '#e2d4bd');
-    x.fillStyle = g; x.fillRect(0, 0, 4, 256);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = t; }
-  scene.fog = new THREE.Fog('#e9dcc7', 11, 24);
+  // escenario: fondo degradado, niebla y piso; los colores salen de la paleta (setStage)
+  const bgCanvas = document.createElement('canvas'); bgCanvas.width = 4; bgCanvas.height = 256;
+  const bgTex = new THREE.CanvasTexture(bgCanvas); bgTex.colorSpace = THREE.SRGBColorSpace; scene.background = bgTex;
+  scene.fog = new THREE.Fog('#2a3550', 11, 24);
   const camera = new THREE.PerspectiveCamera(34, 1, 0.02, 60);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.09;
@@ -98,7 +96,8 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   // piso
   const floorShadows = [];
   const shadowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const g = x.createRadialGradient(64, 64, 4, 64, 64, 64); g.addColorStop(0, 'rgba(0,0,0,0.62)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
-  { const grid = new THREE.GridHelper(12, 48, '#c9b89c', '#d9cbb2'); grid.material.transparent = true; grid.material.opacity = 0.75; grid.position.set(-0.9, 0, 0); scene.add(grid);
+  let grid = null;
+  {
     const sh = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 2.2), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false }));
     sh.rotation.x = -Math.PI / 2; sh.position.set(-0.85, 0.003, 0); sh.userData.shadow = 1; scene.add(sh); floorShadows.push(sh); }
 
@@ -115,7 +114,18 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   }
 
   const sysColor = id => new THREE.Color(SYS[PARTS[id]?.sys]?.color || '#ffffff');
-  const GHOST = new THREE.Color('#fffaf0');
+  const GHOST = new THREE.Color('#b8c2d6');
+  // escenario azul marino, como el forro de la zona de carga; las piezas en transparencia quedan como siluetas claras
+  function setStage({ bg = ['#323e5b', '#2a3550', '#222c43'], grid: gc = ['#4a5778', '#3c4866'], gridOp = 0.7, ghost = '#b8c2d6' } = {}) {
+    const x = bgCanvas.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 256);
+    bg.forEach((c, i) => g.addColorStop([0, 0.55, 1][i] ?? 1, c));
+    x.fillStyle = g; x.fillRect(0, 0, 4, 256); bgTex.needsUpdate = true;
+    scene.fog.color.set(bg[1] || bg[0]);
+    if (grid) { scene.remove(grid); grid.geometry.dispose(); grid.material.dispose(); }
+    grid = new THREE.GridHelper(12, 48, gc[0], gc[1]); grid.material.transparent = true; grid.material.opacity = gridOp; grid.position.set(-0.9, 0, 0); scene.add(grid);
+    GHOST.set(ghost);
+  }
+  setStage();
   const qcache = {}; const qcol = id => (qcache[id] ||= new THREE.Color(QLEV[qual3d(id)].color));
   function makeMat(part, kind, o = {}) {
     const k = KINDS[kind] || KINDS.steel;
@@ -584,6 +594,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     setSpeed(k) { state.speed = k; },
     stepTo(deg) { state.theta = deg * Math.PI / 180; W.anim.update(state.theta); onTick && onTick(state.theta, state.mode); requestRender(); },
     get state() { return state; },
+    debugTheme(t) { setStage(t); applyMaterials(); requestRender(); },   // prueba de paletas del escenario
     debugCam(v) { animateCam(new THREE.Vector3(v[0], v[1], v[2]), new THREE.Vector3(v[3], v[4], v[5]), 0); },
     debugLoop() { return { d: +camera.position.distanceTo(controls.target).toFixed(4), p: camera.position.toArray().map(v => +v.toFixed(4)), tween: !!tween, raf: !!raf, running: state.running, brk: BR.state.seq, pedalF: BR.state.pedalF, heat: BR.state.heat, v: BR.state.v }; },
     debugBox(id) { const b = W.partBoxes[id]; return b ? [b.min.toArray(), b.max.toArray()] : null; },
@@ -592,7 +603,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     debugPersp({ pos, target, fov = 44, w = 1659, h = 2212, bg = '#000000' }) {
       const cam = new THREE.PerspectiveCamera(fov, w / h, 0.05, 60); cam.position.set(...pos); cam.lookAt(...target);
       const old = renderer.getSize(new THREE.Vector2()), oldPR = renderer.getPixelRatio(), oldBg = scene.background;
-      renderer.setPixelRatio(1); renderer.setSize(w, h, false); scene.background = new THREE.Color(bg);
+      renderer.setPixelRatio(1); renderer.setSize(w, h, false); if (bg) scene.background = new THREE.Color(bg);
       const g = VAN.ground; const gv = g ? g.visible : null; if (g) g.visible = false;
       renderer.render(scene, cam);
       const url = renderer.domElement.toDataURL('image/png');

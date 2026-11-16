@@ -168,7 +168,7 @@ export function sensorMap(host, { onPick } = {}) {
     s('circle', { cx: lx + 6, cy: H - 18, r: 6, fill: STATUS[k].color }, lg);
     t(lg, lx + 17, H - 14, STATUS[k].label, 'lbl muted'); lx += 30 + STATUS[k].label.length * 5.6;
   }
-  t(lg, W - 24, H - 14, 'Punto = posición · número = sensor', 'lbl-xs muted', 'end');
+  t(lg, W - 24, H - 14, 'Punto: posición. Número: sensor', 'lbl-xs muted', 'end');
 
   return {
     highlight(id) {

@@ -9,6 +9,7 @@ async def main(dev):
         b = await p.chromium.launch(executable_path=os.environ.get("CHROME", "/usr/bin/google-chrome"), args=["--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader","--ignore-gpu-blocklist"])
         ctx = await b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, is_mobile=True, has_touch=True) if dev == 'm' else await b.new_context(viewport={"width": 1440, "height": 900})
         pg = await ctx.new_page(); errs = []
+        pg.set_default_timeout(120000)   # con SwiftShader, un clic con el motor andando puede tardar más de 30 s
         pg.on("console", lambda m: errs.append(m.text[:300]) if m.type == 'error' and 'TUNNEL' not in m.text else None)
         pg.on("pageerror", lambda e: errs.append('[pageerror] ' + str(e)[:400]))
         await pg.goto(URL_DOC); await pg.wait_for_timeout(3000)
@@ -16,7 +17,7 @@ async def main(dev):
         tap = (lambda sel: pg.tap(sel)) if dev == 'm' else (lambda sel: pg.click(sel))
         # sistema frenos
         if dev == 'm': await tap('#tabbar [data-tab=sistemas]'); await pg.wait_for_timeout(500)
-        await tap('.syscard[data-sys=frenos]'); await pg.wait_for_timeout(1400); await shot('1_frenos')
+        await tap('.sysrow[data-sys=frenos]'); await pg.wait_for_timeout(1400); await shot('1_frenos')
         await pg.evaluate("document.querySelector('#v-detail [data-jump=s-diag]').click()"); await pg.wait_for_timeout(900); await shot('2_frenos_diag')
         # pieza desde la lista del sistema
         await pg.evaluate("document.querySelector('#v-detail .prow[data-part=frenos_del]').click()"); await pg.wait_for_timeout(1400); await shot('3_pieza')

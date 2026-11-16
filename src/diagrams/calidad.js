@@ -18,7 +18,7 @@ function bar(levels, label) {
   const n = levels.length, wrap = h('span', { class: 'qbar', role: 'img', 'aria-label': `${label}: ` + ORDER.filter(k => levels.includes(k)).map(k => `${QLEV[k].short} ${levels.filter(x => x === k).length}`).join(', ') });
   for (const k of ORDER) {
     const c = levels.filter(x => x === k).length; if (!c) continue;
-    wrap.append(h('b', { style: `flex:${c};--q:${QLEV[k].color}`, title: `${label} · ${QLEV[k].label}: ${c} de ${n}` }));
+    wrap.append(h('b', { style: `flex:${c};--q:${QLEV[k].color}`, title: `${label}, ${QLEV[k].label}: ${c} de ${n}` }));
   }
   return wrap;
 }
@@ -28,7 +28,7 @@ export function qualitySheet(host, { onSys } = {}) {
   const head = h('div', { class: 'qs-row qs-head' }, h('span'), h('span'), ...QASP.map(a => h('span', {}, a)));
   const row = (label, ids, sys) => h('div', { class: 'qs-row' + (sys ? '' : ' qs-total'), 'data-qsys': sys || '' },
     h('span', { class: 'qs-name', title: label }, sys ? h('i', { style: `--c:${SYSTEMS.find(s => s.id === sys).color}` }) : null, label), h('span', { class: 'qs-n' }, String(ids.length)),
-    ...[0, 1, 2].map(a => bar(ids.map(id => qualOf(id)[a]), `${label} · ${QASP[a]}`)));
+    ...[0, 1, 2].map(a => bar(ids.map(id => qualOf(id)[a]), `${label}: ${QASP[a]}`)));
   const sheet = h('div', { class: 'qsheet' }, head, row('Todas', all, null),
     ...SYSTEMS.filter(s => partsOf(s.id).length).map(s => row(s.short || s.name, partsOf(s.id), s.id)));
   sheet.addEventListener('click', e => { const r = e.target.closest('[data-qsys]'); if (r && r.dataset.qsys && onSys) onSys(r.dataset.qsys); });

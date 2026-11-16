@@ -108,7 +108,7 @@ export function refrigeracion(root) {
       const inCore = a.x > 18 && a.x < 78; a.el.style.opacity = !st.shroud && inCore ? 0.25 : 0.7;
     }
     let state = open <= 0 ? 'cerrado: el agua recircula por el bypass (y la calefacción) para calentar rápido el motor' : open < 1 ? 'abriendo: parte del agua pasa por el radiador' : 'abierto: todo el caudal pasa por el radiador';
-    rd.innerHTML = `<b>${Math.round(T)} °C · Termostato ${state}.</b>` +
+    rd.innerHTML = `<b>${Math.round(T)} °C: termostato ${state}.</b>` +
       `<span class="sub">${expand > 0 ? 'El refrigerante se dilata: la tapa de 0,9 bar deja pasar el excedente al depósito y lo recupera al enfriar. ' : ''}${!st.shroud ? '<b>Sin carenado</b>, el ventilador mueve aire alrededor del radiador y no a través del panal: el motor se recalienta en taco. ' : ''}${T > 104 ? '<b>Temperatura excesiva:</b> detén el motor, no abras la tapa en caliente. ' : ''}${st.heater ? 'La calefacción también saca calor del motor.' : ''}</span>`;
   }
   frame(0.016);
