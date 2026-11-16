@@ -101,6 +101,36 @@ svg.ic { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-wid
 .bh b i { font: 500 11px/1 var(--font-body); font-style: normal; color: var(--legend-2); margin-left: 4px; }
 .bh.p { box-shadow: inset 4px 0 0 var(--c); padding-left: 13px; }
 .bh.v b .n { color: var(--amber); }
+/* indicador de temperatura como el del tablero: arco de C a H con la zona roja al final */
+.bh.g { padding-bottom: 4px; }
+.tg { display: block; width: 66px; height: 35px; overflow: visible; }
+.tg-a, .tg-h { fill: none; stroke-width: 3; stroke-linecap: butt; }
+.tg-a { stroke: var(--legend-2); }
+.tg-h { stroke: var(--red); }
+.tg-l { font: 400 7.5px var(--font-gauge); fill: var(--legend-2); }
+.tg-n { stroke: var(--amber); stroke-width: 2.2; stroke-linecap: round; }
+.tg-c { fill: var(--legend); }
+@media (max-width: 560px) { .bh.opt { display: none; } }
+/* tarjeta del paso a paso (cambio de agua, prueba del termostato): plástico del tablero, sobre el modelo */
+.guide { position: absolute; z-index: 5; right: 12px; bottom: 84px; width: min(360px, calc(100% - 24px)); max-height: calc(100% - 200px); overflow-y: auto; padding: 12px 13px 13px; border-radius: 12px; background: var(--grain) var(--plastic); color: var(--legend); border: 1.5px solid var(--edge); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 26px rgba(6,10,20,0.45); display: grid; gap: 8px; }
+.guide .gtop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.guide .gtop b { font: 700 14.5px/1.2 var(--font-body); color: #fff; }
+.guide .gtop span { font: 500 12px/1.2 var(--font-body); color: var(--legend-2); white-space: nowrap; }
+.guide h5 { margin: 0; font: 700 15px/1.25 var(--font-body); color: var(--amber); }
+.guide p { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--legend); }
+.guide .gverd { color: #fff; }
+.guide .gread { display: flex; gap: 6px; }
+.guide .gread span { display: grid; gap: 4px; background: var(--face); border: 1.5px solid var(--edge); border-radius: 8px; padding: 6px 10px 7px; min-width: 84px; }
+.guide .gread small { font: 500 11px/1 var(--font-body); color: var(--legend-2); }
+.guide .gread b { font: 700 14px/1.05 var(--font-body); }
+.guide .gread b .n { font: 400 16px/1 var(--font-gauge); }
+.guide .gread b i { font: 500 11px/1 var(--font-body); font-style: normal; color: var(--legend-2); margin-left: 4px; }
+.guide .gbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.guide .btn { background: var(--plastic-2); border: 1px solid #45494f; color: var(--legend); border-radius: 7px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
+.guide .btn:hover { background: var(--plastic-3); }
+.guide .btn.ghost { background: transparent; border-color: #4a4e55; color: var(--legend); }
+.guide .btn[disabled] { opacity: 0.45; cursor: default; }
+.guide :focus-visible { outline-color: var(--amber); }
 .bh-line { margin: 0; justify-self: start; border-radius: 8px; padding: 6px 10px; font-size: 13px; line-height: 1.4; color: var(--legend); }
 .bh-line b { color: #fff; font-weight: 700; }
 .bh-tags { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -448,6 +478,8 @@ dialog.about::backdrop { background: rgba(20,26,40,0.55); }
   .dock { bottom: 22px; }
   .pop { bottom: 92px; max-height: calc(100% - 108px); }
   .hint { bottom: 96px; }
+  .guide { left: 8px; right: 8px; width: auto; bottom: 92px; max-height: calc(100% - 210px); }
+  .guide .gintro, .guide .gread { display: none; }   /* en el teléfono las lecturas ya están arriba */
   .toast { bottom: 100px; }
   .bh-line { display: none; }
   .bh { min-width: 0; padding: 5px 8px 6px; gap: 4px; }

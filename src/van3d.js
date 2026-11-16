@@ -7,6 +7,7 @@ import { buildBody, buildWheel, BODY, sideSheet, onSide, FUEL_LID } from './body
 import { PARTS } from './data.js';
 import { buildBrakes, hangingPedal } from './brakes3d.js';
 import { buildHeater } from './heater3d.js';
+import { buildCooling } from './cool3d.js';
 import { buildFuel } from './fuel3d.js';
 import { buildDrive } from './drive3d.js';
 
@@ -212,34 +213,8 @@ export function buildVan(ctx) {
   // ════════ FRENOS (detalle en brakes3d.js; vista Frenos) ════════
   const BR = buildBrakes(ctx, { ELv, E });
 
-  // ════════ REFRIGERACIÓN ════════
-  // Radiador: justo detrás del frente de la caja de los asientos, algo corrido a la derecha, con la tapa al lado del conductor
-  // y la entrada de la manguera superior al lado del copiloto (fotos bajo los dos asientos). Inclinación: supuesta.
-  const fanW = EL(0.088, 0.115, 0);
-  const RAD = V(0.068, fanW.y + 0.01, 0.03), RL = -0.12;                // centro e inclinación (arriba hacia adelante)
-  const rg = group('radiador', root, RAD.toArray(), EXV.radiador); rg.rotation.z = RL;
-  const RA = (geo, kind, o = {}) => add('radiador', geo, kind, { parent: rg, ...o });
-  RA(rbox(0.035, 0.34, 0.38, 0.01), 'copper');
-  RA(rbox(0.05, 0.05, 0.4, 0.01), 'dark', { p: [0, 0.19, 0] });
-  RA(rbox(0.05, 0.05, 0.4, 0.01), 'dark', { p: [0, -0.19, 0] });
-  RA(cylY(0.017, 0.03, 14), 'steel', { p: [0, 0.225, -0.13] });                               // boca de llenado
-  RA(cylY(0.024, 0.012, 20), 'chrome', { p: [0, 0.244, -0.13] });                             // tapa (lado conductor)
-  RA(cylX(0.016, 0.04, 14), 'dark', { p: [-0.04, 0.19, 0.12] });                              // entrada de la manguera superior (lado copiloto)
-  RA(cylX(0.016, 0.04, 14), 'dark', { p: [-0.04, -0.19, -0.12] });                            // salida inferior
-  rg.updateMatrixWorld(true);
-  const rIn = rg.localToWorld(V(-0.06, 0.19, 0.12)), rOut = rg.localToWorld(V(-0.06, -0.19, -0.12)), rCap = rg.localToWorld(V(0.018, 0.236, -0.13));
-  // cubierta del ventilador: del marco del radiador al aro que rodea las aspas
-  A('radiador', new THREE.TorusGeometry(0.165, 0.008, 8, 40), 'plastic', { p: [fanW.x + 0.035, fanW.y, fanW.z], r: [0, Math.PI / 2, 0] });
-  { const g = new THREE.CylinderGeometry(0.168, 0.2, 0.05, 28, 1, true); g.rotateZ(Math.PI / 2); A('radiador', g, 'plastic', { p: [fanW.x + 0.058, fanW.y, fanW.z + 0.03], double: true, op: 0.9 }); }
-  const th = ELv(E.pts.thermOut), wpIn = ELv(E.pts.wpIn), hOut = ELv(E.pts.heaterOut);
-  A('mangueras', tube([[th.x, th.y, th.z], [th.x + 0.05, th.y + 0.05, th.z + 0.03], [rIn.x - 0.06, rIn.y + 0.03, rIn.z + 0.02], rIn], 0.016), 'hose');
-  A('mangueras', tube([rOut, [rOut.x - 0.05, rOut.y - 0.02, rOut.z], [wpIn.x + 0.06, wpIn.y - 0.06, wpIn.z], [wpIn.x, wpIn.y, wpIn.z]], 0.016), 'hose');
-  // depósito de expansión: entre la torre izquierda y el motor, adelante (foto bajo el asiento del conductor)
-  const DEP = V(-0.055, 0.585, -0.33);
-  A('deposito', rbox(0.095, 0.13, 0.085, 0.022), 'ceramic', { p: DEP.toArray(), op: 0.78 });
-  A('deposito', cylY(0.026, 0.016, 18), 'ceramic', { p: [DEP.x, DEP.y + 0.073, DEP.z] });
-  A('deposito', cylY(0.005, 0.012, 8), 'ceramic', { p: [DEP.x - 0.012, DEP.y + 0.085, DEP.z + 0.004] });
-  A('deposito', tube([[DEP.x - 0.012, DEP.y + 0.09, DEP.z + 0.004], [DEP.x - 0.03, DEP.y + 0.085, DEP.z + 0.03], [rCap.x - 0.07, rCap.y - 0.04, rCap.z - 0.07], [rCap.x - 0.02, rCap.y - 0.012, rCap.z - 0.02]], 0.0045), 'hose');
+  // ════════ REFRIGERACIÓN: en cool3d.js (vista Refrigeración), después de la calefacción, con la que comparte el agua ════════
+  const hOut = ELv(E.pts.heaterOut), hRet = ELv(E.pts.heaterRet);
   // depósito del limpiaparabrisas: detrás del anterior, también por dentro de la torre (misma foto)
   const LAV = V(-0.275, 0.60, -0.34);
   A('deposito_limpia', rbox(0.21, 0.13, 0.115, 0.03), 'ceramic', { p: LAV.toArray(), op: 0.8 });
@@ -249,8 +224,9 @@ export function buildVan(ctx) {
   const CAN = V(-0.21, 0.64, 0.415);   // cánister: tras la torre derecha, sobre el borde del paso de rueda (foto bajo el asiento del copiloto)
 
   // ════════ CALEFACCIÓN (detalle en heater3d.js; vista Calefacción) ════════
-  const HT = buildHeater(ctx, { hOut, wpIn });
+  const HT = buildHeater(ctx, { hOut, wpIn: hRet });
   out.fans.push(HT.fan);
+  const CO = buildCooling(ctx, { eng, E, HT });
 
   // ════════ ALIMENTACIÓN (detalle en fuel3d.js; vista Alimentación) ════════
   const FU = buildFuel(ctx, { E, eng, CAN });
@@ -364,7 +340,7 @@ export function buildVan(ctx) {
   }
   // ruedas con sus discos y tambores; adelante y atrás por separado (una rueda bloqueada no gira)
   function setWheels(aF, aR, aRL = aR) { out.wheels.forEach((w, i) => { w.rotation.z = i < 2 ? aF : i === 2 ? aR : aRL; }); BR.spinRotors(aF, aR, aRL); }   // traseras por separado: derecha, izquierda
-  return { update, tick, demos, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, fuel: FU, drive: DR, setWheels };
+  return { update, tick, demos, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, fuel: FU, drive: DR, cool: CO, setWheels };
 }
 
 // Flecha "adelante" y lados (conductor a la izquierda) dibujados en el piso

@@ -220,8 +220,8 @@ export function buildHeater(ctx, { hOut, wpIn }) {
 
   // ════════ MANGUERAS: agua caliente del múltiple de admisión → llave → radiador → vuelve a la bomba ════════
   const hin = V(XP, 0.44, PIN), hrt = V(XP, 0.44, POUT);
-  const HIN = [hOut, V(hOut.x + 0.05, hOut.y - 0.06, hOut.z + 0.07), V(-0.22, 0.30, 0.31), V(0.0, 0.27, 0.31), V(0.17, 0.29, 0.27), V(0.36, 0.38, 0.15), V(hin.x - 0.01, 0.41, hin.z), hin];   // por la derecha del radiador, bajo el piso
-  const HRT = [hrt, V(hrt.x - 0.02, 0.40, hrt.z), V(0.36, 0.36, 0.0), V(0.2, 0.2, -0.02), V(0.07, 0.12, -0.03), V(-0.04, 0.13, -0.06), V(wpIn.x + 0.04, wpIn.y - 0.05, wpIn.z - 0.01), wpIn];   // por debajo del radiador
+  const HIN = [hOut, V(hOut.x + 0.05, hOut.y - 0.06, hOut.z + 0.07), V(-0.22, 0.30, 0.31), V(-0.02, 0.2, 0.31), V(0.12, 0.16, 0.27), V(0.27, 0.2, 0.2), V(0.35, 0.31, 0.15), V(hin.x - 0.01, 0.41, hin.z), hin];   // por la derecha del motor y por debajo del radiador
+  const HRT = [hrt, V(hrt.x - 0.02, 0.395, hrt.z), V(0.35, 0.3, 0.12), V(0.27, 0.18, 0.175), V(0.12, 0.14, 0.245), V(-0.02, 0.18, 0.29), V(-0.2, 0.278, 0.30), V(-0.262, 0.33, 0.2), V(-0.222, 0.38, 0.12), V(wpIn.x - 0.04, wpIn.y, wpIn.z + 0.006), wpIn];   // vuelve junto a la ida, por debajo del radiador, y llega por atrás al tubo de entrada de agua
   A('calef_mangueras', tube(HIN, 0.009, false, 90), 'hose', { press: 'hin' });
   A('calef_mangueras', tube(HRT, 0.009, false, 90), 'hose', { press: 'hout' });
 
@@ -366,7 +366,7 @@ export function buildHeater(ctx, { hOut, wpIn }) {
 
   recompute();
   return {
-    planes, fan, bind, paint, setCuts, setActive, recompute,
+    planes, fan, bind, paint, setCuts, setActive, recompute, water: WATER,
     tick(dt) { if (!st.on) return false; animate(dt); return true; },
     set(o) { Object.assign(st, o); const r = recompute(); animate(0); return r; },
     get state() { return st; },

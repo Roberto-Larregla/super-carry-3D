@@ -122,8 +122,8 @@ export function buildEngine(ctx, parent) {
     for (const [xm] of MAINS) for (const s of [1, -1]) P('bloque', rbox(0.008, 0.06, 0.006, 0.002), 'iron', { p: [xm, 0.0, s * 0.089], casing: true });
     [-0.11, -0.19, -0.27].forEach(x => P('bloque', cylZ(0.012, 0.004, 20), 'steel', { p: [x, 0.125, -0.069], casing: true }));
     // camisas de agua (visibles en corte o rayos X)
-    CYL_X.forEach(cx => P('camisas', new THREE.CylinderGeometry(0.047, 0.047, 0.088, 28, 1, true), 'water', { p: [cx, 0.13, 0], op: 0.42, casing: true, double: true }));
-    P('camisas', rbox(0.35, 0.012, 0.13, 0.004), 'water', { p: [-0.188, 0.19, 0], op: 0.38, casing: true, ex: ex('culata') });
+    CYL_X.forEach(cx => P('camisas', new THREE.CylinderGeometry(0.047, 0.047, 0.088, 28, 1, true), 'coolant', { p: [cx, 0.13, 0], op: 0.42, casing: true, double: true, press: 'c_cam' }));
+    P('camisas', rbox(0.35, 0.012, 0.13, 0.004), 'coolant', { p: [-0.188, 0.19, 0], op: 0.38, casing: true, ex: ex('culata'), press: 'c_cam' });
   }
 
   // ════════ CIGÜEÑAL ════════
@@ -292,15 +292,39 @@ export function buildEngine(ctx, parent) {
   const vbelt = hullBelt([{ y: 0, z: 0, r: 0.052 }, { y: 0.115, z: 0, r: 0.045 }, { y: ALT[0], z: ALT[1], r: 0.026 }]);
   add('correa_acc', bandGeo(vbelt, XP, 0.011, 0.007), 'rubber', { parent: accC, ex: null, double: true });
 
-  P('bomba_agua', cylX(0.037, 0.012, 28), 'alu', { p: [0.006, 0.115, 0] });
-  P('bomba_agua', tube([[0.004, 0.09, -0.03], [0.012, 0.075, -0.07], [0.03, 0.065, -0.095]], 0.012), 'alu', {});
-  const wp = group('bomba_agua', parent, [XP, 0.115, 0], ex('bomba_agua')); const wpS = new THREE.Group(); wp.add(wpS); A.spin.push({ g: wpS, k: 0.058 / 0.05 });
+  // Bomba de agua (manual secc. 6): centrífuga, con rodamiento sellado; no se desarma. Va apernada al frente del block
+  // detrás de la correa de distribución (para cambiarla hay que sacar esa correa) y su eje pasa a la polea de la correa en V.
+  // Cuerpo hueco: en la vista Refrigeración con corte queda transparente y deja ver el rotor.
+  { const sh = new THREE.CylinderGeometry(0.042, 0.042, 0.026, 32, 1, true); sh.rotateZ(-Math.PI / 2);
+    P('bomba_agua', sh, 'alu', { p: [0.004, 0.115, 0], double: true, cut: 'xray' });
+    P('bomba_agua', cylX(0.042, 0.004, 32), 'alu', { p: [0.019, 0.115, 0], cut: 'xray' });                 // tapa con el cuello del rodamiento
+    P('bomba_agua', cylX(0.017, 0.03, 20), 'alu', { p: [0.036, 0.115, 0] });                               // cuello del rodamiento
+    P('bomba_agua', cylX(0.0022, 0.004, 8), 'dark', { p: [0.036, 0.098, 0] });                             // agujero de alivio (gotea si el sello falla)
+    for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4; P('bomba_agua', cylX(0.0045, 0.008, 6), 'steel', { p: [0.023, 0.115 + Math.cos(a) * 0.036, Math.sin(a) * 0.036] }); }
+    // toma de agua: hacia el lado admisión y abajo, donde llega el tubo de entrada
+    P('bomba_agua', tube([[0.002, 0.098, 0.026], [0.004, 0.086, 0.04], [0.006, 0.078, 0.05]], 0.0125), 'alu', {}); }
+  const wp = group('bomba_agua', parent, [XP, 0.115, 0], ex('bomba_agua')); const wpS = new THREE.Group(); wp.add(wpS); A.spin.push({ g: wpS, k: 0.058 / 0.05 }); A.pump = wpS;
   add('bomba_agua', cylX(0.05, 0.016, 32), 'steel', { parent: wpS, ex: null });
   add('bomba_agua', cylX(0.043, 0.018, 28), 'dark', { parent: wpS, ex: null });
-  add('bomba_agua', cylX(0.008, 0.06, 10), 'steel', { parent: wpS, ex: null, p: [-0.03, 0, 0] });
+  add('bomba_agua', cylX(0.008, 0.066, 10), 'steel', { parent: wpS, ex: null, p: [-0.033, 0, 0] });
+  add('bomba_agua', cylX(0.013, 0.012, 16), 'machined', { parent: wpS, ex: null, p: [-0.05, 0, 0] });      // sello
+  { // rotor: 6 álabes curvos sobre un disco, girando dentro del cuerpo
+    add('bomba_agua', cylX(0.033, 0.003, 28), 'cast', { parent: wpS, ex: null, p: [-0.05, 0, 0] });
+    const vs = new THREE.Shape(); vs.moveTo(0.008, -0.002); vs.quadraticCurveTo(0.02, 0.006, 0.032, 0.0); vs.lineTo(0.032, 0.004); vs.quadraticCurveTo(0.02, 0.011, 0.008, 0.003); vs.closePath();
+    const vg = new THREE.ExtrudeGeometry(vs, { depth: 0.011, bevelEnabled: false, curveSegments: 8 }); vg.rotateY(-Math.PI / 2); vg.translate(-0.0515, 0, 0);
+    for (let k = 0; k < 6; k++) { const m = add('bomba_agua', vg.clone(), 'cast', { parent: wpS, ex: null }); m.rotation.x = k / 6 * Math.PI * 2; }
+  }
+  // Ventilador: 4 aspas tipo paleta, con espaciado alterno de 80° y 100° (dibujo de la correa del manual), y 4 pernos a la polea
   const fanG = group('ventilador', parent, [XP + 0.024, 0.115, 0], ex('ventilador')); const fanS = new THREE.Group(); fanG.add(fanS); A.spin.push({ g: fanS, k: 0.058 / 0.05 }); A.fan = fanS;
-  add('ventilador', cylX(0.028, 0.02, 20), 'plastic', { parent: fanS, ex: null });
-  for (let b = 0; b < 5; b++) { const a = b / 5 * Math.PI * 2; add('ventilador', rbox(0.006, 0.115, 0.05, 0.006), 'ceramic', { parent: fanS, ex: null, p: [0, Math.cos(a) * 0.085, Math.sin(a) * 0.085], r: [a, 0.35, 0] }); }
+  add('ventilador', cylX(0.036, 0.006, 28), 'dark', { parent: fanS, ex: null });
+  add('ventilador', cylX(0.012, 0.016, 16), 'steel', { parent: fanS, ex: null, p: [0.004, 0, 0] });
+  for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.6; add('ventilador', cylX(0.005, 0.012, 6), 'steel', { parent: fanS, ex: null, p: [0.006, Math.cos(a) * 0.022, Math.sin(a) * 0.022] }); }
+  { const bs = new THREE.Shape(); bs.moveTo(-0.02, 0.03); bs.lineTo(0.02, 0.03); bs.quadraticCurveTo(0.03, 0.09, 0.032, 0.132); bs.quadraticCurveTo(0.0, 0.15, -0.032, 0.132); bs.quadraticCurveTo(-0.03, 0.09, -0.02, 0.03);
+    const bg = new THREE.ExtrudeGeometry(bs, { depth: 0.0028, bevelEnabled: false, curveSegments: 10 }); bg.translate(0, 0, -0.0014);
+    [0, 80, 180, 260].forEach(d => {
+      const g = new THREE.Group(); g.rotation.x = d * Math.PI / 180; fanS.add(g);
+      add('ventilador', bg.clone().rotateY(Math.PI / 2 - 0.42), 'dark', { parent: g, ex: null, double: true });   // aspa inclinada: empuja el aire hacia el motor
+    }); }
 
   const altC = carrier('alternador');
   add('alternador', cylX(0.054, 0.095, 28), 'alu', { parent: altC, p: [0, ALT[0], ALT[1]], ex: null });
@@ -395,10 +419,7 @@ export function buildEngine(ctx, parent) {
   orientY(P('mult_adm', cylY(0.02, 0.05, 20), 'alu', { p: PLEN.clone().addScaledVector(WZ, 0.03).toArray() }), WZ.toArray());
   orientY(P('mult_adm', cylY(0.031, 0.006, 24), 'alu', { p: PLEN.clone().addScaledVector(WZ, 0.052).toArray() }), WZ.toArray());
   P('mult_adm', tube([[-0.02, 0.24, 0.13], [-0.18, 0.238, 0.142], [-0.33, 0.236, 0.138], [-0.355, 0.236, 0.13]], 0.007), 'alu', {});
-  // termostato en el frente del lado admisión
-  P('termostato', cylZ(0.024, 0.04, 24), 'alu', { p: [-0.018, 0.25, 0.122], casing: true, double: true });
-  P('termostato', cylX(0.013, 0.04, 16), 'alu', { p: [0.006, 0.255, 0.13] });
-  P('termostato', cylZ(0.018, 0.004, 20), 'copper', { p: [-0.018, 0.25, 0.118] });
+  // el termostato, su tapa, el tubo de entrada y las mangueras se arman en cool3d.js (vista Refrigeración)
   // sensores del motor
   const at = id => V(...PARTS[id].sensor.at.eng);
   { // bulbo de presión de aceite: en el block, junto al soporte del filtro (costado que queda hacia abajo)
@@ -571,7 +592,7 @@ export function buildEngine(ctx, parent) {
   carbG.updateMatrix();
   const pts = {
     carbInlet: V(0.041, -0.036, 0.03).applyMatrix4(carbG.matrix), carbReturn: V(0.039, -0.036, 0.056).applyMatrix4(carbG.matrix),
-    thermOut: V(0.026, 0.255, 0.13), wpIn: V(0.03, 0.065, -0.095), heaterOut: V(-0.355, 0.236, 0.13),
+    heaterOut: V(-0.355, 0.236, 0.13), pumpPort: V(0.006, 0.078, 0.05), heaterRet: V(-0.03, 0.022, 0.102),
     collA: V(XA, 0.079, ZA), collB: V(XB2, 0.079, ZB), distCenter: dPt(0, 0.15, 0), distAxis: DAX.clone(),
   };
   function setTilt(on) { if (oilMesh) { oilMesh.geometry.dispose(); oilMesh.geometry = oilGeo(on ? oilTilt : oilUp); } }

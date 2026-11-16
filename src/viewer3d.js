@@ -59,11 +59,17 @@ const KINDS = {
   // transmisión
   cast:   { c: '#979da2', m: 0.2, r: 0.62 },
   spring: { c: '#3d4856', m: 0.35, r: 0.5 },
+  // refrigeración
+  coolant: { c: '#3fb04a', m: 0.0, r: 0.2, e: '#145c1c', ei: 0.42 },
+  fin:    { c: '#33373a', m: 0.45, r: 0.5 },
+  label:  { c: '#e6c229', m: 0.0, r: 0.6 },
+  flame:  { c: '#4f86ff', m: 0.0, r: 0.4, e: '#2a63ff', ei: 1.1 },
+  glassc: { c: '#dfeaee', m: 0.1, r: 0.05 },
 };
-const NOTINT = new Set(['water', 'oil', 'sensor', 'fluid', 'brushed']);
+const NOTINT = new Set(['water', 'oil', 'sensor', 'fluid', 'brushed', 'coolant', 'flame', 'label']);
 const BODYKINDS = new Set(['paint', 'trim', 'glass', 'tint', 'rim', 'floorp', 'felt', 'seat', 'tire', 'shade', 'lens', 'machined', 'bar', 'mat', 'dash']);
 
-export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHeat, onFuel, onDrive }) {
+export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHeat, onFuel, onDrive, onCool }) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -149,10 +155,11 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   }
 
   // ——— un solo mundo ———
-  const W = { root: new THREE.Group(), meshes: [], explodables: [], anchors: {}, partBoxes: {}, allBox: new THREE.Box3(), engBox: new THREE.Box3(), brkBox: new THREE.Box3(), calBox: new THREE.Box3(), aliBox: new THREE.Box3(), traBox: new THREE.Box3(), anim: null };
+  const W = { root: new THREE.Group(), meshes: [], explodables: [], anchors: {}, partBoxes: {}, allBox: new THREE.Box3(), engBox: new THREE.Box3(), brkBox: new THREE.Box3(), calBox: new THREE.Box3(), aliBox: new THREE.Box3(), traBox: new THREE.Box3(), refBox: new THREE.Box3(), anim: null };
   scene.add(W.root);
   const engParts = new Set(), brkParts = new Set(), calParts = new Set(), aliParts = new Set(['carburador', 'filtro_aire', 'mult_adm']),   // la vista Alimentación también muestra estas piezas del motor
-    traParts = new Set(['volante']);                                                                                              // y la de Transmisión, el volante donde apoya el embrague
+    traParts = new Set(['volante']),                                                                                              // y la de Transmisión, el volante donde apoya el embrague
+    refParts = new Set(['bomba_agua', 'ventilador', 'camisas', 'correa_acc', 's_temp', 'calef_mangueras', 'calef_radiador', 'calef_llave', 'olla']);   // y la de Refrigeración, la bomba, el ventilador, las camisas y la calefacción
   let level = 'van';                         // 'eng' mientras se construye el motor, 'brk' los frenos
   function reg(obj, part, ex) {
     obj.userData.part = part; obj.userData.base = obj.position.clone();
@@ -172,6 +179,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       if (lv === 'cal') { m.userData.cal = true; calParts.add(part); }
       if (lv === 'ali') { m.userData.ali = true; aliParts.add(part); }
       if (lv === 'tra') { m.userData.tra = true; traParts.add(part); }
+      if (lv === 'ref') { m.userData.ref = true; refParts.add(part); }
     }
     (o.parent || W.root).add(m);
     if (o.ex !== null && o.ex !== undefined) reg(m, part, o.ex);
@@ -188,13 +196,14 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   VAN.ground && VAN.ground.traverse(o => { if (o.userData.shadow && o !== VAN.ground) floorShadows.push(o); });
   mergeStatic();
   for (const m of W.meshes) if (m.userData.eng) m.material.clippingPlanes = [m.material.userData.casing ? clip.casing : clip.all];
-  const BR = VAN.brakes, HT = VAN.heater, FU = VAN.fuel, DR = VAN.drive, PLANES = { ...BR.planes, ...HT.planes, ...FU.planes, ...DR.planes };
-  const SUBS = { brk: BR, cal: HT, ali: FU, tra: DR };
+  const BR = VAN.brakes, HT = VAN.heater, FU = VAN.fuel, DR = VAN.drive, CO = VAN.cool, PLANES = { ...BR.planes, ...HT.planes, ...FU.planes, ...DR.planes, ...CO.planes };
+  const SUBS = { brk: BR, cal: HT, ali: FU, tra: DR, ref: CO };
   for (const m of W.meshes) { const c = m.material.userData.cut; if (c && PLANES[c]) m.material.clippingPlanes = [PLANES[c]]; }
   BR.bind(W.meshes.filter(m => ['f', 'rm', 'r', 'v'].includes(m.material.userData.press)));
   HT.bind(W.meshes.filter(m => ['hin', 'hout'].includes(m.material.userData.press)));
   FU.bind(W.meshes.filter(m => ['feed', 'ret'].includes(m.material.userData.press)));
   DR.bind(W.meshes.filter(m => (m.material.userData.press || '').startsWith('p_')));
+  CO.bind(W.meshes.filter(m => (m.material.userData.press || '').startsWith('c_')));
   W.explodables.forEach(o => o.userData.base.copy(o.position));
 
   // Junta las mallas estáticas que comparten padre, pieza y material: menos llamadas de dibujo (clave en celulares)
@@ -219,7 +228,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       });
       const merged = mergeGeometries(geos, false); if (!merged) continue;
       const first = list[0], mm = new THREE.Mesh(merged, first.material);
-      for (const k of ['part', 'pick', 'noAnchor', 'body', 'eng', 'brk', 'cal', 'ali', 'tra']) if (k in first.userData) mm.userData[k] = first.userData[k];
+      for (const k of ['part', 'pick', 'noAnchor', 'body', 'eng', 'brk', 'cal', 'ali', 'tra', 'ref']) if (k in first.userData) mm.userData[k] = first.userData[k];
       first.parent.add(mm);
       if (first.userData.base) { mm.userData.base = new THREE.Vector3(); mm.userData.ex = first.userData.ex.clone(); mm.userData.lvl = first.userData.lvl; added.push(mm); }
       for (const m of list) { m.parent.remove(m); m.geometry.dispose(); if (m.material !== first.material) m.material.dispose(); drop.add(m); }
@@ -236,7 +245,9 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   const xraySys = new Set(['motor', 'electrico', 'lubricacion', 'transmision', 'sensores']);
   const matchFocus = (P, f) => !!P && (P.sys === f || P.serves === f || (P.also || []).includes(f));
   const isEngPart = id => engParts.has(id), isBrkPart = id => brkParts.has(id), isCalPart = id => calParts.has(id), isAliPart = id => aliParts.has(id);
-  const SUBPARTS = { brk: brkParts, cal: calParts, ali: aliParts, tra: traParts };
+  const SUBPARTS = { brk: brkParts, cal: calParts, ali: aliParts, tra: traParts, ref: refParts };
+  // en Refrigeración el motor queda como contexto, transparente: deja ver las camisas, la bomba y el termostato
+  const REF_CTX = new Set(['bloque', 'culata', 'junta_culata', 'tapa_valvulas', 'mult_adm', 'distribucion', 'alternador', 'carburador', 'filtro_aire', 'carter', 'calef_radiador', 'calef_llave']);
   const inMode = id => (state.mode === 'eng' ? isEngPart(id) : SUBPARTS[state.mode] ? SUBPARTS[state.mode].has(id) : true);
 
   const EXTERIOR = new Set(['carroceria', 'luces', 'parrilla', 'ruedas', 'interior', 'asientos']);
@@ -273,12 +284,14 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
         m.material.color.copy(qmode ? qcol(part) : state.colorMode === 'sys' ? ud.sys : ud.real);
         if (ud.wire) m.visible = state.focus === 'sensores' || isSel;
         if (isEng && !m.userData.eng && !isSel) op = Math.min(op, inFocus && state.focus ? 0.12 : 0.06);
-        else if (sub && !m.userData[sub] && !((sub === 'ali' || sub === 'tra') && SUBPARTS[sub].has(part)) && !isSel) op = Math.min(op, (isBrk || sub === 'tra') && part === 'ruedas' ? (state.bcut && isBrk ? 0.07 : 0.12) : 0.06);
+        else if (sub === 'ref' && REF_CTX.has(part) && !isSel) op = Math.min(op, state.bcut ? 0.1 : 0.2);
+        else if (sub && !m.userData[sub] && !((sub === 'ali' || sub === 'tra' || sub === 'ref') && SUBPARTS[sub].has(part)) && !isSel) op = Math.min(op, (isBrk || sub === 'tra') && part === 'ruedas' ? (state.bcut && isBrk ? 0.07 : 0.12) : 0.06);
         else if (!inFocus && !isSel) op = Math.min(op, dimOp);
         else if (ud.casing && xray) op = Math.min(op, isEng ? 0.14 : 0.22);
         if (isEng && state.cut === 'long' && ud.side === 'ex') op = Math.min(op, 0.06);
         if (sub && state.bcut && ud.cut === 'xray') op = Math.min(op, 0.2);
         if (sub === 'ali' && state.bcut && ud.casing && part === 'filtro_aire') op = Math.min(op, 0.22);   // deja ver el elemento del filtro de aire
+        if (part === 'olla') op = ud.op;                                                                    // la olla de la prueba no se atenúa
       }
       // sobre el fondo claro, lo atenuado se vuelve un fantasma claro (si no, las capas oscuras forman una mancha)
       if (op < 0.13 && !isSel && !(ud.casing && xray)) m.material.color.lerp(GHOST, 0.78);
@@ -302,6 +315,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     if (sub === 'cal') HT.paint('cal', state.colorMode);
     if (sub === 'ali') FU.paint('ali', state.colorMode);
     if (sub === 'tra') DR.paint('tra', state.colorMode);
+    if (sub === 'ref') CO.paint('ref', state.colorMode);
     requestRender();
   }
 
@@ -318,7 +332,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       if (box.isEmpty()) continue;
       box.getCenter(c); W.anchors[id] = c.clone(); W.partBoxes[id] = box.clone();
     }
-    W.allBox.makeEmpty(); W.engBox.makeEmpty(); W.brkBox.makeEmpty(); W.calBox.makeEmpty(); W.aliBox.makeEmpty(); W.traBox.makeEmpty();
+    W.allBox.makeEmpty(); W.engBox.makeEmpty(); W.brkBox.makeEmpty(); W.calBox.makeEmpty(); W.aliBox.makeEmpty(); W.traBox.makeEmpty(); W.refBox.makeEmpty();
     W.root.traverse(o => {
       if (!o.isMesh || o.isInstancedMesh || o.userData.noBox || !o.material || o.material.userData?.wire) return;
       W.allBox.expandByObject(o);
@@ -327,6 +341,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       if (o.userData.cal && o.visible && o.userData.part !== 'calef_mangueras') W.calBox.expandByObject(o);
       if (o.userData.ali && o.visible && o.userData.part !== 'ahogador') W.aliBox.expandByObject(o);
       if (o.userData.tra && o.visible && !['pedal_embrague', 's_veloc', 'palanca'].includes(o.userData.part)) W.traBox.expandByObject(o);
+      if ((o.userData.ref || refParts.has(o.userData.part)) && o.visible && !['calef_mangueras', 'calef_radiador', 'calef_llave', 'olla', 'correa_acc'].includes(o.userData.part)) W.refBox.expandByObject(o);
     });
     W.partBoxes.carroceria = W.allBox.clone(); W.anchors.carroceria = V(-0.9, 1.8 + state.exVan * 1.25, 0.7);
   }
@@ -397,7 +412,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     state.sel = id && W.anchors[id] ? id : null;
     applyMaterials();
     if (state.sel && fly && W.partBoxes[state.sel]) {
-      const b = W.partBoxes[state.sel].clone(); const sz = b.getSize(new THREE.Vector3()); const m = PARTS[state.sel] && PARTS[state.sel].tiny ? 0.07 : state.mode === 'eng' || isEngPart(state.sel) ? 0.16 : state.mode === 'brk' ? 0.24 : state.mode === 'cal' || state.mode === 'ali' ? 0.2 : state.mode === 'tra' ? 0.16 : 0.5;
+      const b = W.partBoxes[state.sel].clone(); const sz = b.getSize(new THREE.Vector3()); const m = PARTS[state.sel] && PARTS[state.sel].tiny ? 0.07 : state.mode === 'eng' || isEngPart(state.sel) ? 0.16 : state.mode === 'brk' ? 0.24 : state.mode === 'cal' || state.mode === 'ali' ? 0.2 : state.mode === 'tra' || state.mode === 'ref' ? 0.16 : 0.5;
       b.expandByVector(V(Math.max(0, (m - sz.x) / 2), Math.max(0, (m - sz.y) / 2), Math.max(0, (m - sz.z) / 2)));
       // piezas del motor que sólo se ven desde un lado: su dirección (marco del motor) girada a como va montado
       const lk = PARTS[state.sel] && PARTS[state.sel].look && isEngPart(state.sel) && state.mode !== 'ali';
@@ -418,6 +433,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     tra: { iso: [0.35, 0.6, -1], embrague: { d: [-0.8, 0.5, -0.95], g: 'embrague', pad: 1.2 }, caja: { d: [0.12, 0.32, -1], g: 'caja', pad: 1.12 }, selector: { d: [0.5, 0.9, 1], g: 'selector', pad: 1.5 }, palanca: { d: [-0.9, 0.45, -0.7], g: 'palanca', pad: 1.5 },
       cardan: { d: [0.25, 0.35, -1], g: 'cardan', pad: 1.2 }, dif: { d: [0.55, 0.85, -0.7], g: 'dif', pad: 1.7 }, arriba: [0.002, 1, -0.04], abajo: [0.05, -1, 0.002] },
     ali: { iso: [0.9, 1.0, 1.9], carb: { d: [1, 0.12, 0.2], g: 'carb', pad: 2.3 }, palancas: { d: [-1, 0.5, 0.35], g: 'carb', pad: 2.6 }, estanque: { d: [0.2, 0.5, 1], g: 'estanque', pad: 1.5 }, pedal: { d: [-0.9, 0.5, -0.5], g: 'pedal', pad: 1.3 }, arriba: [0.002, 1, 0.04], abajo: [0.05, -1, 0.002] },
+    ref: { iso: [-0.62, 0.62, -0.6], radiador: { d: [0.95, 0.38, 0.5], g: 'radiador', pad: 1.15 }, termostato: { d: [0.2, 0.85, 0.75], g: 'termostato', pad: 4.2 }, bomba: { d: [-0.35, 0.22, -1], g: 'bomba', pad: 4.2 }, tapa: { d: [0.5, 0.8, -0.6], g: 'tapa', pad: 4 }, deposito: { d: [-0.2, 0.6, -1], g: 'deposito', pad: 2.4 }, arriba: [0.002, 1, -0.04], abajo: [0.05, -1, 0.002], olla: { d: [0.55, 0.42, -1], g: 'olla', pad: 1.0 } },
   };
   let tween = null;
   const viewDir = () => camera.position.clone().sub(controls.target).normalize();
@@ -440,7 +456,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     computeAnchors();
     const dir = Array.isArray(v) ? v : v.d;
     if (!Array.isArray(v) && v.g) { const b = new THREE.Box3(); [].concat((SUBS[state.mode] || BR).groups[v.g]).forEach(g => b.expandByObject(g)); fitTo(b, V(...dir).normalize(), v.pad || (state.mode === 'cal' ? 1.6 : 1.25), instant ? 0 : 700); return; }
-    const box = state.mode === 'eng' ? W.engBox : state.mode === 'brk' ? W.brkBox : state.mode === 'cal' ? W.calBox : state.mode === 'ali' ? W.aliBox : state.mode === 'tra' ? W.traBox : W.allBox;
+    const box = state.mode === 'eng' ? W.engBox : state.mode === 'brk' ? W.brkBox : state.mode === 'cal' ? W.calBox : state.mode === 'ali' ? W.aliBox : state.mode === 'tra' ? W.traBox : state.mode === 'ref' ? W.refBox : W.allBox;
     fitTo(box, V(...dir).normalize(), state.mode === 'eng' ? 0.94 : SUBS[state.mode] ? 0.98 : 1.04, instant ? 0 : 700);
   }
   function animateCam(p, t, ms) {
@@ -461,7 +477,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   }
 
   // ——— animación ———
-  function applyExplodeAll() { for (const o of W.explodables) o.position.copy(o.userData.base).addScaledVector(o.userData.ex, o.userData.lvl === 'eng' ? state.exEng : state.exVan); }
+  function applyExplodeAll() { for (const o of W.explodables) o.position.copy(o.userData.base).addScaledVector(o.userData.ex, (o.userData.lvl || '').startsWith('eng') ? state.exEng : state.exVan); }
   function applyExplode() { applyExplodeAll(); W.anim.update(state.theta); computeAnchors(); applyMaterials(); requestRender(); }
 
   let needs = true, visible = true, raf = 0, last = performance.now();
@@ -499,6 +515,12 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       const w = DR.visOmega(); if (w > 0) { state.theta += dt * w; W.anim.update(state.theta); active = true; }   // el motor gira a la misma escala que el resto
       DR.paint('tra', state.colorMode);
       onDrive && onDrive(DR.result);
+    }
+    if (state.mode === 'ref' && visible) {
+      if (CO.tick(dt)) active = true;
+      const w = CO.visOmega(); if (w > 0) { state.theta += dt * w; W.anim.update(state.theta); active = true; }   // bomba, ventilador y correa giran
+      CO.paint('ref', state.colorMode);
+      onCool && onCool(CO.result);
     }
     if (state.mode === 'cal' && visible) {
       if (HT.tick(dt)) active = true;
@@ -538,17 +560,19 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     const prev = state.mode;
     state.mode = m;
     const E = m === 'eng', B = m === 'brk';
-    controls.minDistance = E ? 0.22 : B ? 0.25 : m === 'cal' ? 0.18 : m === 'ali' ? 0.09 : m === 'tra' ? 0.12 : 0.6; controls.maxDistance = E ? 5 : B ? 8 : m === 'cal' ? 6 : m === 'ali' || m === 'tra' ? 9 : 12;
+    controls.minDistance = E ? 0.22 : B ? 0.25 : m === 'cal' ? 0.18 : m === 'ali' ? 0.09 : m === 'tra' || m === 'ref' ? 0.1 : 0.6; controls.maxDistance = E ? 5 : B ? 8 : m === 'cal' ? 6 : m === 'ali' || m === 'tra' || m === 'ref' ? 9 : 12;
     state.sel = null; state.exVan = 0; state.exEng = 0; applyExplodeAll();
     if (!E) state.cut = 'none';
     if (prev === 'brk') { BR.stopSeq(); BR.set({ on: false, pedalF: 0, v: 0, heat: 0 }); BR.setCuts(false); }
     if (prev === 'cal') { HT.setActive(false); HT.setCuts(false); }
     if (prev === 'ali') { FU.setActive(false); FU.setCuts(false); }
     if (prev === 'tra') { DR.setActive(false); DR.setCuts(false); }
+    if (prev === 'ref') { CO.setActive(false); CO.setCuts(false); }
     if (B) { state.running = false; BR.setCuts(state.bcut); }
     if (m === 'cal') { state.running = false; HT.setActive(true); HT.setCuts(state.bcut); }
     if (m === 'ali') { state.running = false; FU.setActive(true); FU.setCuts(state.bcut); }
     if (m === 'tra') { state.running = false; if (!state.traSeen) { state.traSeen = true; state.bcut = true; } DR.setActive(true); DR.setCuts(state.bcut); }   // la primera vez se abre en corte: lo que importa está adentro
+    if (m === 'ref') { state.running = false; if (!state.refSeen) { state.refSeen = true; state.bcut = true; } CO.setActive(true); CO.setCuts(state.bcut); }
     if (state.focus && !Object.keys(PARTS).some(id => matchFocus(PARTS[id], state.focus) && W.anchors[id] && inMode(id))) state.focus = null;
     for (const id in labelEls) labelEls[id].hidden = true;
     W.anim.update(state.theta); updateCutPlanes(); computeAnchors();
@@ -564,7 +588,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       if (!fly) return;
       const E = state.mode === 'eng';
       if (sys) { const b = new THREE.Box3(); Object.keys(PARTS).forEach(id => { if (matchFocus(PARTS[id], sys) && W.partBoxes[id] && inMode(id)) b.union(W.partBoxes[id]); }); if (!b.isEmpty()) fitTo(b, viewDir(), sys === 'carroceria' ? 1.04 : 1.18); }
-      else fitTo(E ? W.engBox : state.mode === 'brk' ? W.brkBox : state.mode === 'tra' ? W.traBox : W.allBox, viewDir(), 1.04);
+      else fitTo(E ? W.engBox : state.mode === 'brk' ? W.brkBox : state.mode === 'tra' ? W.traBox : state.mode === 'ref' ? W.refBox : W.allBox, viewDir(), 1.04);
     },
     setColorMode(m) { state.colorMode = m; applyMaterials(); },
     setBody(m) { state.body = m; applyMaterials(); },
@@ -581,6 +605,9 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     get driveState() { return DR.state; },
     debugDrive(sec) { for (let t = 0; t < sec; t += 1 / 30) DR.tick(1 / 30, (aF, aR, aRL) => VAN.setWheels(aF, aR, aRL)); onDrive && onDrive(DR.result); requestRender(); return DR.result; },   // adelanta la simulación (pruebas)
     fuel(o) { const r = FU.set(o || {}); last = performance.now(); requestRender(); return r; },
+    cool(o) { const r = CO.set(o || {}); last = performance.now(); requestRender(); return r; },
+    get coolState() { return CO.state; },
+    debugCool(sec) { const r = CO.debug(sec); onCool && onCool(r); requestRender(); return r; },   // adelanta la simulación (pruebas)
     get fuelState() { return FU.state; },
     heat(o) { const r = HT.set(o || {}); last = performance.now(); requestRender(); return r; },
     get heatState() { return HT.state; },
@@ -589,7 +616,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     brakeTest() { BR.startStop(); last = performance.now(); requestRender(); },
     brakeAbort() { BR.stopSeq(); requestRender(); },
     get brakeState() { return BR.state; },
-    setBCut(on) { state.bcut = on; BR.setCuts(on && state.mode === 'brk'); HT.setCuts(on && state.mode === 'cal'); FU.setCuts(on && state.mode === 'ali'); DR.setCuts(on && state.mode === 'tra'); applyMaterials(); requestRender(); },
+    setBCut(on) { state.bcut = on; BR.setCuts(on && state.mode === 'brk'); HT.setCuts(on && state.mode === 'cal'); FU.setCuts(on && state.mode === 'ali'); DR.setCuts(on && state.mode === 'tra'); CO.setCuts(on && state.mode === 'ref'); applyMaterials(); requestRender(); },
     setCut(c) { state.cut = c; updateCutPlanes(); applyMaterials(); },
     setSpeed(k) { state.speed = k; },
     stepTo(deg) { state.theta = deg * Math.PI / 180; W.anim.update(state.theta); onTick && onTick(state.theta, state.mode); requestRender(); },
