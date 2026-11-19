@@ -1,6 +1,8 @@
 // Tren motriz del SK410: dientes y relaciones del manual (secc. 13 y 15) y un modelo simple de motor, embrague y furgón
-// para la vista Transmisión. Las relaciones son exactas; par, masa, roce y capacidad del embrague son valores típicos.
+// para la vista Transmisión. Las relaciones son exactas; roce y capacidad del embrague son valores típicos. El motor (par,
+// ralentí) y la masa son los del único motor del modelo (motor.js); al frenar se usa el mismo cálculo de la vista Frenos.
 import { TIRES } from './data.js';
+import { MOTOR, torqueAt } from './motor.js';
 
 export const DK = {
   prim: [23, 35],                                                          // engranaje de mando (eje de entrada) → contraeje: 35/23 = 1,521
@@ -8,7 +10,8 @@ export const DK = {
   idler: 20,                                                               // piñón loco de marcha atrás (dientes supuestos: no cambia la relación)
   final: [8, 41],                                                          // piñón / corona: 41/8 = 5,125
   side: [10, 14],                                                          // satélite / planetario (supuestos)
-  idle: 900, redline: 5500, tq: 73.5, mass: 950, eta: 0.9,
+  idle: MOTOR.idle, redline: MOTOR.redline, eta: 0.9,
+  mass: MOTOR.mass * 1.1,                                                  // el furgón con el conductor, más un 10 % por la inercia de ruedas, cardán y caja
   rw: TIRES[0].c / (2 * Math.PI),                                          // radio de rodadura del 175/70 R13
   travel: 0.014, gap: 0.0025, push: 0.0062,                                // collarín: recorrido total, luz en reposo y lo que hunde el diafragma para soltar (m, a escala del modelo)
   cap: 115,                                                                // par que aguanta el embrague sano (N·m)
@@ -36,11 +39,12 @@ export function clutchLift(k, fail) {
 }
 export const clutchCap = (k, fail) => DK.cap * (fail === 'disco' ? 0.42 : 1) * Math.pow(1 - clutchLift(k, fail).lift, 1.5);
 
-const engTq = (t, rpm) => (rpm > DK.redline ? 0 : t * DK.tq * Math.max(0.35, 1 - Math.pow((rpm - 3000) / 4300, 2)));
+const engTq = (t, rpm) => t * torqueAt(rpm);
 const fric = rpm => (rpm > 1 ? 5 + rpm * 0.0026 : 0);
 const RAD = Math.PI / 30;
 
-// Avanza el estado s = { on, rpm, v, vs, wIn, gear, clutch, throttle, fail, noGrip, brake } en dt segundos.
+// Avanza el estado s = { on, rpm, v, vs, wIn, gear, clutch, throttle, fail, noGrip, brake, brakeA } en dt segundos.
+// brakeA: desaceleración al frenar (m/s²), la que calcula la vista Frenos para una frenada normal.
 // v: velocidad del furgón (m/s, negativa hacia atrás) · vs: velocidad de la rueda que patina cuando no hay agarre.
 export function driveStep(s, dt) {
   const n = 8, h = dt / n, G = gearRatio(s.gear) * FINALR, cap = clutchCap(s.clutch, s.fail);
@@ -64,7 +68,7 @@ export function driveStep(s, dt) {
     s.rpm = Math.max(0, s.rpm + (Te - tc) / 0.13 * h / RAD);
     // resistencias: rodadura, aire y freno
     const dec = (v, a) => { const d = a * h; return Math.abs(v) <= d ? 0 : v - Math.sign(v) * d; };
-    s.v = dec(s.v, 0.015 * 9.81 + 0.6 * s.v * s.v / DK.mass + (s.brake ? 3.2 : 0));
+    s.v = dec(s.v, 0.015 * 9.81 + 0.71 * s.v * s.v / DK.mass + (s.brake ? (s.brakeA ?? 3.2) : 0));   // aire: ≈ 0,71·v² N, para llegar a los 105 km/h de la ficha
     if (s.noGrip) s.vs = dec(s.vs, 0.4);
   }
   if (s.on && s.rpm < 380) { s.on = false; s.stalled = true; }

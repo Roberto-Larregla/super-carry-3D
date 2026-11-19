@@ -28,9 +28,9 @@ export const FFAILS = {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-// pedal 0–1 · choke 0–1 (perilla tirada) · engine 'frio' | 'caliente' · on: contacto puesto y motor en marcha
-export function fuelSolve({ pedal = 0, choke = 0, engine = 'caliente', fail = 'ok', on = true, level = 0.6 }) {
-  const cold = engine === 'frio';
+// pedal 0–1 · choke 0–1 (perilla tirada) · Te: agua del motor (°C, la del único motor del modelo) · on: motor en marcha
+export function fuelSolve({ pedal = 0, choke = 0, Te = 85, fail = 'ok', on = true, level = 0.6 }) {
+  const coldK = clamp((60 - Te) / 40, 0, 1), cold = coldK > 0.5;   // bajo 60 °C el múltiple todavía está frío
   const fast = choke > 0.05 ? 0.035 + 0.05 * choke : 0;          // la leva de ralentí rápido entreabre la mariposa
   const throttle = clamp(0.015 + fast + 0.985 * pedal, 0, 1);    // apertura de la mariposa (0–1)
   // circuitos: cuánto aporta cada uno
@@ -54,7 +54,7 @@ export function fuelSolve({ pedal = 0, choke = 0, engine = 'caliente', fail = 'o
   let afr = FK.afr.idle + (FK.afr.cruise - FK.afr.idle) * sst(0.08, 0.3, pedal) - (FK.afr.cruise - FK.afr.power) * power;
   const chokeRich = 0.42 * choke;                                 // el ahogador tapa el aire: la depresión saca más bencina
   afr *= 1 - chokeRich;
-  if (cold) afr *= 1.22;                                          // en frío la bencina se pega a las paredes: llega menos al cilindro
+  afr *= 1 + 0.22 * coldK;                                        // en frío la bencina se pega a las paredes: llega menos al cilindro
   if (fail === 'aire') afr *= 1 + 0.26 * (1 - pedal);
   if (fail === 'filtroaire') afr *= 1 - 0.16 * (0.3 + 0.7 * pedal);
   if (fail === 'aguja') afr *= 0.78;
@@ -70,7 +70,7 @@ export function fuelSolve({ pedal = 0, choke = 0, engine = 'caliente', fail = 'o
   // diagnóstico de la mezcla
   const state = !running ? 'off' : afr < 10.5 ? 'muyrica' : afr < 12.3 ? 'rica' : afr <= 15.6 ? 'ok' : afr <= 17.5 ? 'pobre' : 'muypobre';
   const powerK = running ? clamp(1 - Math.abs(afr - 12.8) / 9, 0.2, 1) * (1 - 0.6 * starve) * (fail === 'filtroaire' ? 1 - 0.2 * pedal : 1) : 0;
-  return { pedal, choke, engine, fail, on, cold, running, stall, throttle, fast, slow: running ? slow : 0, main: running ? main : 0, power: running ? power : 0,
+  return { pedal, choke, Te, coldK, fail, on, cold, running, stall, throttle, fast, slow: running ? slow : 0, main: running ? main : 0, power: running ? power : 0,
     vac: running ? vac : 0, rpm, air, afr: running ? afr : null, state, demand, used, supplyMax, ret, starve, bowl, lph, powerK, level,
     pumpOn: on, feed: on ? Math.min(1, (used + ret) / ((FK.pump / 60 / 1000) * FK.dens)) : 0 };
 }

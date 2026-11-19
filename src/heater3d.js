@@ -5,8 +5,11 @@
 // del extremo izquierdo; al derecho, el tubo rígido y la manguera corrugada de la rejilla del extremo derecho, y la caja de
 // admisión con la rejilla de recirculación (esponja detrás), que baja hasta la esquina del piso, por donde entra el aire de
 // afuera. Cotas internas y ductos ocultos: aproximados.
+// El agua, los mandos y las fallas son los del único motor del modelo (los guarda la simulación de refrigeración).
 import * as THREE from 'three';
 import { heatSolve, MODES, tempColor } from './heatersim.js';
+import { coolColor } from './coolsim.js';
+import { cabinOf } from './motor.js';
 
 const ZH = 0.03, ZW = 0.10;                                 // centro y medio ancho de la caja
 const X0 = 0.39;                                            // cara de atrás (hacia la cabina)
@@ -274,7 +277,10 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   ctx.setLevel('van');
 
   // ════════ estado, pose y animación ════════
-  const st = { mode: 'pies', recirc: true, temp: 1, fan: 2, engine: 'caliente', fail: 'ok', on: false, cut: false, showAir: true, showWater: true, t: 0, fanA: 0, last: null };
+  const st = { mode: 'pies', recirc: true, temp: 1, fan: 2, fail: 'ok', on: false, cut: false, showAir: true, showWater: true, t: 0, fanA: 0, last: null };
+  // el motor (agua, caudal, temperatura de afuera, fallas) y los mandos compartidos: los entrega van3d al armar la refrigeración
+  let thermal = () => null;
+  const HEATKEYS = ['mode', 'recirc', 'temp', 'fan'];
   const KPOS = { mode: { cara: 0.05, bi: 0.32, pies: 0.64, vidrio: 0.9 } };
   function pose() {
     // mandos
@@ -310,8 +316,8 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     if (key === 'ida') return r.Tw;
     if (key === 'vuelta') return r.Tret;
     if (key === 'rad') return u < 0.45 ? r.Tw : r.Tw + (r.Tret - r.Tw) * Math.min(1, (u - 0.45) / 0.3);
-    if (key === 'exterior') return 10;
-    if (key === 'recirc') return 16;
+    if (key === 'exterior') return r.amb;
+    if (key === 'recirc') return cabinOf(r.amb);
     if (key === 'ducto' || key.startsWith('cara')) return r.Tin;
     if (key === 'nucleo') return u < 0.55 ? r.Tin : r.Tin + (r.Thot - r.Tin) * Math.min(1, (u - 0.55) / 0.3);
     return r.Thot;
@@ -331,7 +337,7 @@ export function buildHeater(ctx, { hOut, wpIn }) {
         if (j >= show || weight <= 0) { PA[k] = PA[k + 2] = 0; PA[k + 1] = -1000; continue; }
         const u = (((j / p.n) + st.t * speed / p.len) % 1 + 1) % 1;
         p.cv.getPointAt(u, pos); PA[k] = pos.x; PA[k + 1] = pos.y; PA[k + 2] = pos.z;
-        const c = tempColor(tempAt(p.key, u, r)); col.setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace);
+        const c = (p.kind === 'air' ? tempColor : coolColor)(tempAt(p.key, u, r)); col.setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace);
         CA[k] = col.r; CA[k + 1] = col.g; CA[k + 2] = col.b;
       }
     }
@@ -341,7 +347,10 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     fan.rotation.z = st.fanA;
   }
   function recompute() {
-    const r = heatSolve(st); st.last = r; pose(); return r;
+    const T = thermal();
+    if (T) { for (const k of HEATKEYS) st[k] = T.st.heat[k]; st.fail = T.st.fail; st.on = T.st.on; }
+    const r = heatSolve({ ...st, Tw: T ? T.st.Te : 20, flowW: T && T.r ? T.r.Qh : 0, amb: T ? T.st.amb : 18 });
+    st.last = r; pose(); return r;
   }
   function setCuts(on) {
     st.cut = on;
@@ -353,8 +362,8 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     const r = st.last; if (!r || mode !== 'cal' || colorMode !== 'real') return;
     for (const m of pressMats) {
       const ud = m.material.userData; if (ud.press !== 'hin' && ud.press !== 'hout') continue;
-      const t = ud.press === 'hin' ? r.Tw : r.Tret, k = Math.max(0, Math.min(1, (t - 25) / 60)) * (r.waterFlow > 0.01 || !r.on ? 1 : 0.6);
-      const c = tempColor(t);
+      const t = ud.press === 'hin' ? r.Tw : r.Tret, k = Math.max(0, Math.min(1, (t - 25) / 70)) * (r.waterFlow > 0.01 || !r.on ? 1 : 0.6);
+      const c = coolColor(t);
       m.material.color.copy(ud.real).lerp(col.setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace), 0.25 + 0.55 * k);
     }
     // la resistencia se entibia en las velocidades 1 y 2
@@ -362,13 +371,20 @@ export function buildHeater(ctx, { hOut, wpIn }) {
     if (r.resistorOn) { rc.emissive.set('#ff5a1a'); rc.emissiveIntensity = r.fanEff === 1 ? 0.7 : 0.45; }
     else if (!H.coil.userData.sel) { rc.emissive.setRGB(0, 0, 0); rc.emissiveIntensity = 0; }
   }
-  function setActive(on) { ptsAir.visible = ptsWat.visible = on; if (!on) { st.on = false; recompute(); } }
+  function setActive(on) { ptsAir.visible = ptsWat.visible = on; recompute(); }
 
   recompute();
   return {
     planes, fan, bind, paint, setCuts, setActive, recompute, water: WATER,
-    tick(dt) { if (!st.on) return false; animate(dt); return true; },
-    set(o) { Object.assign(st, o); const r = recompute(); animate(0); return r; },
+    tick(dt) { recompute(); if (!st.on) return false; animate(dt); return true; },
+    // mandos de la calefacción: van al estado compartido del motor; el resto (lo que se muestra) queda aquí
+    set(o) {
+      const T = thermal();
+      for (const k of HEATKEYS) if (k in o) { if (T) T.st.heat[k] = o[k]; else st[k] = o[k]; }
+      for (const k of ['showAir', 'showWater']) if (k in o) st[k] = o[k];
+      const r = recompute(); animate(0); return r;
+    },
+    link(fn) { thermal = fn; recompute(); },
     get state() { return st; },
     get result() { return st.last; },
     groups: { caja: [core, fan, dFace], mandos: [fanKnob, knobs.mode, knobs.temp], admision: [flap, rlever, gbox, lowIn] },

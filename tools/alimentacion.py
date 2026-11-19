@@ -14,7 +14,8 @@ async def main(dev):
         await pg.goto(URL_DOC); await pg.wait_for_timeout(2500)
         async def shot(n): await pg.screenshot(path=str(ROOT / "shots" / f"ali_{dev}_{n}.png"))
         js = pg.evaluate
-        await js("window.__app.openSys('combustible')"); await pg.wait_for_timeout(2600); await shot('1_iso')
+        await js("window.__app.openSys('combustible')"); await pg.wait_for_timeout(2600)
+        await js("document.querySelector('#tb-feng [data-v=caliente]').click(); document.querySelector('#tb-fuel').click()"); await pg.wait_for_timeout(1200); await shot('1_iso')
         await js("document.querySelector('#tb-bcut [data-v=in]').click()")
         for v in ['carb', 'palancas', 'estanque', 'pedal']:
             await js(f"window.__viewer.setView('{v}', true)"); await pg.wait_for_timeout(1300); await shot('2_' + v)

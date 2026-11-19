@@ -3,11 +3,13 @@
 // a un panal de 488 × 240 mm. La tapa va al lado del conductor (se ve levantando su asiento) y las dos mangueras al lado
 // del copiloto, como en el dibujo de las mangueras del manual. Entre el radiador y el motor, el carenado lleva el aire al
 // ventilador de 4 aspas, apernado a la polea de la bomba. El termostato va en la salida del múltiple de admisión, con su
-// tapa y el bulbo del indicador; de ahí salen la manguera superior, la de derivación y la de la calefacción. El agua vuelve
+// tapa y el bulbo del indicador; de ahí salen la manguera superior y la de derivación. El agua vuelve
 // a la bomba por el tubo de entrada, que recibe la manguera inferior, la derivación y la vuelta de la calefacción.
 // El depósito transparente va junto a la torre izquierda (foto). Recorrido de mangueras y tubo de entrada: aproximados.
+// La manguera de la calefacción sale del extremo de atrás del múltiple y vuelve al tubo de entrada de la bomba.
+// Esta simulación es la del único motor del modelo: corre siempre, también fuera de la vista Refrigeración (advance).
 import * as THREE from 'three';
-import { CK, PROC, coolInit, coolStep, coolRead, coolColor, potInit, potStep, applyFail, refill } from './coolsim.js';
+import { CK, PROC, coolInit, coolStep, coolRead, coolColor, potInit, potStep, applyFail, refill, warmUp, setTemp } from './coolsim.js';
 
 const RAD = new THREE.Vector3(0.068, 0.384, 0.03), RL = -0.12;     // centro del radiador e inclinación (arriba hacia adelante)
 const CW = 0.488, CHt = 0.24, CD = 0.032;                           // panal
@@ -446,9 +448,12 @@ export function buildCooling(ctx, { eng, E, HT }) {
   }
   function set(o = {}) {
     if ('fail' in o) applyFail(st, o.fail);
-    for (const k of ['on', 'scen', 'amb', 'heater', 'therm', 'speed', 'showW', 'showA']) if (k in o) st[k] = o[k];
+    for (const k of ['on', 'scen', 'amb', 'therm', 'speed', 'showW', 'showA']) if (k in o) st[k] = o[k];
+    if (o.heat) Object.assign(st.heat, o.heat);
+    if ('setTemp' in o) setTemp(st, o.setTemp);
+    if (o.warm) warmUp(st);
     if (o.amb !== undefined && !st.on && Math.abs(st.Te - st.Tr) < 1 && st.t === 0) { st.Te = st.Tr = st.TairOut = o.amb; }
-    if (o.reset === 'frio') { const keep = { on: st.on, scen: st.scen, amb: st.amb, heater: st.heater, therm: st.therm, speed: st.speed, fail: st.fail };
+    if (o.reset === 'frio') { const keep = { on: st.on, scen: st.scen, amb: st.amb, heat: st.heat, therm: st.therm, speed: st.speed, fail: st.fail };
       Object.assign(st, coolInit(keep)); applyFail(st, st.fail); }
     if (o.refill) refill(st);
     if ('proc' in o) { st.proc = o.proc ? { step: 0, ...o.proc } : null; st.pt = 0; if (st.proc) st.pot = null; }
@@ -460,9 +465,21 @@ export function buildCooling(ctx, { eng, E, HT }) {
     const r = recompute(); animate(0, r); return r;
   }
   function visOmega() { const r = st.last; return r && r.on ? Math.PI * 2 * (0.55 + r.rpm / 2600) : 0; }
+  // fuera de la vista Refrigeración: el mismo motor sigue, a tiempo real, con lo que diga la vista activa (op)
+  function advance(dtReal, op) {
+    if (st.proc || st.pot) return false;
+    const warm = st.Te > st.amb + 0.3 || Math.abs(st.Tr - st.amb) > 0.3;
+    if (!st.on && !warm) { st.last = coolRead(st); return false; }
+    st.ext = op || null;
+    coolStep(st, dtReal, 1);
+    st.last = coolRead(st); st.last.cap = true; st.last.level = Math.max(0, 1 - Math.max(0, (st.void || 0) - 0.12) / 1.2); st.last.fluid = 'mix';
+    st.ext = null;
+    return st.on || warm;
+  }
   recompute();
+  if (HT && HT.link) HT.link(() => ({ st, r: st.last }));
   return {
-    planes, bind, paint, setCuts, setActive, tick, set, visOmega,
+    planes, bind, paint, setCuts, setActive, tick, set, visOmega, advance,
     get state() { return st; }, get result() { return st.last; },
     get potBox() { return potBox; },
     debug(sec) { for (let t = 0; t < sec; t += 0.5) { if (st.pot) potStep(st.pot, st.therm, 0.5); else if (!st.proc) coolStep(st, 0.5 / st.speed); else st.pt += 0.5; } const r = recompute(); animate(0, r); return r; },   // sec: segundos del modelo

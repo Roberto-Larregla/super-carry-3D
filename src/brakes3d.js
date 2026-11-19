@@ -4,7 +4,7 @@
 // la junta de 5 vías y la válvula DSP: aproximada (ver la ficha de cada pieza).
 import * as THREE from 'three';
 import { WB, RW } from './geom.js';
-import { BK, solve, wearState, handbrake } from './brakesim.js';
+import { BK, solve, wearState, handbrake, FORCE_NORMAL } from './brakesim.js';
 
 const TH_CAL = 2.70;          // ángulo del caliper (rad, desde adelante): atrás y un poco arriba del eje
 const FZ = 0.578;             // plano del disco delantero (|z|)
@@ -300,7 +300,7 @@ export function buildBrakes(ctx, { ELv, E }) {
   ctx.setLevel('van');
 
   // ════════ estado y animación ════════
-  const st = { force: 147, on: false, fail: 'ok', wear: 0.25, hb: 0, stretched: false, cut: false,
+  const st = { force: FORCE_NORMAL, on: false, fail: 'ok', wear: 0.25, hb: 0, stretched: false, cut: false,
     pedalF: 0, v: 0, aF: 0, aR: 0, heat: 0, seq: null, last: null, dist: 0 };
   let press = [];                                        // mallas pintadas por presión (después de juntar las estáticas)
   const BASE = new Map();

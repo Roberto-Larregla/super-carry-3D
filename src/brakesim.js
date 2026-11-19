@@ -1,6 +1,9 @@
 // Física simple del freno del SK410: del pie a la desaceleración.
 // Las cotas del manual (pistón del caliper, disco, tambor, pedal) son exactas; las marcadas "est." son valores típicos
 // de un furgón de esta época y sirven para que las proporciones se vean bien, no para calcular un frenado real.
+// La masa es la del único furgón del modelo (motor.js); la vista Transmisión frena con este mismo cálculo.
+import { MOTOR } from './motor.js';
+export const FORCE_NORMAL = 147;   // N (15 kg) en la pisadera: una frenada normal
 
 export const BK = {
   pedalRatio: 3.2,          // est.: palanca del pedal
@@ -14,7 +17,7 @@ export const BK = {
   shoeFactor: 2.0,          // est.: zapatas primaria y secundaria
   muPad: 0.38, muTire: 0.8, muSlide: 0.65,
   tireR: 0.28,              // m: 175/70 R13 bajo carga
-  mass: 860,                // kg, est.: furgón vacío con conductor
+  mass: MOTOR.mass,         // kg: furgón vacío (ficha UK) con conductor
   cgH: 0.65, frontShare: 0.48, wb: 1.84,
   dspG: 0.40, dspSlope: 0.3,   // válvula DSP (est.): sobre ~0,4 g la presión trasera sube a un 30 %
   pedalHeight: 165,         // mm, est.: del piso a la pisadera

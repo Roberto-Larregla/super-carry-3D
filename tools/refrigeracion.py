@@ -38,13 +38,14 @@ async def main(dev, steps):
                 await js(f"window.__viewer.setView('{v}', true)"); await pg.wait_for_timeout(1400); await shot('3_' + v)
             await js("window.__viewer.setView('iso', true)")
         if todo or 'fail' in steps:
-            on = await js("window.__viewer.coolState.on")
+            on = await js("window.__viewer.engineOn")
             if not on: await click('#tb-cool')
-            for f, esc in [('cerrado', 'ciudad'), ('abierto', 'carretera'), ('correa', 'subida'), ('carenado', 'taco'), ('panal', 'subida'), ('tapa', 'taco'), ('bomba', 'subida'), ('aire', 'ralenti'), ('fuga', 'ciudad'), ('culata', 'ciudad')]:
-                await click(f'#tb-cfail [data-v={f}]'); await click(f'#tb-cscen [data-v={esc}]'); await click('#tb-ccold')
+            for f, esc in [('cerrado', 'ciudad'), ('abierto', 'carretera'), ('correa', 'subida'), ('carenado', 'taco'), ('panal', 'subida'), ('tapa', 'taco'), ('bomba', 'subida'), ('aire', 'ralenti'), ('fuga', 'ciudad'), ('culata', 'ciudad'), ('llave', 'ralenti'), ('radiador', 'ralenti')]:
+                if os.environ.get('FALLAS') and f not in os.environ['FALLAS'].split(','): continue
+                await click(f'#tb-cfail [data-v={f}]'); await click(f'#tb-cscen [data-v={esc}]'); await click('#tb-ceng [data-v=frio]')
                 await adv(1500); await pg.wait_for_timeout(700)
                 print(fila(f'{f} ({esc})', await read())); await shot('4_' + f)
-            await click('#tb-cfail [data-v=ok]'); await click('#tb-cscen [data-v=ralenti]'); await click('#tb-ccold')
+            await click('#tb-cfail [data-v=ok]'); await click('#tb-cscen [data-v=ralenti]'); await click('#tb-ceng [data-v=frio]')
         if todo or 'proc' in steps:
             await click('#tb-cproc'); await pg.wait_for_timeout(1500)
             n = await js("window.__viewer.coolState.proc ? 11 : 0")

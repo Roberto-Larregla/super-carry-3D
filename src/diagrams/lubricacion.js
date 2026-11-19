@@ -58,17 +58,17 @@ export function lubricacion(root) {
   // manómetro
   const g = svg(400, 132, 'Manómetro de presión de aceite (simulación)');
   const G = { x: 112, y: 112, r: 86 };
-  const a0 = rad(180), a1 = rad(360), maxBar = 6;
-  const ang = v => a0 + (a1 - a0) * clamp(v / maxBar, 0, 1);
+  const a0 = rad(180), a1 = rad(360), maxP = 6;   // kg/cm², como el manual
+  const ang = v => a0 + (a1 - a0) * clamp(v / maxP, 0, 1);
   const arcD = (v0, v1, r) => { const [x0, y0] = pol(G.x, G.y, r, ang(v0)), [x1, y1] = pol(G.x, G.y, r, ang(v1)); return `M${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1}`; };
   s('path', { d: arcD(0, 6, G.r), class: 'gauge-track' }, g);
-  s('path', { d: arcD(2.9, 4.4, G.r), class: 'gauge-spec' }, g);
+  s('path', { d: arcD(3.0, 4.5, G.r), class: 'gauge-spec' }, g);
   for (let v = 0; v <= 6; v++) { const [x0, y0] = pol(G.x, G.y, G.r - 10, ang(v)), [x1, y1] = pol(G.x, G.y, G.r + 2, ang(v)); s('line', { x1: x0, y1: y0, x2: x1, y2: y1, class: 'tick' }, g); const [tx, ty] = pol(G.x, G.y, G.r - 20, ang(v)); t(g, tx, ty + 4, String(v), 'lbl lbl-xs', 'middle'); }
   const needle = s('line', { x1: G.x, y1: G.y, class: 'gauge-needle' }, g);
   s('circle', { cx: G.x, cy: G.y, r: 5, class: 'axle' }, g);
-  t(g, G.x, G.y - 30, 'bar', 'lbl lbl-xs', 'middle');
+  t(g, G.x, G.y - 30, 'kg/cm²', 'lbl lbl-xs', 'middle');
   const pv = t(g, 222, 52, '', 'num');
-  t(g, 222, 72, 'Banda verde: 3,0–4,5 kg/cm² (2,9–4,4 bar) a 3.000 rpm', 'lbl lbl-xs');
+  t(g, 222, 72, 'Banda verde: 3,0–4,5 kg/cm² a 3.000 rpm', 'lbl lbl-xs');
   t(g, 222, 86, '(especificación con aceite caliente)', 'lbl lbl-xs');
   t(g, 222, 106, 'Aguja: simulación aproximada', 'lbl lbl-xs muted');
 
@@ -85,9 +85,9 @@ export function lubricacion(root) {
 
   function frame(dt) {
     st.a += dt * (0.6 + st.rpm / 900) * 2;
-    let p = 4.4 * (1 - Math.exp(-st.rpm / 1650));
+    let p = 4.5 * (1 - Math.exp(-st.rpm / 1650));   // kg/cm²
     if (st.cold) p *= 1.3;
-    let reliefOpen = false; if (p > 5.2) { p = 5.2; reliefOpen = true; }
+    let reliefOpen = false; if (p > 5.3) { p = 5.3; reliefOpen = true; }
     if (st.low) { st.flick -= dt; if (st.flick < 0) st.flick = Math.random() * 0.8; if (st.flick < 0.18) p *= 0.25; }
     const lampOn = p < 0.4;
     const lvl = st.low ? 300 : 284;
@@ -111,9 +111,9 @@ export function lubricacion(root) {
     const lobes = (n, r1, r2, ph) => { let d = ''; for (let i = 0; i <= 60; i++) { const a = i / 60 * Math.PI * 2; const r = r1 + (r2 - r1) * (0.5 + 0.5 * Math.cos(n * a)); const [x, y] = pol(76 + 2, 214, r, a + ph); d += (i ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); } return d + 'Z'; };
     inner.setAttribute('d', lobes(4, 6, 10, st.a)); outer.setAttribute('d', lobes(5, 12, 15.5, st.a * 0.8));
     const [nx, ny] = pol(G.x, G.y, G.r - 14, ang(p)); needle.setAttribute('x2', nx); needle.setAttribute('y2', ny);
-    pv.textContent = p.toFixed(1).replace('.', ',') + ' bar';
+    pv.textContent = p.toFixed(1).replace('.', ',') + ' kg/cm²';
     rd.innerHTML = `<b>${Math.round(st.rpm)} rpm, aceite ${st.cold ? 'frío' : 'caliente'}.</b> La presión sube con las rpm porque la bomba la mueve directamente el cigüeñal.` +
-      `<span class="sub">${reliefOpen ? 'La válvula de alivio abre y devuelve aceite al cárter para no pasar la presión máxima. ' : ''}${st.clog ? '<b>Filtro tapado:</b> la válvula de paso deja pasar aceite sin filtrar para que el motor no quede seco. ' : ''}${st.low ? '<b>Nivel bajo:</b> el chupador aspira aire en curvas o frenadas y la luz parpadea. Detén el motor y rellena. ' : ''}${lampOn && !st.low ? 'Luz de aceite encendida. ' : ''}</span>`;
+      `<span class="sub">${reliefOpen ? 'La válvula de alivio abre y devuelve aceite al cárter para no pasar la presión máxima. ' : ''}${st.clog ? '<b>Filtro tapado:</b> la válvula de paso deja pasar aceite sin filtrar para que el motor no quede seco. ' : ''}${st.low ? '<b>Nivel bajo:</b> el chupador aspira aire en curvas o frenadas y la luz parpadea. Hay que detener el motor y rellenar. ' : ''}${lampOn && !st.low ? 'Luz de aceite encendida. ' : ''}</span>`;
   }
   frame(0.016);
   return { tick(dt) { frame(dt); } };

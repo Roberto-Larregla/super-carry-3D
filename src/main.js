@@ -17,7 +17,8 @@ import { chasis } from './diagrams/chasis.js';
 import { sensorMap } from './diagrams/sensores.js';
 import { qualitySheet, qualityNeeds, qualityTable, qualityLegend, qualityCardHTML } from './diagrams/calidad.js';
 import { BK, FAILS } from './brakesim.js';
-import { MODES as HMODES, HFAILS, tempColor } from './heatersim.js';
+import { MODES as HMODES, tempColor } from './heatersim.js';
+import { kgcm2 } from './motor.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -79,7 +80,7 @@ const GRID = SYSTEMS.filter(sy => sy.id !== 'sensores');      // los sensores ti
 const viewerEl = $('#viewer'), hud = $('#enghud'), bhud = $('#brkhud'), chud = $('#calhud'), ahud = $('#alihud'), thud = $('#trahud'), rhud = $('#refhud');
 let viewer, smap = null, quiet = false, bhKey = '', simKey = '', seqWas = null, chKey = '', csimKey = '', ahKey = '', asimKey = '', thKey = '', tsimKey = '', rhKey = '', rsimKey = '', guideKey = '';
 try {
-  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th), onBrake: r => onBrake(r), onHeat: r => onHeat(r), onFuel: r => onFuel(r), onDrive: r => onDrive(r), onCool: r => onCool(r) });
+  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th), onBrake: r => onBrake(r), onHeat: r => onHeat(r), onFuel: r => onFuel(r), onDrive: r => onDrive(r), onCool: r => onCool(r), onEngine: () => syncEngineUI() });
   window.__viewer = viewer;
 } catch (err) {
   viewerEl.classList.add('nogl'); $('#viewer-msg').hidden = false; $('#dock').hidden = true; console.error(err);
@@ -219,7 +220,7 @@ const SPECSTRIP = [['Motor', 'F10A, 970 cm³'], ['Potencia', '41 CV (30 kW)'], [
 function renderSistemas() {
   const m = mode(), cur = focusSys || MODESYS[m];
   const avail = GRID.filter(sy => sysAvailable(sy.id));
-  views.sistemas.innerHTML = vhead('Sistemas', 'Toca uno para abrirlo en el modelo') + `
+  views.sistemas.innerHTML = vhead('Sistemas', 'Cada uno se abre en el modelo') + `
     <div class="idcard"><div class="idtop"><b>Super Carry 1000</b><span>Suzuki SK410, furgón ciego de 1996 con volante a la izquierda</span></div>
       <ul class="specstrip">${SPECSTRIP.map(([k, v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('')}</ul></div>
     <div class="sysidx">${avail.map(sy => {
@@ -253,13 +254,13 @@ function listParts(q) {
   const more = qq.length >= 3 ? SEARCH.filter(s => !hits.includes(s.id) && s.desc.includes(qq)).map(s => s.id) : [];
   let out = SYSTEMS.map(sy => { const ids = hits.filter(id => PARTS[id].sys === sy.id); return ids.length ? `<div class="group"><h4 style="--c:${sy.color}"><i></i>${sy.name}</h4><div class="rows">${ids.map(id => rowHTML(id)).join('')}</div></div>` : ''; }).join('');
   if (more.length) out += `<div class="group"><h4>También mencionan “${q.trim()}”</h4><div class="rows">${more.map(id => rowHTML(id)).join('')}</div></div>`;
-  $('#plist').innerHTML = out || `<p class="empty">No hay piezas con “${q.trim()}”. Prueba con otra palabra, como “bomba”, “filtro” o “sensor”.</p>`;
+  $('#plist').innerHTML = out || `<p class="empty">No hay piezas con “${q.trim()}”. Otras palabras que sirven: “bomba”, “filtro” o “sensor”.</p>`;
 }
 
 function renderSensores() {
   views.sensores.innerHTML = vhead('Sensores', `${SENSORS.length} sensores e interruptores, marcados en el modelo`) + `
     <p class="lead">Dónde está cada uno, qué detecta y adónde manda su señal. Este furgón no tiene computador de inyección: casi todo avisa directo al tablero.</p>
-    <figure class="fig smapfig"><div id="senmap"></div><figcaption>Toca un número para abrir su ficha. Los sensores 3 y 4 eran del sistema catalítico original: con el carburador actual ya no influyen.</figcaption></figure>
+    <figure class="fig smapfig"><div id="senmap"></div><figcaption>Cada número abre su ficha. Los sensores 3 y 4 eran del sistema catalítico original: con el carburador actual ya no influyen.</figcaption></figure>
     <div class="group"><h4>Lista</h4><div class="rows">${SENSORS.map(id => rowHTML(id)).join('')}</div></div>`;
   try { smap = sensorMap($('#senmap'), { onPick: openPart }); } catch (err) { console.error(err); }
 }
@@ -295,10 +296,18 @@ function renderPart(id) {
 
 let activeDiag = null;
 const diags = {};
+// el esquema de Refrigeración (también en Calefacción) trabaja con el mismo motor del modelo
+function engLink() {
+  if (!viewer) return undefined;
+  return {
+    read() { const st = viewer.coolState, r = st.proc || st.pot || !st.last || st.last.Qr === undefined ? null : st.last; return { st, r, on: viewer.engineOn }; },
+    set(o) { const r = viewer.cool(o); if (mode() === 'ref') { onCool(r); renderGuide(); } engKey = ''; syncEngineUI(); syncHeatControls(); },
+  };
+}
 function diagFor(tb) {
   if (!diags[tb.id]) {
     const wrap = h('div', { class: 'diag-body' });
-    let api; try { api = tb.mount(wrap); } catch (err) { console.error(err); wrap.append(h('p', { class: 'muted' }, 'No se pudo cargar este esquema.')); api = { tick() {} }; }
+    let api; try { api = tb.mount(wrap, engLink()); } catch (err) { console.error(err); wrap.append(h('p', { class: 'muted' }, 'No se pudo cargar este esquema.')); api = { tick() {} }; }
     diags[tb.id] = { wrap, api };
   }
   return diags[tb.id];
@@ -308,7 +317,7 @@ function renderSys(sys) {
   const own = all.filter(id => PARTS[id].sys === sys);
   const sens = all.filter(id => PARTS[id].sys !== sys && PARTS[id].serves === sys);
   const guests = all.filter(id => PARTS[id].sys !== sys && PARTS[id].serves !== sys && (PARTS[id].also || []).includes(sys));
-  const tb = tabOfSys(sys), specs = SPECS.find(sp => sp.sys === sys), maint = MAINT.filter(m => m.sys === sys), faults = DIAG.filter(d => d.sys === sys);
+  const tb = tabOfSys(sys), specs = SPECS.find(sp => sp.sys === sys), maint = MAINT.filter(m => m.sys === sys || (m.also || []).includes(sys)), faults = DIAG.filter(d => d.sys === sys);
   const J = [['s-piezas', 'Piezas'], tb && ['s-diag', 'Cómo funciona'], specs && ['s-datos', 'Datos'], maint.length && ['s-mant', 'Mantención'], faults.length && ['s-fallas', 'Fallas']].filter(Boolean);
   const m = mode(), sim = { frenos: ['brk', 'brksim', ''], calefaccion: ['cal', 'calsim', ' cal'], combustible: ['ali', 'alisim', ' ali'], transmision: ['tra', 'trasim', ' tra'], refrigeracion: ['ref', 'refsim', ' ref'] }[sys];
   const where = SYSVIEW[sys] ? (m === SYSVIEW[sys] ? 'vista detallada' : 'tiene vista detallada') : 'marcadas en el modelo';
@@ -364,7 +373,7 @@ function renderDatos() {
         <p><b>Manual de servicio:</b> el del SK410 en su versión de platinos, sin catalizador (traducción al español). Para este furgón valen el motor F10A, el carburador de tiro horizontal, la refrigeración, la transmisión y el chasis. No trae el encendido electrónico, el sensor de oxígeno ni el controlador del catalítico chileno 1993–99: esos datos salen del catálogo OEM.</p>
         <p><b>Qué es exacto:</b> dimensiones principales, relaciones de caja y diferencial, capacidades, reglajes y piezas de la versión chilena tal como figuran en las fuentes. El modelo 3D respeta distancia entre ejes, trochas, ruedas (175/70 R13), discos y tambores, y en el motor los diámetros de muñones, codos, pasadores, vástagos y la altura de leva del manual.</p>
         <p><b>Carrocería:</b> medida en fotos de costado, frente y atrás, con la distancia entre ejes (1.840 mm) y la patente (360 × 130 mm) como escala; el error típico es de 2 a 3 cm. Las diagonales de los vanos de la corredera y del portalón de la sección 19 del manual calzan con las fotos.</p>
-        <p><b>Qué es aproximado:</b> la forma de las piezas en el 3D y la posición de las marcadas “aprox.” (estanque, radiador, catalizador, silenciador, controlador y varios sensores). La calefacción sigue el despiece del manual y las fotos de la caja, pero sus cotas internas y el recorrido de las mangueras son aproximados. En el motor, el largo de biela, el ángulo de las válvulas, la forma de los balancines y el ángulo exacto del distribuidor son aproximados.</p>
+        <p><b>Qué es aproximado:</b> la forma de las piezas en el 3D y la posición de las marcadas “aprox.”, tomada de referencias o estimada (el motor dentro del furgón, el estanque, la caja, el cardán, el diferencial, el escape, el controlador y varios sensores). La calefacción sigue el despiece del manual y las fotos de la caja, pero sus cotas internas y el recorrido de las mangueras son aproximados. En el motor, el largo de biela, el ángulo de las válvulas, la forma de los balancines y el ángulo exacto del distribuidor son aproximados.</p>
         <p><b>Alimentación:</b> el orden estanque → filtro → bomba → carburador, el retorno, la línea de vapores, la bomba y el filtro en el larguero derecho, los circuitos del carburador y sus ajustes salen del manual; el pedal del acelerador, la perilla del ahogador, el filtro de aire y el cánister, de las fotos. La posición del estanque, el recorrido de las líneas y de las piolas y el interior del carburador son aproximados, y las rpm, el vacío, la mezcla y el consumo de la vista Alimentación son valores típicos.</p>
         <p><b>Bajo los asientos:</b> el motor, el radiador, los depósitos, el filtro de aire, el cánister y los apoyos de la suspensión se ubicaron con las dos fotos tomadas levantando los asientos; la manilla de la varilla del aceite es la argolla que el dueño señaló en una de ellas. La inclinación de los puntales es una estimación a partir de esas fotos.</p>
         <p><b>Transmisión:</b> salen del manual el embrague de diafragma con su disco de cuatro amortiguadores, el orden de los engranajes en los tres ejes de la caja con sus dientes y relaciones, los tres sincronizadores, el mando por dos cables, el cardán de una pieza con yugo deslizante, el diferencial hipoide en portador desmontable y los ajustes y aprietes. La rejilla de la palanca es la que indica el dueño. Son aproximados la distancia entre ejes de la caja, la forma de las carcasas, el selector por dentro, las palancas donde llegan los cables, el largo del cardán y los dientes de satélites y planetarios; los 41/8 dientes de corona y piñón se deducen de la relación 5,125. En la vista Transmisión, par, masa, roce y capacidad del embrague son valores típicos.</p>
@@ -510,7 +519,42 @@ const VIEWS = {
 function renderViews(m) { $('#tb-view').innerHTML = VIEWS[m].map(([v, t], i) => `<button type="button" data-v="${v}" aria-pressed="${i === 0}">${t}</button>`).join(''); }
 const COLORNOTE = { real: 'Los colores de verdad de cada pieza.', sys: 'Cada sistema con su color, el mismo de la pestaña Sistemas.', qual: 'Azul = confirmado, gris = catálogo, naranjo = estimado.' };
 const run = $('#tb-run');
-const syncRun = () => { if (!viewer) return; const on = viewer.isRunning(); run.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Pausar' : 'Arrancar'}</span>`; run.setAttribute('aria-pressed', String(on)); run.setAttribute('aria-label', on ? 'Pausar el motor' : 'Arrancar el motor'); };
+const syncRun = () => { if (!viewer) return; const on = viewer.isRunning(); run.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`; run.setAttribute('aria-pressed', String(on)); run.setAttribute('aria-label', on ? 'Apagar el motor' : 'Encender el motor'); };
+// un solo motor: todos los botones de encendido, el «Motor: Frío / Caliente» y la temperatura de afuera muestran lo mismo
+const ENGSEGS = ['#tb-heng', '#tb-feng', '#tb-ceng'];
+let engKey = '';
+function syncEngineUI() {
+  if (!viewer) return;
+  syncRun(); syncHeat(); syncFuel(); syncDrive(); syncCool();
+  const st = viewer.coolState, k = [st.Te < 60, Math.round(st.amb), st.fail, st.heat.temp, st.heat.fan].join('|');
+  if (k === engKey) return; engKey = k;
+  for (const id of ENGSEGS) { const el = $(id); if (el) pressSeg(el, st.Te < 60 ? 'frio' : 'caliente'); }
+  for (const [r, o] of [['#tb-camb', '#tb-camb-v'], ['#tb-hamb', '#tb-hamb-v']]) { const el = $(r); if (el) { el.value = Math.round(st.amb); $(o).textContent = nf(Math.round(st.amb)) + ' °C'; } }
+  syncFails();
+}
+// fallas del agua (refrigeración y calefacción): una sola a la vez, la misma en las dos vistas
+function syncFails() {
+  if (!viewer) return;
+  const f = viewer.coolState.fail;
+  for (const [seg, note] of [['#tb-cfail', '#tb-cfail-note'], ['#tb-hfail', '#tb-hfail-note']]) {
+    const el = $(seg); if (!el) continue;
+    const here = !!el.querySelector(`[data-v="${f}"]`);
+    pressSeg(el, here ? f : '');
+    const n = $(note); if (n) { n.hidden = here; n.textContent = here ? '' : `Falla activa: ${CFAILS[f].name}. Todo bien la quita.`; }
+  }
+  const hs = viewer.coolState.heat, ch = $('#tb-cheat');
+  if (ch) {
+    const v = hs.temp < 0.02 ? '0' : hs.temp > 0.98 && hs.fan === 2 ? '2' : hs.temp > 0.98 && hs.fan === 3 ? '3' : '';
+    pressSeg(ch, v);
+    const n = $('#tb-cheat-note'); if (n) { n.hidden = !!v; n.textContent = v ? '' : `Como quedó en Calefacción: llave al ${nf(Math.round(hs.temp * 100))} %, ventilador ${hs.fan || 'OFF'}.`; }
+  }
+}
+// Motor: Frío (a la temperatura de afuera) o Caliente (como después de andar hasta que el termostato regula)
+function engTemp(v) {
+  viewer.cool(v === 'frio' ? { reset: 'frio' } : { warm: true });
+  engKey = ''; syncEngineUI();
+  toast(v === 'frio' ? 'Motor frío: el agua está a la temperatura de afuera.' : `Motor caliente: el agua quedó en ${nf(Math.round(viewer.coolState.Te))} °C.`, 3200);
+}
 
 const BCUTNOTE = {
   brk: 'Abre el caliper, el tambor, el cilindro de rueda, la bomba, el servo y la válvula DSP.',
@@ -520,12 +564,12 @@ const BCUTNOTE = {
   ref: 'Abre el radiador y su tapa por la mitad, y deja transparentes el motor, la bomba y la caja del termostato.',
 };
 const MODETOAST = {
-  eng: ['Motor F10A en su lugar. Capas → Corte lo abre; Arrancar lo pone en marcha.', 'Motor F10A en su lugar, sin carrocería. Abre Capas → Corte para verlo por dentro y Arrancar para ponerlo en marcha.'],
+  eng: ['Motor F10A en su lugar. Capas → Corte lo abre; Encender lo pone en marcha.', 'Motor F10A en su lugar, sin carrocería. Capas → Corte lo muestra por dentro y Encender lo pone en marcha.'],
   brk: ['Pisar aprieta el pedal; Taller simula fallas, desgaste y freno de mano.', 'Los frenos solos, en su lugar. Pisar aprieta el pedal y la presión pinta cada cañería; Taller simula fallas, desgaste y el freno de mano; Capas → Cortes los abre por dentro.'],
-  cal: ['Mandos cambia la salida del aire, la temperatura y el ventilador.', 'La calefacción sola, en su lugar. En Mandos mueves las mismas palancas del tablero y ves por dónde entra y sale el aire; Taller simula fallas; Capas → Cortes abre la caja.'],
-  tra: ['Cambios: pasa las marchas y mira qué engranajes llevan la fuerza.', 'El tren motriz solo, del embrague a las ruedas, abierto en corte. En Cambios enciendes el motor, pasas las marchas y pisas el embrague: lo que lleva la fuerza se pinta naranjo. Taller simula fallas, una curva y una rueda sin agarre.'],
-  ref: ['Manejo cambia la situación y el tiempo; Taller simula fallas, cambia el agua y prueba el termostato.', 'La refrigeración en su lugar, con el motor transparente. Parte en frío y en ralentí: el agua da la vuelta por el motor hasta que el termostato abre y la deja pasar al radiador. En Manejo eliges la situación, la temperatura de afuera y lo rápido que pasa el tiempo; en Taller simulas fallas, cambias el agua paso a paso y pruebas el termostato en una olla.'],
-  ali: ['Acelerador mueve el pedal y el ahogador; Vista → Carburador por dentro lo abre.', 'La alimentación sola, del estanque al carburador. En Acelerador pisas el pedal y tiras el ahogador; Vista → Carburador por dentro lo muestra en corte; Taller simula fallas.'],
+  cal: ['Mandos cambia la salida del aire, la temperatura y el ventilador.', 'La calefacción sola, en su lugar. Mandos tiene las mismas palancas del tablero y se ve por dónde entra y sale el aire; el agua caliente viene del mismo motor de las otras vistas. Taller simula fallas; Capas → Cortes abre la caja.'],
+  tra: ['Cambios pasa las marchas y muestra qué engranajes llevan la fuerza.', 'El tren motriz solo, del embrague a las ruedas, abierto en corte. En Cambios se enciende el motor, se pasan las marchas y se pisa el embrague: lo que lleva la fuerza se pinta naranjo. Taller simula fallas, una curva y una rueda sin agarre.'],
+  ref: ['Manejo cambia la situación y el tiempo; Taller simula fallas, cambia el agua y prueba el termostato.', 'La refrigeración en su lugar, con el motor transparente. Frío, el agua da la vuelta por el motor hasta que el termostato abre y la deja pasar al radiador. En Manejo se elige la situación, la temperatura de afuera y lo rápido que pasa el tiempo; en Taller se simulan fallas, se cambia el agua paso a paso y se prueba el termostato en una olla.'],
+  ali: ['Acelerador mueve el pedal y el ahogador; Vista → Carburador por dentro lo abre.', 'La alimentación sola, del estanque al carburador. En Acelerador se pisa el pedal y se tira el ahogador; Vista → Carburador por dentro lo muestra en corte; Taller simula fallas.'],
 };
 // m: vista del modelo; focusPart: pieza a mostrar; opt.sys: sistema que la abre; opt.keep: no tocar la pila de fichas
 function setMode(m, focusPart, opt = {}) {
@@ -553,10 +597,11 @@ function setMode(m, focusPart, opt = {}) {
   if (m === 'van' && !opt.keep) { stack = stack.filter(en => !(en.t === 'sys' && SYSVIEW[en.id])); sys = stack.length ? stack[stack.length - 1].id : null; }
   setFocus(sys && sysAvailable(sys) ? sys : null, false);
   if (m === 'brk') { bhKey = ''; onBrake(viewer.brake()); }
-  if (m === 'cal') { chKey = ''; viewer.heat({ on: true }); syncHeat(); onHeat(viewer.heat()); }
-  if (m === 'ali') { ahKey = ''; viewer.fuel({ on: true, pedal: 0 }); syncFuel(); onFuel(viewer.fuel()); }
+  if (m === 'cal') { chKey = ''; syncHeatControls(); onHeat(viewer.heat()); }
+  if (m === 'ali') { ahKey = ''; onFuel(viewer.fuel({ pedal: 0 })); }
   if (m === 'tra') { thKey = ''; resetDriveUI(); onDrive(viewer.drive()); }
-  if (m === 'ref') { rhKey = ''; guideKey = ''; if (!coolSeen) { coolSeen = true; viewer.cool({ reset: 'frio', on: true }); } syncCool(); onCool(viewer.cool()); }
+  if (m === 'ref') { rhKey = ''; guideKey = ''; onCool(viewer.cool()); }
+  engKey = ''; syncEngineUI();
   if (m !== 'ref') { const g = $('#guide'); if (g) g.hidden = true; }
   built.sistemas = false; render();
   if (changed && !focusPart && MODETOAST[m]) toast(MODETOAST[m][isMobile() ? 0 : 1], 7000);
@@ -629,15 +674,15 @@ function renderBhud(r) {
   const chips = [];
   if (r.seq) chips.push(`<span class="bh v"><small>Velocidad</small><b>${nf(r.v * 3.6)} km/h</b></span>`);
   chips.push(`<span class="bh"><small>Pie</small><b>${kgOf(r.force)} kg</b></span>`);
-  chips.push(`<span class="bh p" style="--c:${pcol(r.pf)}"><small>Adelante</small><b>${nf(r.pf)} bar</b></span>`);
-  chips.push(`<span class="bh p" style="--c:${pcol(r.pr)}"><small>Atrás</small><b>${nf(r.pr)} bar</b></span>`);
+  chips.push(`<span class="bh p" style="--c:${pcol(r.pf)}"><small>Adelante</small><b>${nf(kgcm2(r.pf))} kg/cm²</b></span>`);
+  chips.push(`<span class="bh p" style="--c:${pcol(r.pr)}"><small>Atrás</small><b>${nf(kgcm2(r.pr))} kg/cm²</b></span>`);
   chips.push(`<span class="bh"><small>Frena</small><b>${nf(r.a, 2)} g</b></span>`);
   if (r.force > 0.5) chips.push(`<span class="bh"><small>Para en</small><b>${Number.isFinite(r.dist) && r.dist < 400 ? nf(r.dist) + ' m' : '—'}</b></span>`);
   let line;
   if (r.force > 0.5) {
     const dist = Number.isFinite(r.dist) && r.dist < 400 ? `Desde 50 km/h se detendría en ${nf(r.dist)} m` : 'Casi no frena';
     line = `${dist}; el pedal baja ${nf(r.travel)} mm y queda a ${nf(r.reserve)} mm del piso`;
-  } else line = 'Pedal suelto: toca <b>Pisar</b>, o <b>Pedal → Frenada desde 50 km/h</b>';
+  } else line = 'Pedal suelto: <b>Pisar</b> lo aprieta y <b>Pedal → Frenada desde 50 km/h</b> prueba una frenada';
   const tags = [];
   if (r.lockF) tags.push('<span class="bt w">Se bloquean las delanteras</span>');
   if (r.lockR) tags.push('<span class="bt w">Se bloquean las traseras</span>');
@@ -707,32 +752,32 @@ function wireBrakes() {
 // ═══════════ Vista Calefacción: mandos, recorrido del aire y del agua, fallas ═══════════
 function syncHeat() {
   const b = $('#tb-heat'); if (!b || !viewer) return;
-  const on = viewer.heatState.on;
+  const on = viewer.engineOn;
   b.setAttribute('aria-pressed', String(on));
   b.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`;
-  b.setAttribute('aria-label', on ? 'Apagar la calefacción' : 'Encender el motor y la calefacción');
+  b.setAttribute('aria-label', on ? 'Apagar el motor' : 'Encender el motor');
 }
 const tcol = t => { const c = tempColor(t); return `rgb(${c.join(',')})`; };
 const tfmt = t => (t == null ? '—' : `${nf(t)} °C`);
 function onHeat(r) {
   if (!r || mode() !== 'cal') return;
-  const key = [r.on, r.mode, r.recirc, Math.round(r.temp * 20), r.fan, r.fanEff, r.engine, r.fail, Math.round(r.Thot)].join('|');
+  const key = [r.on, r.mode, r.recirc, Math.round(r.temp * 20), r.fan, r.fanEff, r.fail, Math.round(r.Thot), Math.round(r.Tw), Math.round(r.amb)].join('|');
   if (key !== chKey) { chKey = key; renderChud(r); }
-  updateCalSim(r);
+  updateCalSim(r); syncEngineUI();
 }
 function renderChud(r) {
   const chip = (lbl, t, flow) => `<span class="bh p" style="--c:${t == null ? '#a9aeb5' : tcol(t)}"><small>${lbl}</small><b>${flow ? tfmt(t) : '—'}</b></span>`;
   const chips = [
-    `<span class="bh p" style="--c:${tcol(r.Tw)}"><small>Agua</small><b>${nf(r.Tw)} °C</b></span>`,
+    `<span class="bh p" style="--c:${ctcol(r.Tw)}"><small>Agua</small><b>${nf(Math.round(r.Tw))} °C</b></span>`,
     chip('Cara', r.out.cara, r.flows.cara > 0.001), chip('Pies', r.out.pies, r.flows.pies > 0.001), chip('Parabrisas', r.out.vidrio, r.flows.vidrio > 0.001),
     `<span class="bh"><small>Ventilador</small><b>${r.fan ? r.fan : 'OFF'}${r.fan && !r.fanEff ? ' ✕' : ''}</b></span>`,
   ];
-  const line = !r.on ? 'Apagada: toca <b>Encender</b> para poner el motor en marcha y ver el aire y el agua.'
+  const line = !r.on ? `Motor detenido${r.Tw > r.amb + 5 ? `, con el agua a ${nf(Math.round(r.Tw))} °C` : ''}: la bomba de agua no gira y no pasa agua por la calefacción. <b>Encender</b> pone el motor en marcha.`
     : `${HMODES[r.mode].name}, ${r.recirc ? 'recirculando el aire de la cabina' : 'con aire de afuera'}; llave al ${nf(r.valve * 100)} %, ${r.m3h ? `≈ ${nf(r.m3h)} m³/h` : 'sin aire'}${r.kW > 0.05 ? ` y ≈ ${nf(r.kW, 1)} kW de calor` : ''}`;
   const tags = [];
-  if (r.fail !== 'ok') tags.push(`<span class="bt f">${HFAILS[r.fail].name}</span>`);
+  if (r.fail !== 'ok') tags.push(`<span class="bt f">${CFAILS[r.fail].name}</span>`);
   if (r.fan && !r.fanEff && r.on) tags.push('<span class="bt w">Esa velocidad no anda: sólo la 3</span>');
-  if (r.on && r.engine === 'frio') tags.push('<span class="bt i">Motor frío: el agua todavía no calienta</span>');
+  if (r.on && r.Tw < 60) tags.push('<span class="bt i">Motor frío: el agua todavía no calienta</span>');
   if (r.on && r.mode === 'vidrio' && r.fail === 'desempanador') tags.push('<span class="bt w">Casi no sale aire al parabrisas</span>');
   if (r.on && r.mode !== 'cara' && r.Thot < 30 && r.Q > 0) tags.push('<span class="bt w">Sale casi fría</span>');
   chud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
@@ -745,7 +790,8 @@ const HMODETXT = {
   vidrio: 'Parabrisas: el aire pasa por el radiador y la compuerta de abajo lo manda a las dos ranuras de la base del parabrisas: la del conductor por el tubo blanco y la manguera beige, y la del copiloto por un ducto que sube por delante de la caja. Una parte sigue saliendo a los pies.',
 };
 const HFAILTXT = {
-  termostato: 'Termostato pegado abierto: el agua pasa siempre por el radiador del motor y no sube de unos 55 °C. La calefacción sale tibia y el indicador de temperatura queda bajo.',
+  abierto: 'Termostato pegado abierto: el agua pasa siempre por el radiador del motor y el motor no llega a su temperatura (cuánto llega depende de la temperatura de afuera y de cómo se ande). La calefacción sale tibia y el indicador de temperatura queda bajo.',
+  aire: 'Aire en el circuito: el radiador de calefacción es el punto más alto y ahí se junta el aire, así que casi no le pasa agua y el aire sale tibio aunque el motor esté caliente. Se purga con el motor andando sin la tapa del radiador hasta que la manguera superior se calienta (manual).',
   llave: 'Llave de agua trabada: la palanca COOL–HOT se mueve pero el agua no pasa al radiador de calefacción. Sale aire frío aunque el motor esté caliente. Revisar el cable y la llave (usar la calefacción una vez al mes ayuda a que no se pegue).',
   resistencia: 'Resistencia cortada: las velocidades 1 y 2 pasan por la resistencia, así que no andan; la 3 recibe los 12 V directos y sí funciona (manual). Es la falla típica.',
   radiador: 'Radiador de calefacción tapado (o con aire): pasa poca agua y el aire sale tibio. Se purga el aire o se lava o cambia el radiador.',
@@ -753,28 +799,35 @@ const HFAILTXT = {
 };
 function updateCalSim(r) {
   const box = $('#calsim'); if (!box || !r) return;
-  const key = [r.mode, r.recirc, Math.round(r.temp * 10), r.fan, r.engine, r.fail, Math.round(r.Tw), Math.round(r.Tret)].join('|');
+  const key = [r.mode, r.recirc, Math.round(r.temp * 10), r.fan, r.fail, Math.round(r.Tw), Math.round(r.Tret), r.on].join('|');
   if (key === csimKey) return; csimKey = key;
   box.innerHTML = `<h4>En el modelo</h4>
     <p>${HMODETXT[r.mode]}</p>
-    ${r.fail !== 'ok' ? `<p><b>${HFAILS[r.fail].name}.</b> ${HFAILTXT[r.fail].replace(/^[^:]+: (.)/, (m, c) => c.toUpperCase())}</p>` : ''}
+    ${r.fail !== 'ok' ? `<p><b>${CFAILS[r.fail].name}.</b> ${(HFAILTXT[r.fail] || CFAILTXT[r.fail] || '').replace(/^[^:]+: (.)/, (m, c) => c.toUpperCase())}</p>` : ''}
     <dl class="kv">
       <div><dt>De dónde viene el aire</dt><dd>${r.recirc ? 'Recircula: la compuerta de la caja de admisión, al costado derecho de la caja, toma el aire de la cabina por la rejilla cuadrada, que tiene una esponja detrás que hace de filtro (dueño).' : 'Exterior: la compuerta tapa la rejilla y abre el paso del aire de afuera, que entra por la parte baja de la caja de admisión, donde llega a la esquina del piso, adelante; por fuera del furgón la entrada no se nota (dueño).'}</dd></div>
       <div><dt>Temperatura</dt><dd>La palanca COOL–HOT mueve por cable la llave de agua (abierta ${nf(r.valve * 100)} %): decide cuánta agua caliente del motor pasa por el radiador de calefacción. Las rejillas de arriba siempre reciben aire sin calentar.</dd></div>
       <div><dt>Ventilador</dt><dd>${r.fan === 0 ? 'Apagado.' : r.fan < 3 ? (r.fail === 'resistencia' ? `Velocidad ${r.fan}: la corriente tendría que pasar por la resistencia, que está cortada, así que el motor no gira.` : `Velocidad ${r.fan}: la corriente pasa por la resistencia y el motor gira más lento.`) : 'Velocidad 3: el motor recibe los 12 V directos, sin resistencia.'} (manual)</dd></div>
-      <div><dt>Agua</dt><dd>Sale caliente del múltiple de admisión, pasa por la llave y el radiador de calefacción y vuelve a la bomba de agua. ${r.engine === 'frio' ? 'Con el motor recién partido todavía está fría.' : `Llega a ${nf(r.Tw)} °C y vuelve a ${nf(r.Tret)} °C.`}</dd></div>
+      <div><dt>Agua</dt><dd>Sale caliente del múltiple de admisión, pasa por la llave y el radiador de calefacción y vuelve a la bomba de agua. ${!r.on ? 'Con el motor detenido no circula.' : r.Tw < 60 ? `Con el motor frío todavía está a ${nf(Math.round(r.Tw))} °C.` : `Llega a ${nf(Math.round(r.Tw))} °C${r.flowW > 0.05 ? `, pasan ≈ ${nf(r.flowW, 1)} L/min y vuelve a ${nf(Math.round(r.Tret))} °C` : ''}.`} Es la misma agua de la vista Refrigeración.</dd></div>
     </dl>
-    <p class="muted">En este furgón la calefacción calienta y funciona en las 3 velocidades, y en modo parabrisas sale muy poco aire (dueño). Temperaturas, caudal y potencia son valores típicos para mostrar proporciones; el interior de la caja, dónde nace el tubo de la rejilla del extremo derecho, el ducto del desempañador del copiloto y los recorridos dentro del tablero son aproximados.</p>`;
+    <p class="muted">En este furgón la calefacción calienta y funciona en las 3 velocidades, y en modo parabrisas sale muy poco aire (dueño). El agua, la temperatura de afuera (${nf(Math.round(r.amb))} °C; la cabina, unos grados más) y las fallas del circuito son las del único motor del modelo. Temperaturas, caudal y potencia son valores típicos para mostrar proporciones; el interior de la caja, dónde nace el tubo de la rejilla del extremo derecho, el ducto del desempañador del copiloto y los recorridos dentro del tablero son aproximados.</p>`;
+}
+function syncHeatControls() {
+  if (!viewer) return;
+  const hs = viewer.coolState.heat;
+  pressSeg($('#tb-hmode'), hs.mode); pressSeg($('#tb-hair'), hs.recirc ? 'rec' : 'ext'); pressSeg($('#tb-hfan'), String(hs.fan));
+  $('#tb-htemp').value = Math.round(hs.temp * 100); $('#tb-htemp-v').textContent = Math.round(hs.temp * 100) + ' %';
 }
 function wireHeater() {
   const H = o => { const r = viewer.heat(o); onHeat(r); return r; };
-  $('#tb-heat').addEventListener('click', () => { H({ on: !viewer.heatState.on }); syncHeat(); });
+  $('#tb-heat').addEventListener('click', () => { H({ on: !viewer.engineOn }); syncEngineUI(); });
   segGroup($('#tb-hmode'), v => H({ mode: v }));
   segGroup($('#tb-hair'), v => H({ recirc: v === 'rec' }));
   segGroup($('#tb-hfan'), v => H({ fan: +v }));
   $('#tb-htemp').addEventListener('input', e => { $('#tb-htemp-v').textContent = e.target.value + ' %'; H({ temp: +e.target.value / 100 }); });
-  segGroup($('#tb-heng'), v => H({ engine: v }));
-  segGroup($('#tb-hfail'), v => { H({ fail: v }); if (v !== 'ok' && isMobile()) toast(`${HFAILS[v].name}: la explicación está en el panel de Calefacción.`, 4500); });
+  segGroup($('#tb-heng'), engTemp);
+  $('#tb-hamb').addEventListener('input', e => { const v = +e.target.value; $('#tb-hamb-v').textContent = nf(v) + ' °C'; H({ amb: v }); });
+  segGroup($('#tb-hfail'), v => { H({ fail: v }); syncFails(); if (v !== 'ok' && isMobile()) toast(`${CFAILS[v].name}: la explicación está en el panel de Calefacción.`, 4500); });
   $('#tb-hair-show').addEventListener('change', e => H({ showAir: e.target.checked }));
   $('#tb-hwater-show').addEventListener('change', e => H({ showWater: e.target.checked }));
 }
@@ -782,7 +835,7 @@ function wireHeater() {
 // ═══════════ Vista Alimentación: acelerador, ahogador, recorrido de la bencina y del aire, fallas ═══════════
 function syncFuel() {
   const b = $('#tb-fuel'); if (!b || !viewer) return;
-  const on = viewer.fuelState.on;
+  const on = viewer.engineOn;
   b.setAttribute('aria-pressed', String(on));
   b.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`;
   b.setAttribute('aria-label', on ? 'Cortar el contacto' : 'Dar contacto y poner el motor en marcha');
@@ -790,7 +843,7 @@ function syncFuel() {
 const MIXCOL = { off: '#a9aeb5', muyrica: '#3a2c22', rica: '#8a5a2b', ok: '#3d8f5a', pobre: '#d49a1a', muypobre: '#d9482b' };
 function onFuel(r) {
   if (!r || mode() !== 'ali') return;
-  const key = [r.on, r.running, Math.round(r.pedal * 40), Math.round(r.choke * 20), r.engine, r.fail, Math.round(r.rpm / 50), r.state, Math.round(r.bowl * 20), Math.round(viewer.fuelState.level * 100)].join('|');
+  const key = [r.on, r.running, Math.round(r.pedal * 40), Math.round(r.choke * 20), r.cold, Math.round(r.Te / 5), r.fail, Math.round(r.rpm / 50), r.state, Math.round(r.bowl * 20), Math.round(viewer.fuelState.level * 100)].join('|');
   if (key !== ahKey) { ahKey = key; renderAhud(r); }
   updateAliSim(r);
 }
@@ -812,8 +865,8 @@ function renderAhud(r) {
     `<span class="bh v"><small>Consumo</small><b>${r.running ? nf(r.lph, 1) + ' L/h' : '—'}</b></span>`,
   ];
   const cs = r.running ? circuits(r) : [];
-  const line = !r.on ? 'Sin contacto: toca <b>Encender</b> para que la bomba mande bencina y el motor ande.'
-    : !r.running ? (r.stall === 'estanque' ? 'El estanque está vacío: la bomba no tiene qué mandar.' : 'El motor se apagó: sin el circuito lento no se sostiene en ralentí. Acelera para que ande con el circuito principal.')
+  const line = !r.on ? 'Motor detenido: <b>Encender</b> da contacto, la bomba manda bencina y el motor parte.'
+    : !r.running ? (r.stall === 'estanque' ? 'El estanque está vacío: la bomba no tiene qué mandar.' : 'El motor se apagó: sin el circuito lento no se sostiene en ralentí. Acelerando anda con el circuito principal.')
     : `Mezcla ${MIXTXT[r.state].toLowerCase()}; trabaja ${cs.length ? cs.join(' + ') : 'el circuito lento'}; quedan ${nf(lvl * FK.tank)} L en el estanque`;
   const tags = [];
   if (r.fail !== 'ok') tags.push(`<span class="bt f">${FFAILS[r.fail].name}</span>`);
@@ -834,7 +887,7 @@ const FFAILTXT = {
 };
 function updateAliSim(r) {
   const box = $('#alisim'); if (!box || !r) return;
-  const key = [r.on, r.running, Math.round(r.pedal * 10), Math.round(r.choke * 4), r.engine, r.fail, r.state].join('|');
+  const key = [r.on, r.running, Math.round(r.pedal * 10), Math.round(r.choke * 4), r.cold, r.fail, r.state].join('|');
   if (key === asimKey) return; asimKey = key;
   const p = r.pedal;
   const how = !r.on ? 'Con el contacto cortado la bomba eléctrica no trabaja y el solenoide cierra el circuito lento.'
@@ -859,13 +912,13 @@ function updateAliSim(r) {
 }
 function wireFuel() {
   const F = o => { const r = viewer.fuel(o); onFuel(r); return r; };
-  $('#tb-fuel').addEventListener('click', () => { F({ on: !viewer.fuelState.on }); syncFuel(); });
+  $('#tb-fuel').addEventListener('click', () => { F({ on: !viewer.engineOn }); syncEngineUI(); });
   const setPedal = v => { $('#tb-acc').value = v; $('#tb-acc-v').textContent = v + ' %'; pressSeg($('#tb-accseg'), String(v)); F({ pedal: v / 100 }); };
   segGroup($('#tb-accseg'), v => setPedal(+v));
   $('#tb-acc').addEventListener('input', e => { const v = +e.target.value; $('#tb-acc-v').textContent = v + ' %'; pressSeg($('#tb-accseg'), ''); F({ pedal: v / 100 }); });
   $('#tb-kick').addEventListener('click', () => { closePop(); setPedal(0); setTimeout(() => setPedal(100), 450); setTimeout(() => setPedal(0), 2600); });
   $('#tb-choke').addEventListener('input', e => { const v = +e.target.value; $('#tb-choke-v').textContent = v === 0 ? 'Adentro' : v === 100 ? 'Tirado' : v + ' %'; F({ choke: v / 100 }); });
-  segGroup($('#tb-feng'), v => F({ engine: v }));
+  segGroup($('#tb-feng'), engTemp);
   segGroup($('#tb-ffail'), v => { F({ fail: v }); if (v !== 'ok' && isMobile()) toast(`${FFAILS[v].name}: la explicación está en el panel de Alimentación.`, 4500); });
   $('#tb-flevel').addEventListener('input', e => { const v = +e.target.value; $('#tb-flevel-v').textContent = nf(v / 100 * FK.tank) + ' L'; F({ level: v / 100 }); });
   $('#tb-ffuel-show').addEventListener('change', e => F({ showFuel: e.target.checked }));
@@ -876,7 +929,7 @@ function wireFuel() {
 // ═══════════ Vista Transmisión: cambios, embrague, camino de la fuerza, diferencial y fallas ═══════════
 function syncDrive() {
   const b = $('#tb-drive'); if (!b || !viewer) return;
-  const on = viewer.driveState.sim.on;
+  const on = viewer.engineOn;
   b.setAttribute('aria-pressed', String(on));
   b.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`;
   b.setAttribute('aria-label', on ? 'Apagar el motor' : 'Encender el motor');
@@ -912,7 +965,7 @@ function renderThud(r) {
     `<span class="bh"><small>Cardán</small><b>${nf(Math.round(Math.abs(r.rpmOut) / 10) * 10)} rpm</b></span>`,
     `<span class="bh"><small>Ruedas${split ? ' izq. / der.' : ''}</small><b>${split ? nf(Math.abs(wl)) + ' / ' + nf(Math.abs(wr)) + ' rpm' : nf(Math.abs(r.rpmWheel)) + ' rpm'}</b></span>`,
   ];
-  const line = r.gear === 'N' ? (r.on ? 'Punto muerto: giran el eje de entrada y el contraeje, pero ningún manguito está enganchado.' : 'Motor detenido: toca <b>Encender</b> y elige una marcha en <b>Cambios</b>.')
+  const line = r.gear === 'N' ? (r.on ? 'Punto muerto: giran el eje de entrada y el contraeje, pero ningún manguito está enganchado.' : 'Motor detenido: <b>Encender</b> lo pone en marcha y en <b>Cambios</b> se elige la marcha.')
     : `${GNAME[r.gear]}: ${tr3(r.ratio)} × ${nf(FINALR, 3)} = ${nf(Math.abs(r.total), 2)} vueltas de motor por vuelta de rueda; embrague ${CLSTATE[r.state]}`;
   const tags = [];
   if (r.stalled && !r.on) tags.push(`<span class="bt w">${r.stallMsg === 'marcha' ? 'No parte: hay una marcha puesta y el embrague está suelto' : 'Se caló: el embrague se soltó muy rápido o la marcha es muy alta'}</span>`);
@@ -975,8 +1028,8 @@ function resetDriveUI() {
 }
 function wireDrive() {
   const T = o => { const r = viewer.drive(o); onDrive(r); return r; };
-  $('#tb-drive').addEventListener('click', () => { T({ on: !viewer.driveState.sim.on }); syncDrive(); });
-  segGroup($('#tb-gear'), v => { const r = T({ gear: isNaN(+v) ? v : +v }); if (!r.on && Math.abs(r.kmh) < 0.5 && v !== 'N') toast('Con el motor detenido la marcha entra igual: enciende el motor para ver pasar la fuerza.', 4200); });
+  $('#tb-drive').addEventListener('click', () => { T({ on: !viewer.engineOn }); syncEngineUI(); });
+  segGroup($('#tb-gear'), v => { const r = T({ gear: isNaN(+v) ? v : +v }); if (!r.on && Math.abs(r.kmh) < 0.5 && v !== 'N') toast('Con el motor detenido la marcha entra igual; con el motor encendido se ve pasar la fuerza.', 4200); });
   $('#tb-autocl').addEventListener('change', e => T({ auto: e.target.checked }));
   $('#tb-clutch').addEventListener('input', e => { const v = +e.target.value; $('#tb-clutch-v').textContent = v === 0 ? 'Suelto' : v === 100 ? 'A fondo' : v + ' %'; T({ clutch: v / 100 }); });
   $('#tb-dacc').addEventListener('input', e => { const v = +e.target.value; $('#tb-dacc-v').textContent = v + ' %'; T({ throttle: v / 100, demo: false }); });
@@ -989,13 +1042,12 @@ function wireDrive() {
 }
 
 // ═══════════ Vista Refrigeración: manejo, recorrido del agua y del aire, fallas, cambio de agua y prueba del termostato ═══════════
-let coolSeen = false;
 const ctcol = t => { const c = coolColor(t); return `rgb(${c.join(',')})`; };
 const mmss = s => { const m = Math.floor(s / 60), r = Math.floor(s % 60); return m ? `${m} min ${String(r).padStart(2, '0')} s` : `${r} s`; };
 const resTxt = L => (L >= CK.resMax - 0.002 ? 'Rebalsa' : L > CK.resFull + 0.005 ? 'Sobre FULL' : L >= CK.resLow ? 'Entre LOW y FULL' : L > CK.hoseEnd + 0.01 ? 'Bajo LOW' : 'Vacío');
 function syncCool() {
   const b = $('#tb-cool'); if (!b || !viewer) return;
-  const st = viewer.coolState, on = st.on && !st.proc && !st.pot;
+  const st = viewer.coolState, on = viewer.engineOn && !st.proc && !st.pot;
   b.setAttribute('aria-pressed', String(on));
   b.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`;
   b.setAttribute('aria-label', on ? 'Apagar el motor' : 'Encender el motor');
@@ -1013,7 +1065,7 @@ function onCool(r) {
   const st = viewer.coolState;
   const key = st.proc ? ['p', st.proc.step, Math.round(r.Te), Math.round(r.level * 20)].join('|')
     : st.pot ? ['o', Math.round(st.pot.T), Math.round(st.pot.lift * 10), st.pot.on, st.pot.cond].join('|')
-    : [r.on, r.scen, r.amb, r.heater, r.fail, r.therm, r.speed, Math.round(r.Ts), Math.round(r.Te), Math.round(r.gauge * 60), Math.round(r.lift * 5), Math.round(r.Qp), Math.round(r.tOut), Math.round(r.Tr), Math.round(Math.max(0, r.P) * 20), Math.round(r.res * 50), Math.floor(r.t / 10), r.boil > 0.02, r.vent > 4e-5, r.ret > 4e-5, r.gas > 0.004, r.gv > 1e-5, Math.round(r.pocket * 50), r.moving].join('|');
+    : [r.on, r.scen, r.amb, r.heater, r.heat.fan, Math.round(r.heat.temp * 10), r.fail, r.therm, r.speed, Math.round(r.Ts), Math.round(r.Te), Math.round(r.gauge * 60), Math.round(r.lift * 5), Math.round(r.Qp), Math.round(r.tOut), Math.round(r.Tr), Math.round(Math.max(0, r.P) * 20), Math.round(r.res * 50), Math.floor(r.t / 10), r.boil > 0.02, r.vent > 4e-5, r.ret > 4e-5, r.gas > 0.004, r.gv > 1e-5, Math.round(r.pocket * 50), r.moving].join('|');
   if (key !== rhKey) { rhKey = key; renderRhud(r); renderGuide(); }
   updateRefSim(r);
 }
@@ -1042,15 +1094,15 @@ function renderRhud(r) {
       `<span class="bh p" style="--c:${ctcol(fl ? r.tOut : r.Tr)}"><small>Radiador</small><b class="raw">${fl ? `<span class="n">${nf(Math.round(r.tIn))}</span><i>→</i><span class="n">${nf(Math.round(r.tOut))}</span><i>°C</i>` : `<span class="n">${nf(Math.round(r.Tr))}</span><i>°C</i>`}</b></span>`,
       `<span class="bh"><small>Bomba</small><b>${nf(Math.round(r.Qp))} L/min</b></span>`,
       `<span class="bh opt"><small>Ventilador</small><b>${nf(Math.round(r.wp / 10) * 10)} rpm</b></span>`,
-      `<span class="bh"><small>Presión</small><b>${nf(Math.max(0, r.P), 2)} bar</b></span>`,
+      `<span class="bh"><small>Presión</small><b>${nf(kgcm2(Math.max(0, r.P)), 2)} kg/cm²</b></span>`,
       `<span class="bh"><small>Depósito</small><b class="raw">${resTxt(r.res)}</b></span>`,
       `<span class="bh opt"><small>Tiempo</small><b class="raw">${mmss(r.t)}</b></span>`);
     const S = SCEN[r.scen];
     const where = `${S.name}${S.stopgo ? (r.moving ? ', avanzando' : ', detenido') : ''}, ${nf(r.amb)} °C afuera. `;
-    if (!r.on && r.Te < r.amb + 3) line = 'Motor detenido y frío: toca <b>Encender</b>. Parte en ralentí; en <b>Manejo</b> eliges la situación y lo rápido que pasa el tiempo.';
+    if (!r.on && r.Te < r.amb + 3) line = 'Motor detenido y frío: <b>Encender</b> lo pone en marcha, en ralentí; en <b>Manejo</b> se elige la situación y lo rápido que pasa el tiempo.';
     else if (!r.on) line = 'Motor apagado: el agua ya no circula. El radiador se enfría primero; el motor caliente sigue entregando calor un rato y la aguja puede subir un poco.';
     else if (r.boil > 0.02) line = where + `Hierve: sobre ${nf(Math.round(r.Tb))} °C la tapa ya no mantiene el agua líquida y el vapor la empuja al depósito.`;
-    else if (r.lift < 0.05) line = where + `Termostato cerrado: el agua da la vuelta por el motor y vuelve a la bomba por la derivación${r.heater ? ' y por la calefacción' : ''}; el radiador sigue frío.`;
+    else if (r.lift < 0.05) line = where + `Termostato cerrado: el agua da la vuelta por el motor y vuelve a la bomba por la derivación${r.hflow ? ' y por la calefacción' : ''}; el radiador sigue frío.`;
     else if (r.lift < 7.9) line = where + `Termostato abierto ${nf(r.lift, 1)} mm: deja pasar al radiador sólo el agua necesaria para mantener ${nf(Math.round(r.Te))} °C; el resto sigue por la derivación.`;
     else line = where + 'Termostato abierto del todo: el radiador saca todo el calor que alcanza y la temperatura sube igual.';
     if (r.fail !== 'ok') tags.push(`<span class="bt f">${CFAILS[r.fail].name}</span>`);
@@ -1063,7 +1115,7 @@ function renderRhud(r) {
     else if (r.res <= CK.hoseEnd + 0.01) tags.push('<span class="bt w">Depósito vacío</span>');
     if (r.vent > 4e-5) tags.push('<span class="bt i">La tapa deja pasar agua al depósito</span>');
     else if (r.ret > 4e-5) tags.push('<span class="bt i">Vuelve agua del depósito</span>');
-    if (r.heater) tags.push('<span class="bt i">Calefacción a fondo</span>');
+    if (r.heater) tags.push(`<span class="bt i">Calefacción ${r.heat.temp >= 0.98 && r.heat.fan === 3 ? 'a fondo' : 'abierta'}</span>`);
   }
   rhud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
   gauges(rhud);
@@ -1102,31 +1154,35 @@ function renderGuide() {
 const CFAILTXT = {
   cerrado: 'La cera del termostato ya no empuja la válvula: el agua nunca pasa al radiador. Sólo circula por el motor y la derivación, el radiador queda frío y la temperatura sube hasta hervir. La señal: la manguera superior sigue fría con el motor caliente. Se cambia el termostato.',
   abierto: 'La válvula quedó abierta y el radiador recibe agua desde la partida. El motor tarda mucho en calentar y, en carretera o con frío, no llega a su temperatura: la aguja queda baja, la calefacción sale tibia y gasta más bencina. Se cambia el termostato.',
-  correa: 'La correa en V patina en las poleas: la bomba y el ventilador giran más lento, más mientras más carga. Al subir con carga el motor se recalienta; además puede chillar y prenderse la luz de carga, porque también mueve el alternador. Se tensa moviendo el alternador hasta tener 6–9 mm de flecha con 10 kg (manual).',
+  correa: 'La correa del alternador y ventilador patina en las poleas: la bomba y el ventilador giran más lento, más mientras más carga. Al subir con carga el motor se recalienta; además puede chillar y prenderse la luz de carga, porque también mueve el alternador. Se tensa moviendo el alternador hasta tener 6–9 mm de flecha con 10 kg (manual).',
   carenado: 'Sin el carenado el ventilador mueve aire por todos lados en vez de hacerlo pasar por el panal, y vuelve a tragar el aire caliente que sale del motor. Andando casi no se nota, pero en taco o detenido el motor se recalienta.',
   panal: 'Barro, pasto o aletas aplastadas tapan el panal por fuera (o hay sarro por dentro): pasa menos aire y el radiador saca menos calor. Se nota al subir con carga o en verano. Se limpia por fuera y se lava el circuito (manual).',
   tapa: 'La válvula de presión ya no aguanta 0,9 kg/cm² y la de vacío no deja volver el agua: hierve antes (≈ 109 °C en vez de 123 °C), lo que se dilata se va al depósito y no regresa, y al apagar en caliente puede botar agua. Se prueba con un medidor de presión y se cambia (manual).',
   bomba: 'El rotor está gastado y el sello gotea por el agujero de alivio: la bomba mueve menos agua y se pierde de a poco. Con carga el motor se calienta más de lo normal. No se desarma: se cambia completa (manual), y para eso hay que sacar la correa de distribución.',
   aire: 'Quedó aire atrapado al rellenar y se junta en los puntos altos: la calefacción y la caja del termostato. La bomba mueve menos, la calefacción sale fría y el bulbo, rodeado de aire, hace bailar la aguja. Se purga haciendo andar el motor sin la tapa hasta que la manguera superior se calienta (manual).',
   fuga: 'Falta agua por una fuga (manguera, abrazadera, tapón o radiador). Con poca agua la bomba aspira aire y el motor se recalienta; además el bulbo puede quedar seco y marcar menos de lo que está: la aguja engaña. Se rellena con el motor frío y se busca la fuga.',
+  llave: 'La llave de la calefacción no deja pasar agua aunque la palanca esté en HOT: el motor pierde esa salida de calor y la calefacción sale fría. Para el motor no es grave; en la vista Calefacción se ve el aire.',
+  radiador: 'El radiador de calefacción tapado deja pasar poca agua: la calefacción saca menos calor del motor y sale tibia. Al motor casi no le afecta.',
+  resistencia: 'Falla eléctrica del ventilador de la calefacción: las velocidades 1 y 2 no andan y la 3 sí. Con el ventilador detenido la calefacción casi no saca calor del motor.',
+  desempanador: 'Falla de la compuerta del parabrisas: no cambia nada en el circuito de agua; en la vista Calefacción se ve por dónde sale el aire.',
   culata: 'La empaquetadura de culata deja pasar gases de la combustión al agua: la presión sube aunque el motor esté frío, salen burbujas en el depósito, el agua se va al depósito hasta rebalsar y el motor termina recalentándose. Puede haber humo blanco y aceite color café con leche. Se cambia la empaquetadura y se revisa la culata.',
 };
 function updateRefSim(r) {
   const box = $('#refsim'); if (!box || !r) return;
   const st = viewer.coolState;
-  const key = st.proc ? 'p' + st.proc.step : st.pot ? 'o' : [r.on, r.fail, r.scen, r.heater, r.therm, Math.round(r.lift), Math.round(r.Te / 4), r.boil > 0.02, Math.round(r.Qp / 3), Math.round(r.air * 4), Math.round(r.gauge * 10), Math.round(r.pocket * 20), Math.round(r.res * 20), Math.round(r.m * 20)].join('|');
+  const key = st.proc ? 'p' + st.proc.step : st.pot ? 'o' : [r.on, r.fail, r.scen, r.heater, r.hflow, r.therm, Math.round(r.lift), Math.round(r.Te / 4), r.boil > 0.02, Math.round(r.Qp / 3), Math.round(r.air * 4), Math.round(r.gauge * 10), Math.round(r.pocket * 20), Math.round(r.res * 20), Math.round(r.m * 20)].join('|');
   if (key === rsimKey) return; rsimKey = key;
   if (st.proc) { const P = PROC[st.proc.step]; box.innerHTML = `<h4>Cambiar y purgar el agua: paso ${st.proc.step + 1} de ${PROC.length}</h4><p><b>${P.t}.</b> ${P.p}</p><p class="muted">Procedimiento de la sección 6 del manual. Con el motor caliente no se saca la tapa del radiador ni la del depósito.</p>`; return; }
   if (st.pot) { const [To, Tf] = CK.therm[st.therm]; box.innerHTML = `<h4>Prueba del termostato (manual)</h4><p>El termostato se sumerge en agua y se calienta de a poco. La válvula debe empezar a abrir a la temperatura estampada (tipo ${st.therm}: ${To} °C ± 1,5 °C) y abrir más de 8 mm a ${Tf} °C. Si abre muy antes o muy después, se cambia: reusado, el motor se recalentaría o no llegaría a su temperatura.</p><p class="muted">En la olla el agua no pasa de 100 °C, que es justo donde el tipo B debe estar abierto del todo.</p>`; return; }
   const [To, Tf] = CK.therm[r.therm], dV = Math.max(0, (CK.vSys * CK.beta * (r.Te - 20)));
   const how = !r.on && r.Te < r.amb + 3 ? 'Motor detenido y frío. Al encenderlo, la bomba empieza a mover el agua: entra a la camisa junto al cilindro 1, recorre el block hacia atrás, sube a la culata, vuelve hacia adelante y sale por el múltiple de admisión.'
-    : r.lift < 0.05 ? `Termostato cerrado (abre a ${To} °C): el agua que sale del múltiple vuelve a la bomba por la manguera de derivación${r.heater ? ' y por el radiador de calefacción' : ''}, sin pasar por el radiador. Así el motor se calienta rápido y parejo.`
+    : r.lift < 0.05 ? `Termostato cerrado (abre a ${To} °C): el agua que sale del múltiple vuelve a la bomba por la manguera de derivación${r.hflow ? ' y por el radiador de calefacción' : ''}, sin pasar por el radiador. Así el motor se calienta rápido y parejo.`
     : `El termostato abrió ${nf(r.lift, 1)} mm: ≈ ${nf(Math.round(r.Qr))} de los ${nf(Math.round(r.Qp))} L/min van al radiador. Entran por arriba a ${nf(Math.round(r.tIn))} °C, bajan por los tubos y salen por abajo a ≈ ${nf(Math.round(r.tOut))} °C hacia el tubo de entrada de la bomba.`;
   const air = r.on ? `El aire entra por debajo del furgón, cruza el panal y el ventilador lo empuja hacia el motor: ≈ ${nf(r.air, 1)} m/s en el panal (${nf(r.airFan, 1)} del ventilador${r.airRam > 0.05 ? ` y ${nf(r.airRam, 1)} por avanzar` : ''}). El radiador saca ≈ ${nf(r.Qrad, 1)} kW; el motor le entrega al agua ≈ ${nf(r.Qin, 1)} kW.` : '';
   const prs = r.Te > 40 ? `Caliente, el agua ocupa ≈ ${nf(Math.round(dV * 1000))} mL más que fría: cuando la presión llega a 0,9 kg/cm² la tapa la deja pasar al depósito, y al enfriarse la recupera por la válvula de vacío. Con esa presión la mezcla hierve recién a ≈ ${nf(Math.round(boilAt(CK.cap)))} °C.` : '';
   box.innerHTML = `<h4>En el modelo</h4>
     <p>${how}</p>${air ? `<p>${air}</p>` : ''}${prs ? `<p>${prs}</p>` : ''}
-    ${r.fail !== 'ok' ? `<p><b>${CFAILS[r.fail].name}.</b> ${CFAILTXT[r.fail]}</p>` : ''}
+    ${r.fail !== 'ok' ? `<p><b>${CFAILS[r.fail].name}.</b> ${CFAILTXT[r.fail] || ''}</p>` : ''}
     <dl class="kv">
       <div><dt>Termostato</dt><dd>Tipo ${r.therm}: empieza a abrir a ${To} °C y abre del todo a ${Tf} °C (más de 8 mm)</dd></div>
       <div><dt>Bulbo e indicador</dt><dd>${nf(Math.round(r.Ts))} °C → ${nf(Math.round(r.R))} Ω; aguja ${gaugeTxt(r.gauge)}</dd></div>
@@ -1136,15 +1192,15 @@ function updateRefSim(r) {
     <p class="muted">El tiempo del modelo va ${r.speed === 1 ? 'a velocidad real' : `${r.speed} veces más rápido`}. Del manual: capacidades, tapa, termostato y bulbo; del catálogo de repuestos, el panal. El calor del motor, el caudal de la bomba, el aire y las masas son valores típicos: con ellos, el termostato de 82 °C deja la aguja a un tercio, como en este furgón. El recorrido de las mangueras y del tubo de entrada es aproximado.</p>`;
 }
 function wireCool() {
-  const C = o => { const r = viewer.cool(o); onCool(r); renderGuide(); syncCool(); return r; };
-  const syncAmb = () => { const v = Math.round(viewer.coolState.amb); $('#tb-camb').value = v; $('#tb-camb-v').textContent = nf(v) + ' °C'; };
-  $('#tb-cool').addEventListener('click', () => { const st = viewer.coolState; if (st.proc || st.pot) { C({ proc: null, pot: null }); viewer.setView('iso'); } C({ on: !viewer.coolState.on }); });
-  segGroup($('#tb-cscen'), v => { const S = SCEN[v]; C({ scen: v, ...(S.amb != null ? { amb: S.amb } : {}), ...(viewer.coolState.on ? {} : { on: true }) }); syncAmb(); });
+  const C = o => { const r = viewer.cool(o); onCool(r); renderGuide(); syncEngineUI(); return r; };
+  $('#tb-cool').addEventListener('click', () => { const st = viewer.coolState; if (st.proc || st.pot) { C({ proc: null, pot: null }); viewer.setView('iso'); } C({ on: !viewer.engineOn }); });
+  segGroup($('#tb-cscen'), v => { const S = SCEN[v]; C({ scen: v, ...(S.amb != null ? { amb: S.amb } : {}), ...(viewer.engineOn ? {} : { on: true }) }); });
   $('#tb-camb').addEventListener('input', e => { const v = +e.target.value; $('#tb-camb-v').textContent = nf(v) + ' °C'; C({ amb: v }); });
-  $('#tb-cheat').addEventListener('change', e => C({ heater: e.target.checked }));
+  // la misma calefacción de la vista Calefacción: Cerrada (llave en COOL), Media (HOT, ventilador 2) o A fondo (HOT, ventilador 3)
+  segGroup($('#tb-cheat'), v => { C({ heat: v === '0' ? { temp: 0 } : { temp: 1, fan: +v } }); syncHeatControls(); });
   segGroup($('#tb-cspeed'), v => C({ speed: +v }));
   segGroup($('#tb-ctherm'), v => C({ therm: v }));
-  $('#tb-ccold').addEventListener('click', () => { C({ reset: 'frio', on: true }); toast('Motor frío, a la temperatura de afuera, y en marcha.', 3500); });
+  segGroup($('#tb-ceng'), v => { engTemp(v); onCool(viewer.cool()); renderGuide(); });
   $('#tb-crefill').addEventListener('click', () => { C({ refill: true }); toast('Circuito lleno y purgado; el depósito, entre LOW y FULL.', 3500); });
   segGroup($('#tb-cfail'), v => { C({ fail: v }); if (v !== 'ok' && isMobile()) toast(`${CFAILS[v].name}: la explicación está en el panel de Refrigeración.`, 4500); });
   $('#tb-cair').addEventListener('change', e => C({ showA: e.target.checked }));

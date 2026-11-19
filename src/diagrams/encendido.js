@@ -70,7 +70,7 @@ export function encendido(root) {
 
   // ═══ Avance ═══
   const fa = svg(400, 118, 'Avance del encendido');
-  t(fa, 14, 18, 'Punto base: 8° antes del PMS a 900 rpm (dato UK; confirma el de cada versión)', 'lbl lbl-xs strong');
+  t(fa, 14, 18, 'Punto base: 8° antes del PMS a 900 rpm (dato UK; falta confirmarlo para cada versión)', 'lbl lbl-xs strong');
   const AX0 = 120, AX1 = 386;
   s('line', { x1: AX0, y1: 92, x2: AX1, y2: 92, class: 'tick' }, fa);
   t(fa, AX0, 108, 'PMS', 'lbl lbl-xs', 'middle'); t(fa, AX1, 108, 'más avance (antes del PMS) →', 'lbl lbl-xs', 'end');

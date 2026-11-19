@@ -14,7 +14,10 @@ async def main(dev, steps):
         await pg.goto(URL_DOC); await pg.wait_for_timeout(2500)
         async def shot(n): await pg.screenshot(path=str(ROOT / "shots" / f"cal_{dev}_{n}.png"))
         js = pg.evaluate
-        await js("window.__app.openSys('calefaccion')"); await pg.wait_for_timeout(2500); await shot('1_iso')
+        await js("window.__app.openSys('calefaccion')"); await pg.wait_for_timeout(2500); await shot('0_detenido')
+        # un solo motor: entra detenido; se deja caliente y en marcha
+        await js("document.querySelector('#tb-heng [data-v=caliente]').click(); document.querySelector('#tb-heat').click()"); await pg.wait_for_timeout(1500); await shot('1_iso')
+        print(await js("document.querySelector('#calhud') ? document.querySelector('#calhud').innerText.replace(/\\n+/g, ' | ') : ''"))
         if 'modos' in steps or 'all' in steps:
             for v in ['cara', 'bi', 'vidrio']:
                 await js(f"document.querySelector('#tb-hmode [data-v={v}]').click()"); await pg.wait_for_timeout(1200); await shot('2_' + v)

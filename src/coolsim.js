@@ -5,10 +5,16 @@
 // 100 °C 26,2–29,3 Ω, que mueve un indicador bimetálico. El panal mide 488 × 240 mm (catálogo de repuestos). En este
 // furgón la aguja queda a un tercio con el motor caliente (dueño). El calor que entrega el motor, el caudal de la bomba,
 // el aire que mueve el ventilador y las masas térmicas son valores típicos: sirven para mostrar proporciones.
+// Es el estado del único motor del modelo: todas las vistas leen de aquí la temperatura del agua, y la calefacción y la
+// refrigeración comparten sus mandos y sus fallas. Las presiones se calculan en bar y se muestran en kg/cm², como el manual.
+
+import { MOTOR, powerAt, cabinOf, BAR_PER_KG } from './motor.js';
+import { heaterCore } from './heatersim.js';
+import { GEARS, FINAL, TIRES } from './data.js';
 
 export const CK = {
   vSys: 3.4, resLow: 0.22, resFull: 0.6, resMax: 0.95, hoseEnd: 0.035,   // L; la manguera llega a 10 mm del fondo del depósito
-  cap: 0.9, vac: 0.05,                                                   // bar: válvula de presión y de vacío de la tapa
+  capKg: 0.9, cap: 0.9 * BAR_PER_KG, vac: 0.05,                         // tapa: 0,9 kg/cm² (manual) = 0,88 bar; válvula de vacío (bar)
   therm: { A: [82, 95], B: [88, 100] }, lift: 8,                         // °C y mm
   pumpK: 1.16,                                                           // bomba y ventilador: 1,16 vueltas por vuelta del cigüeñal (poleas)
   qPump: 0.0135,                                                         // L/min por rpm de la bomba (estimado)
@@ -20,19 +26,21 @@ export const CK = {
   rc: 10,                                                                // Ω de la bobina del indicador (estimado: deja la aguja a 1/3 a 84 °C)
 };
 
+// rpm de cada situación: la velocidad, la marcha, las relaciones de la caja (manual) y los 175/70 R13 de este furgón
+export const rpmAt = (kmh, gear) => Math.round(kmh / (TIRES[0].c * 60 / 1000) * GEARS[gear - 1].r * FINAL);
 export const SCEN = {
-  ralenti:   { name: 'Ralentí, detenido', rpm: 900, load: 0, kmh: 0 },
-  ciudad:    { name: 'Ciudad', rpm: 2200, load: 0.25, kmh: 35 },
-  taco:      { name: 'Taco en verano', rpm: 900, load: 0, kmh: 0, amb: 32, stopgo: true },
-  subida:    { name: 'Subida con carga', rpm: 2800, load: 1, kmh: 28, amb: 25 },
-  carretera: { name: 'Carretera a 80 km/h', rpm: 3000, load: 0.43, kmh: 80 },
+  ralenti:   { name: 'Ralentí, detenido', rpm: MOTOR.idle, load: 0, kmh: 0 },
+  ciudad:    { name: 'Ciudad', rpm: rpmAt(35, 3), gear: 3, load: 0.25, kmh: 35 },
+  taco:      { name: 'Taco en verano', rpm: MOTOR.idle, load: 0, kmh: 0, amb: 32, stopgo: true },
+  subida:    { name: 'Subida con carga', rpm: rpmAt(28, 2), gear: 2, load: 1, kmh: 28, amb: 25 },
+  carretera: { name: 'Carretera a 80 km/h', rpm: rpmAt(80, 5), gear: 5, load: 0.43, kmh: 80 },
 };
 
 export const CFAILS = {
   ok:       { name: 'Todo bien' },
   cerrado:  { name: 'Termostato pegado cerrado' },
   abierto:  { name: 'Termostato pegado abierto' },
-  correa:   { name: 'Correa en V suelta' },
+  correa:   { name: 'Correa del alternador y ventilador suelta' },
   carenado: { name: 'Sin carenado del ventilador' },
   panal:    { name: 'Panal del radiador tapado' },
   tapa:     { name: 'Tapa del radiador vencida' },
@@ -40,7 +48,14 @@ export const CFAILS = {
   aire:     { name: 'Aire en el circuito' },
   fuga:     { name: 'Fuga: falta agua' },
   culata:   { name: 'Empaquetadura de culata soplada' },
+  llave:    { name: 'Llave de agua trabada' },
+  radiador: { name: 'Radiador de calefacción tapado' },
+  resistencia: { name: 'Resistencia del ventilador cortada' },
+  desempanador: { name: 'Compuerta del parabrisas desajustada' },
 };
+// mandos de la calefacción (los mismos para todas las vistas): llave 0–1, ventilador 0–3, salida y recirculación
+export const HEAT0 = { temp: 1, fan: 2, mode: 'pies', recirc: true };
+export const heaterFlows = (heat, fail) => (fail === 'llave' ? 0 : heat.temp) > 0.02;
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const PATM = 1.013;   // bar
@@ -56,7 +71,7 @@ const G = T => 1 / (senderR(T) + CK.rc);
 const G0 = G(50), G1 = G(120);
 export const needleOf = T => clamp((G(T) - G0) / (G1 - G0), -0.06, 1.06);   // 0 = C, 1 = H
 // la mezcla 50/50 hierve a ~106 °C sin presión y a ~123 °C con la tapa de 0,9
-export const boilAt = P => 106 + 19 * clamp(P, 0, 1.3);
+export const boilAt = P => 106 + 19 * clamp(P, 0, 1.3);   // P en bar
 
 // frío azul → tibio gris → caliente naranjo → excesivo rojo (la misma escala del esquema del panel)
 const STOPS = [[20, [58, 160, 220]], [60, [112, 132, 146]], [88, [240, 150, 60]], [110, [232, 68, 58]]];
@@ -70,18 +85,21 @@ export function coolColor(T) {
 }
 
 export function coolInit(o = {}) {
-  const amb = o.amb ?? 18;
+  const amb = o.amb ?? MOTOR.amb;
   return {
-    on: false, scen: 'ralenti', amb, heater: false, therm: 'A', fail: 'ok', speed: 60, capOn: true,
+    on: false, scen: 'ralenti', amb, heat: { ...HEAT0 }, therm: 'A', fail: 'ok', speed: 60, capOn: true, ext: null,
     Te: amb, Tr: amb, TairOut: amb, lift: 0, m: CK.vSys, res: 0.38, lost: 0, gas: 0, air: 0, top: 0, soak: 0, P: 0, gauge: needleOf(amb),
     t: 0, boil: 0, vent: 0, ret: 0, phase: 0, void: 0, ...o,
   };
 }
 
-// condiciones de manejo en el instante t (el taco alterna 45 s detenido y 15 s avanzando despacio)
+// condiciones de manejo en el instante t (el taco alterna 45 s detenido y 15 s avanzando despacio en 1.ª).
+// Fuera de la vista Refrigeración manda la vista activa (st.ext): el acelerador de Alimentación, la marcha de
+// Transmisión o el ralentí en las demás.
 export function condAt(st) {
+  if (st.ext) return st.ext;
   const S = SCEN[st.scen] || SCEN.ralenti;
-  if (S.stopgo && st.on) { const k = (st.t % 60) >= 45; return k ? { ...S, rpm: 1500, load: 0.18, kmh: 8, moving: true } : { ...S, moving: false }; }
+  if (S.stopgo && st.on) { const k = (st.t % 60) >= 45; return k ? { ...S, rpm: rpmAt(8, 1), load: 0.18, kmh: 8, moving: true } : { ...S, moving: false }; }
   return S;
 }
 
@@ -98,7 +116,7 @@ export function refill(st) { st.m = CK.vSys / (1 + CK.beta * Math.max(0, (st.Te 
 
 function sub(st, h) {
   const S = condAt(st), f = st.fail;
-  const n = st.on ? S.rpm : 0;
+  const n = st.on ? S.rpm : 0, run = n > 0;   // motor girando
   // correa: patina más con carga y con muchas vueltas
   const slip = f === 'correa' ? clamp(0.05 + 0.15 * S.load + n / 40000, 0, 0.65) : 0;
   const wp = n * CK.pumpK * (1 - slip);
@@ -113,14 +131,20 @@ function sub(st, h) {
   if (f === 'cerrado') target = 0; if (f === 'abierto') target = CK.lift;
   st.lift += (target - st.lift) * Math.min(1, h / 16);
   const fo = st.lift / CK.lift;
-  const Gr = 0.004 + 1.0 * fo, Gb = 0.32, Gh = st.heater ? (pocket > 0.12 || f === 'aire' ? 0.03 : 0.22) : 0.012;
+  // calefacción: la llave (por cable desde la palanca COOL–HOT) deja pasar más o menos agua; casi todo el efecto está
+  // en la última parte del recorrido, como en las llaves de este tipo
+  const valve = f === 'llave' ? 0 : st.heat.temp;
+  let Gh = 0.001 + 0.219 * valve * valve;
+  if (pocket > 0.12 || f === 'aire') Gh = Math.min(Gh, 0.03);   // con aire, el radiador de calefacción (el punto alto) se llena de aire
+  if (f === 'radiador') Gh *= 0.35;
+  const Gr = 0.004 + 1.0 * fo, Gb = 0.32;
   const Gt = Gr + Gb + Gh, Qr = Qp * Gr / Gt, Qb = Qp * Gb / Gt, Qh = Qp * Gh / Gt;
-  // calor del motor: roce y bombeo más la parte de la potencia que se va al agua
-  const Pmax = 73.5 * Math.max(0.25, 1 - ((n - 3300) / 4500) ** 2) * n * 2 * Math.PI / 60 / 1000;
-  if (st.on) st.soak = Math.max(st.soak * Math.exp(-h / 600), Math.min(4, 0.25 * ((2 + n / 1000) + 0.95 * S.load * Pmax)));   // calor guardado en el fierro
+  // calor del motor: roce y bombeo más la parte de la potencia que se va al agua (la misma curva del motor de todas las vistas)
+  const Pmax = powerAt(n);
+  if (run) st.soak = Math.max(st.soak * Math.exp(-h / 600), Math.min(4, 0.25 * ((2 + n / 1000) + 0.95 * S.load * Pmax)));   // calor guardado en el fierro
   else st.soak *= Math.exp(-h / 120);
-  let Qin = st.on ? (2 + n / 1000) + 0.95 * S.load * Pmax : st.soak;   // al apagar, el fierro caliente sigue entregando calor
-  if (f === 'culata' && st.on) Qin *= 1.12;
+  let Qin = run ? (2 + n / 1000) + 0.95 * S.load * Pmax : st.soak;   // al apagar, el fierro caliente sigue entregando calor
+  if (f === 'culata' && run) Qin *= 1.12;
   // aire por el panal: ventilador (con el carenado) más lo que entra al avanzar, por debajo del piso
   const vf = 0.9e-3 * wp * (f === 'carenado' ? 0.22 : 1), vr = 0.06 * S.kmh / 3.6;
   const v = vf + vr + 0.05;
@@ -131,14 +155,15 @@ function sub(st, h) {
   const Tin = st.amb + rec * Math.max(0, st.TairOut - st.amb);
   const Qrad = Ka * (st.Tr - Tin);
   st.TairOut = Tin + Qrad / Ca;
-  // calefacción a fondo: el radiador de calefacción saca calor según el agua que le llega
-  const Qhe = st.heater ? Math.max(0, Math.min(0.055, 0.7 * Qh * CK.cp) * (st.Te - (st.amb + 4))) : 0;   // el aire del ventilador limita: unos 4 kW
+  // calefacción: el mismo radiador de calefacción que calcula la vista Calefacción (aire del ventilador y agua que le llega)
+  const H = st.heat, TinH = H.recirc ? cabinOf(st.amb) : st.amb;
+  const Qhe = run ? heaterCore({ Tw: st.Te, Tin: TinH, fan: H.fan, mode: H.mode, fail: f, flowW: Qh }).kW : 0;
   const Ql = (0.008 + 0.0002 * S.kmh) * (st.Te - st.amb);
   // ebullición: el vapor sube la presión; si pasa la de la tapa (o no hay tapa) empuja agua y se lleva calor
   const Pcap = !st.capOn ? 0 : f === 'tapa' ? 0.15 : CK.cap;
   const Psat = (st.Te - 106) / 19;
   st.boil = clamp((Psat - Pcap) * 19 / 6, 0, 1);
-  const vapor = Psat > Pcap ? 0.004 * (1 + 4 * st.boil) * (st.on ? 1 : 0.4) : 0;   // L/s de agua desplazada
+  const vapor = Psat > Pcap ? 0.004 * (1 + 4 * st.boil) * (run ? 1 : 0.4) : 0;   // L/s de agua desplazada
   const Qlat = vapor * 1130;
   const Tb = boilAt(Pcap);
   // menos agua: menos masa que calentar
@@ -148,9 +173,9 @@ function sub(st, h) {
   st.Tr += h * (Qx - Qrad) / CK.Cr;
   if (st.Tr < Math.min(st.amb, st.Te) - 0.5) st.Tr = Math.min(st.amb, st.Te);
   // presión: la mezcla se dilata; con aire adentro hay espacio antes de que suba
-  const Tavg = 0.62 * st.Te + 0.26 * st.Tr + 0.12 * (st.heater ? st.Te : (st.Te + st.amb) / 2);
-  if (f === 'culata' && st.on) st.gas += h * 0.0016 * (0.4 + S.load) * (n / 2000);   // gases de la combustión entran al agua
-  else if (st.on) st.gas *= Math.exp(-h / 240);                // andando, la circulación lleva los gases a la tapa; detenido quedan arriba
+  const Tavg = 0.62 * st.Te + 0.26 * st.Tr + 0.12 * (heaterFlows(st.heat, f) ? st.Te : (st.Te + st.amb) / 2);
+  if (f === 'culata' && run) st.gas += h * 0.0016 * (0.4 + S.load) * (n / 2000);   // gases de la combustión entran al agua
+  else if (run) st.gas *= Math.exp(-h / 240);                // andando, la circulación lleva los gases a la tapa; detenido quedan arriba
   // el agua casi no se comprime (las mangueras ceden un poco); el aire y los gases sí: P·V constante
   const kT = 1 + CK.beta * (Tavg - 20), Vliq = st.m * kT, s = CK.stiff, a = Vliq - CK.vSys;
   const nG = (st.air + st.top + st.gas) * PATM;
@@ -180,30 +205,50 @@ function sub(st, h) {
   st.void = st.capOn ? Math.max(0, CK.vSys + P / s - st.m * kT) : Math.max(0, CK.vSys - st.m * kT);
   if (st.res > CK.resMax) { st.lost += st.res - CK.resMax; st.res = CK.resMax; }   // rebalsa por el respiradero
   // fugas: por una manguera o por el agujero de alivio de la bomba (sello gastado)
-  const leak = f === 'fuga' ? 0.0011 * (0.35 + Math.max(0, st.P)) * (st.on ? 1 : 0.5) : f === 'bomba' && st.on ? 0.00006 * (1 + Math.max(0, st.P)) : 0;
+  const leak = f === 'fuga' ? 0.0011 * (0.35 + Math.max(0, st.P)) * (run ? 1 : 0.5) : f === 'bomba' && run ? 0.00006 * (1 + Math.max(0, st.P)) : 0;
   if (leak > 0 && st.m > 1.2) { st.m -= leak * h; st.lost += leak * h; }
   // bulbo: en el múltiple; si queda en aire o vapor marca de menos
-  const dry = pocket > 0.45 || (f === 'aire' && st.on);
+  const dry = pocket > 0.45 || (f === 'aire' && run);
   st.Ts = dry ? st.Te - Math.min(f === 'aire' ? 10 + 9 * Math.sin(st.t / 23) : Math.min(40, (pocket - 0.45) * 90), 0.6 * Math.max(0, st.Te - st.amb)) : st.Te;
   const nt = needleOf(st.Ts);
   st.gauge += (nt - st.gauge) * Math.min(1, h / 9);
   st.t += h;
-  return { S, n, slip, wp, Qp, Qr, Qb, Qh, Qin, Qrad, Qhe, Ql, v, vf, vr, Tin, Ka, Tb, vapor, missing: pocket, rec, airF };
+  return { S, n, slip, wp, Qp, Qr, Qb, Qh, Qin, Qrad, Qhe, Ql, v, vf, vr, Tin, Ka, Tb, vapor, missing: pocket, rec, airF, valve };
 }
 
-// avanza dtReal segundos de reloj (el tiempo del modelo va st.speed veces más rápido)
-export function coolStep(st, dtReal) {
-  let left = Math.max(0, dtReal) * st.speed, r = null;
+// avanza dtReal segundos de reloj; en la vista Refrigeración el tiempo del modelo va st.speed veces más rápido
+export function coolStep(st, dtReal, scale = st.speed) {
+  let left = Math.max(0, dtReal) * scale, r = null;
   if (left <= 0) return coolRead(st);
   while (left > 1e-9) { const h = Math.min(0.5, left); r = sub(st, h); left -= h; }
   return coolRead(st, r);
+}
+
+// deja el motor caliente: lo que pasaría andando en ciudad hasta que el termostato regula (o 25 min si no llega,
+// por ejemplo con el termostato pegado abierto) y un minuto en ralentí, con la calefacción, la falla y la
+// temperatura de afuera que haya
+export function warmUp(st) {
+  const keep = { on: st.on, ext: st.ext }, [To] = CK.therm[st.therm];
+  st.on = true; st.ext = { ...SCEN.ciudad, moving: true };
+  for (let t = 0; t < 1500 && st.Te < To + 0.3; t += 0.5) sub(st, 0.5);
+  st.ext = { ...SCEN.ralenti };
+  for (let t = 0; t < 60; t += 0.5) sub(st, 0.5);
+  st.on = keep.on; st.ext = keep.ext;
+  st.gauge = needleOf(st.Ts ?? st.Te);
+}
+// pone el agua del motor a una temperatura (el esquema del panel): el resto del circuito sigue desde ahí
+export function setTemp(st, T) {
+  st.Te = T; st.Ts = T; st.TairOut = Math.min(st.TairOut, T);
+  if (st.Tr > T) st.Tr = T;
+  st.gauge = needleOf(T);
 }
 
 export function coolRead(st, r) {
   if (!r) { const keep = { ...st }; r = sub(keep, 1e-6); }
   const tOut = r.Qr > 0.05 ? Math.max(st.amb, st.Tr - (st.Te - st.Tr) * 0.35) : st.Tr;
   return {
-    on: st.on, scen: st.scen, fail: st.fail, heater: st.heater, therm: st.therm, amb: st.amb, speed: st.speed, capOn: st.capOn,
+    on: st.on, scen: st.scen, fail: st.fail, therm: st.therm, amb: st.amb, speed: st.speed, capOn: st.capOn,
+    heat: { ...st.heat }, hflow: heaterFlows(st.heat, st.fail), heater: heaterFlows(st.heat, st.fail) && st.heat.fan > 0, valve: r.valve, ext: !!st.ext,
     t: st.t, Te: st.Te, Ts: st.Ts ?? st.Te, Tr: st.Tr, tIn: st.Te, tOut, TairIn: r.Tin, TairOut: st.TairOut,
     lift: st.lift, open: st.lift / CK.lift, P: st.P, res: st.res, m: st.m, lost: st.lost, gas: st.gas, missing: r.missing, gv: st.gv || 0,
     pocket: st.void || 0,

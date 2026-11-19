@@ -224,7 +224,8 @@ export function buildFuel(ctx, { E, eng, CAN }) {
   const col = new THREE.Color(), pos = new THREE.Vector3();
 
   // ════════ estado, pose y animación ════════
-  const st = { pedal: 0, target: 0, choke: 0, engine: 'caliente', fail: 'ok', on: false, level: 0.6, cut: false, showFuel: true, showAir: true, showVap: true, t: 0, shot: 0, pumpT: 0, last: null, far: true };
+  let thermal = () => null;   // el agua del único motor del modelo (la entrega van3d)
+  const st = { pedal: 0, target: 0, choke: 0, fail: 'ok', on: false, level: 0.6, cut: false, showFuel: true, showAir: true, showVap: true, t: 0, shot: 0, pumpT: 0, last: null, far: true };
   const wire = (m, a, b) => { const d = b.clone().sub(a), l = d.length(); m.position.copy(a).addScaledVector(d, 0.5); m.scale.y = Math.max(1e-4, l); m.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); };
   const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3();
   function pose(r) {
@@ -288,7 +289,7 @@ export function buildFuel(ctx, { E, eng, CAN }) {
     // bomba eléctrica: el émbolo late mientras hay contacto
     if (r.pumpOn) { st.pumpT += dt * (4 + 6 * r.feed); const k = Math.sin(st.pumpT * 6.28) * 0.5 + 0.5; plunger.position.x = PU.x + 0.006 * k; diaph.position.x = PU.x - 0.03 + 0.004 * k; }
   }
-  function recompute() { const r = fuelSolve(st); st.last = r; pose(r); return r; }
+  function recompute() { const T = thermal(); const r = fuelSolve({ ...st, Te: T ? T.st.Te : 85 }); st.last = r; pose(r); return r; }
   function tick(dt) {
     let active = st.on;
     // el pedal sigue al mando; si se pisa rápido, la bomba de aceleración da su chorro
@@ -298,8 +299,8 @@ export function buildFuel(ctx, { E, eng, CAN }) {
       st.pedal += d; active = true; recompute();
     }
     if (st.shot > 0) { st.shot = Math.max(0, st.shot - dt * 1.3); active = true; }
-    if (st.on && st.last && st.last.running && st.level > 0) { st.level = Math.max(0, st.level - dt * st.last.lph / 3600 / 37 * 40); }   // el estanque baja muy lento (acelerado 40×)
-    if (st.on) animate(dt);
+    if (st.on && st.last && st.last.running && st.level > 0) { st.level = Math.max(0, st.level - dt * st.last.lph / 3600 / 37); }   // el estanque baja a tiempo real (el tiempo acelerado es sólo de Refrigeración)
+    if (st.on) { recompute(); animate(dt); }   // el agua del motor se va calentando: cambia la mezcla en frío
     return active;
   }
   function setCuts(on) {
@@ -307,7 +308,7 @@ export function buildFuel(ctx, { E, eng, CAN }) {
     const x0 = CW(0, 0, 0).x;
     if (on) planes.carb.set(V(-1, 0, 0), x0 - 0.0005); else planes.carb.set(V(0, 1, 0), 1e4);   // quita la mitad de adelante: se mira desde el frente
   }
-  function setActive(on) { ptsBig.visible = ptsMicro.visible = on; if (!on) { st.on = false; st.target = 0; st.pedal = 0; st.shot = 0; recompute(); } }
+  function setActive(on) { ptsBig.visible = ptsMicro.visible = on; if (!on) { st.target = 0; st.pedal = 0; st.shot = 0; } recompute(); }
   const pressMats = [];
   function bind(meshes) { pressMats.length = 0; meshes.forEach(m => pressMats.push(m)); }
   function paint(mode, colorMode) {
@@ -323,6 +324,7 @@ export function buildFuel(ctx, { E, eng, CAN }) {
   recompute();
   return {
     planes, bind, paint, setCuts, setActive, recompute, tick, demo,
+    link(fn) { thermal = fn; recompute(); },
     set(o) { if ('pedal' in o) { st.target = o.pedal; delete o.pedal; } Object.assign(st, o); const r = recompute(); if (st.on) animate(0); return r; },
     get state() { return st; },
     get result() { return st.last; },

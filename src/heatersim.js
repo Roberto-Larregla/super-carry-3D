@@ -3,14 +3,16 @@
 // el ventilador tiene 3 velocidades (1 y 2 por la resistencia, 3 con 12 V directos). En este furgón el aire que pasa
 // por el radiador sale a los pies (y al parabrisas) y las rejillas de arriba reciben aire que no pasa por él (dueño).
 // En modo parabrisas casi no sale aire por el vidrio (dueño): se puede simular con la falla de la compuerta.
+// El agua es la del único motor del modelo (coolsim.js): su temperatura, el caudal que llega a la llave y las fallas
+// del circuito vienen de ahí, y el calor que saca este radiador es el mismo que pierde el motor.
 // Temperaturas, caudales y potencias son valores típicos para mostrar proporciones.
 
+import { cabinOf } from './motor.js';
+
 export const HK = {
-  amb: 10,                 // °C afuera (un día frío)
-  cabin: 16,               // °C en la cabina, para la recirculación
-  tw: { caliente: 85, frio: 25, termostato: 55 },   // agua del motor (termostato abre a 82 °C, manual)
   fan: [0, 0.38, 0.65, 1], // caudal relativo por velocidad
   qMax: 200,               // m³/h en la 3 (estimado)
+  cpW: 3.6 * 1.04 / 60,    // kW/K por L/min de mezcla 50/50
 };
 
 export const MODES = {
@@ -19,42 +21,44 @@ export const MODES = {
   pies:  { name: 'Pies', icon: 'pies', core: 1, foot: 0.85, def: 0.15 },
   vidrio:{ name: 'Parabrisas', icon: 'vidrio', core: 1, foot: 0.25, def: 0.75 },
 };
-export const HFAILS = {
-  ok: { name: 'Todo bien' },
-  termostato: { name: 'Termostato pegado abierto' },
-  llave: { name: 'Llave de agua trabada' },
-  resistencia: { name: 'Resistencia cortada' },
-  radiador: { name: 'Radiador de calefacción tapado' },
-  desempanador: { name: 'Compuerta del parabrisas desajustada' },
-};
+// fallas que se eligen en la vista Calefacción (los nombres están en coolsim.js: son las mismas del circuito de agua)
+export const HFAIL_IDS = ['ok', 'abierto', 'aire', 'llave', 'radiador', 'resistencia', 'desempanador'];
 
-export function heatSolve({ mode = 'pies', recirc = true, temp = 1, fan = 2, engine = 'caliente', fail = 'ok', on = true }) {
+// radiador de calefacción: el aire que cruza las aletas y el agua que pasa por los tubos, en serie.
+// Lo usan las dos vistas: Calefacción para las salidas de aire y Refrigeración para el calor que pierde el motor.
+export function heaterCore({ Tw, Tin, fan, mode, fail = 'ok', flowW }) {
+  const fanEff = fail === 'resistencia' && fan > 0 && fan < 3 ? 0 : fan;
+  const Q = HK.fan[fanEff] || 0, M = MODES[mode] || MODES.pies;
+  const Cair = Q * HK.qMax / 3600 * 1.2 * 1.005 * M.core;              // kW/K del aire que pasa por el radiador
+  const eps = (0.8 - 0.22 * Q) * (fail === 'radiador' ? 0.38 : 1);    // más eficaz con poco aire; tapado, mucho menos
+  const Cw = Math.max(0, flowW || 0) * HK.cpW;                         // kW/K del agua que llega
+  const dT = Math.max(0, Tw - Tin);
+  const kW = Cair > 1e-6 && Cw > 1e-6 ? dT / (1 / (Cair * eps) + 1 / (0.9 * Cw)) : 0;
+  return { fanEff, Q, Cair, kW, Thot: Cair > 1e-6 ? Tin + kW / Cair : Tin, Tret: Cw > 1e-6 ? Tw - kW / Cw : Tw };
+}
+
+// Tw: agua del motor (°C); flowW: L/min que pasan por la llave; amb: °C afuera; on: motor en marcha
+export function heatSolve({ mode = 'pies', recirc = true, temp = 1, fan = 2, fail = 'ok', on = false, Tw = 20, flowW = 0, amb = 18 }) {
   const M = MODES[mode];
-  const Tw = !on ? HK.amb + 5 : engine === 'frio' ? HK.tw.frio : fail === 'termostato' ? HK.tw.termostato : HK.tw.caliente;
   const valve = fail === 'llave' ? 0 : temp;                      // apertura de la llave
-  const fanEff = !on ? 0 : fail === 'resistencia' && fan > 0 && fan < 3 ? 0 : fan;
-  const Q = HK.fan[fanEff];
-  const Tin = recirc ? HK.cabin : HK.amb;
-  // radiador: más eficaz con poco aire; con la llave cerrada casi no calienta
-  const eps = (0.8 - 0.22 * Q) * (fail === 'radiador' ? 0.38 : 1) * Math.sqrt(valve);
-  const waterFlow = on ? valve * (fail === 'radiador' ? 0.35 : 1) : 0;
-  const Thot = Tin + eps * Math.max(0, Tw - Tin);
+  const Tin = recirc ? cabinOf(amb) : amb;
+  const core = heaterCore({ Tw, Tin, fan: on ? fan : 0, mode, fail, flowW: on ? flowW : 0 });
+  const { fanEff, Q, kW, Thot } = core;
   const flowCore = Q * M.core, flowFace = Q * (1 - M.core);
   // con la compuerta desajustada no llega a la posición del parabrisas: casi todo sigue saliendo a los pies
   const def = fail === 'desempanador' ? Math.min(M.def, 0.08) : M.def, foot = M.foot + (M.def - def);
   const out = {
-    cara: flowFace > 0.001 ? Tin + 0.6 * Q : null,
+    cara: flowFace > 0.001 ? Tin + 0.6 * Q : null,                // el motor del ventilador entibia un poco el aire
     pies: flowCore * foot > 0.001 ? Thot : null,
     vidrio: flowCore * def > 0.001 ? Thot : null,
   };
   const flows = { cara: flowFace, pies: flowCore * foot, vidrio: flowCore * def };
-  const kW = (Q * HK.qMax / 3600) * 1.2 * 1.005 * M.core * Math.max(0, Thot - Tin);
-  const Tret = waterFlow > 0.01 ? Tw - Math.min(14, kW * 4.5 / Math.max(0.15, waterFlow)) : Tw;
-  return { mode, recirc, temp, fan, fanEff, engine, fail, on, Tw, Tret, valve, waterFlow, Q, m3h: Q * HK.qMax, Tin, Thot, eps, out, flows, kW,
-    resistorOn: fanEff === 1 || fanEff === 2 };
+  const waterFlow = on ? Math.min(1.6, flowW / 6) : 0;           // relativo, para dibujar el agua (≈ 1 con la llave abierta en ralentí)
+  return { mode, recirc, temp, fan, fanEff, fail, on, Tw, Tret: core.Tret, valve, flowW: on ? flowW : 0, waterFlow, Q, m3h: Q * HK.qMax, Tin, Thot, out, flows, kW,
+    amb, resistorOn: on && (fanEff === 1 || fanEff === 2) };
 }
 
-// color de una temperatura: azul frío → crema → rojo caliente (en hex)
+// color de una temperatura del aire: azul frío → crema → rojo caliente (el agua usa la escala de coolsim.js)
 export function tempColor(t) {
   const st = [[5, [61, 143, 209]], [22, [214, 222, 226]], [40, [235, 168, 92]], [65, [217, 72, 43]]];
   if (t <= st[0][0]) return st[0][1];
