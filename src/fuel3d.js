@@ -89,7 +89,7 @@ export function buildFuel(ctx, { E, eng, CAN }) {
   const AZ = -0.085, AH = V(0.345, 0.468, AZ), AEX = EXV.pedal_acel;
   A('pedal_acel', rbox(0.05, 0.006, 0.075, 0.002), 'steel', { p: [AH.x + 0.005, 0.462, AZ] });                    // base apernada
   for (const dz of [-0.03, 0.03]) A('pedal_acel', rbox(0.012, 0.022, 0.004, 0.001), 'steel', { p: [AH.x, 0.474, AZ + dz] });
-  A('pedal_acel', cylZ(0.004, 0.16, 8), 'machined', { p: [AH.x, AH.y + 0.012, AZ + 0.05] });                      // eje: entra por el costado de la tapa
+  A('pedal_acel', cylZ(0.004, 0.13, 8), 'machined', { p: [AH.x, AH.y + 0.012, AZ + 0.035] });                      // eje: entra por el costado de la tapa
   const apedal = group('pedal_acel', root, [AH.x, AH.y + 0.012, AZ], AEX);
   { const pl = (geo, kind, o) => add('pedal_acel', geo, kind, { parent: apedal, ex: null, ...o });
     pl(rbox(0.007, 0.19, 0.054, 0.012), 'steel', { p: [0, 0.098, 0] });
@@ -98,19 +98,19 @@ export function buildFuel(ctx, { E, eng, CAN }) {
   apedal.rotation.z = -0.36;
   // tapa blanca (fotos de los pedales): chapa pintada, larga hacia atrás, angosta y baja, apoyada en el piso a la derecha
   // del pedal y atornillada; su frente baja en rampa. El eje del pedal entra por su costado y adentro una palanca tira de la piola.
-  // Medidas sacadas de la foto con el pedal de referencia: ≈ 27 cm de largo, 6 de ancho (como el pedal, dueño) y 4,5 de alto
-  { const FL = 0.458, X0 = 0.135, X1 = 0.405, H = 0.045, ZL = AZ + 0.077, W = 0.06;
+  // Medidas sacadas de la foto con el pedal de referencia: ≈ 27 cm de largo y 4,5 de alto; 3 de ancho (dueño)
+  { const FL = 0.458, X0 = 0.135, X1 = 0.405, H = 0.045, ZL = AZ + 0.077, W = 0.03;
     const sh = new THREE.Shape([[X0, FL], [X0, FL + H], [X1 - 0.07, FL + H], [X1, FL + 0.006], [X1, FL]].map(([x, y]) => new THREE.Vector2(x, y)));
     const g = new THREE.ExtrudeGeometry(sh, { depth: W - 0.008, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.003, bevelSegments: 2, curveSegments: 4 });
     g.translate(0, 0, ZL + 0.004);
     A('pedal_acel', g, 'white', { cut: 'xray', double: true });
-    for (const [x, z] of [[X0 + 0.03, ZL + W - 0.017], [X0 + 0.12, ZL + W - 0.017], [X1 - 0.09, ZL + W - 0.018]])   // tornillos de la tapa (foto)
-      A('pedal_acel', cylY(0.006, 0.004, 12), 'steel', { p: [x, FL + H + 0.004, z] }); }
-  const alever = group('pedal_acel', root, [AH.x, AH.y + 0.012, AZ + 0.12], AEX);
-  A('pedal_acel', rbox(0.008, 0.02, 0.006, 0.002), 'steel', { parent: alever, p: [0, 0.009, 0], ex: null });
+    for (const [x, z] of [[X0 + 0.03, ZL + W / 2], [X0 + 0.12, ZL + W / 2], [X1 - 0.09, ZL + W / 2]])   // tornillos de la tapa (foto)
+      A('pedal_acel', cylY(0.005, 0.004, 12), 'steel', { p: [x, FL + H + 0.004, z] }); }
+  const alever = group('pedal_acel', root, [AH.x, AH.y + 0.012, AZ + 0.092], AEX);
+  A('pedal_acel', rbox(0.008, 0.015, 0.006, 0.002), 'steel', { parent: alever, p: [0, 0.006, 0], ex: null });
   alever.rotation.z = -0.36;
   const tLever = CW(-0.036, 0.002, 0.018);                    // eje de la mariposa, por atrás del carburador
-  const ACAB = [[AH.x + 0.01, AH.y + 0.02, AZ + 0.12], [AH.x + 0.03, 0.455, AZ + 0.12], [0.34, 0.40, 0.2], [0.14, 0.39, 0.30], [-0.1, 0.40, 0.31], [-0.3, 0.47, 0.25], [tLever.x - 0.05, tLever.y + 0.05, tLever.z + 0.12], [tLever.x - 0.02, tLever.y + 0.03, tLever.z + 0.05]];
+  const ACAB = [[AH.x + 0.01, AH.y + 0.02, AZ + 0.092], [AH.x + 0.03, 0.455, AZ + 0.092], [0.34, 0.40, 0.2], [0.14, 0.39, 0.30], [-0.1, 0.40, 0.31], [-0.3, 0.47, 0.25], [tLever.x - 0.05, tLever.y + 0.05, tLever.z + 0.12], [tLever.x - 0.02, tLever.y + 0.03, tLever.z + 0.05]];
   A('pedal_acel', tube(ACAB, 0.004, false, 110), 'rubber');
   const awire = dyn(A('pedal_acel', cylY(0.0012, 1, 6), 'machined', { ex: null }));
   // ahogador: perilla bajo el tablero, a la izquierda del volante (foto), y piola hasta la palanca del carburador
