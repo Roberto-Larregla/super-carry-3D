@@ -4,9 +4,12 @@ import { build } from 'esbuild';
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { gzipSync } from 'zlib';
+import { createHash } from 'crypto';
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const VERSION = pkg.version.split('.')[0], FECHA = process.env.FECHA || new Date().toISOString().slice(0, 10);
+// la imagen para compartir lleva una huella: si cambia, las redes no muestran la vieja guardada
+const PREVIEW = existsSync('docs/preview.png') ? 'preview.png?v=' + createHash('sha1').update(readFileSync('docs/preview.png')).digest('hex').slice(0, 8) : 'preview.png';
 
 const r = await build({ entryPoints: ['src/main.js'], bundle: true, minify: !process.env.NOMIN, format: 'iife', target: ['es2020'], write: false, legalComments: 'eof', logLevel: 'warning' });
 const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
@@ -33,7 +36,7 @@ const out = readFileSync('index.template.html', 'utf8')
   .replace('/*DIAGCSS*/', () => readFileSync('src/styles/diagramas.css', 'utf8'))
   .replace('<!--APP-->', () => `<script>\n${js}\n</script>`)
   .replace('<!--FUENTE-->', () => `<script type="application/gzip" id="codigo-fuente" data-formato="json+gzip+base64" data-version="${VERSION}">${fuente}</script>`)
-  .replaceAll('{{VERSION}}', VERSION).replaceAll('{{FECHA}}', FECHA).replaceAll('{{SITIO}}', pkg.homepage || '');
+  .replaceAll('{{VERSION}}', VERSION).replaceAll('{{FECHA}}', FECHA).replaceAll('{{SITIO}}', pkg.homepage || '').replaceAll('{{PREVIEW}}', PREVIEW);
 mkdirSync('docs', { recursive: true });
 writeFileSync('docs/index.html', out);
 console.log(`docs/index.html · versión ${VERSION} (${FECHA}) · ${(out.length / 1024).toFixed(0)} KB · fuente ${Object.keys(files).length} archivos`);
