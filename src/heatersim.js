@@ -38,11 +38,12 @@ export function heaterCore({ Tw, Tin, fan, mode, fail = 'ok', flowW }) {
 }
 
 // Tw: agua del motor (°C); flowW: L/min que pasan por la llave; amb: °C afuera; on: motor en marcha
-export function heatSolve({ mode = 'pies', recirc = true, temp = 1, fan = 2, fail = 'ok', on = false, Tw = 20, flowW = 0, amb = 18 }) {
+export function heatSolve({ mode = 'pies', recirc = true, temp = 1, fan = 2, fail = 'ok', on = false, ign, Tw = 20, flowW = 0, amb = 18 }) {
+  const fanOn = ign ?? on;   // el ventilador va con el contacto (fusible IG); el agua caliente, con el motor en marcha
   const M = MODES[mode];
   const valve = fail === 'llave' ? 0 : temp;                      // apertura de la llave
   const Tin = recirc ? cabinOf(amb) : amb;
-  const core = heaterCore({ Tw, Tin, fan: on ? fan : 0, mode, fail, flowW: on ? flowW : 0 });
+  const core = heaterCore({ Tw, Tin, fan: fanOn ? fan : 0, mode, fail, flowW: on ? flowW : 0 });
   const { fanEff, Q, kW, Thot } = core;
   const flowCore = Q * M.core, flowFace = Q * (1 - M.core);
   // con la compuerta desajustada no llega a la posición del parabrisas: casi todo sigue saliendo a los pies
@@ -55,7 +56,7 @@ export function heatSolve({ mode = 'pies', recirc = true, temp = 1, fan = 2, fai
   const flows = { cara: flowFace, pies: flowCore * foot, vidrio: flowCore * def };
   const waterFlow = on ? Math.min(1.6, flowW / 6) : 0;           // relativo, para dibujar el agua (≈ 1 con la llave abierta en ralentí)
   return { mode, recirc, temp, fan, fanEff, fail, on, Tw, Tret: core.Tret, valve, flowW: on ? flowW : 0, waterFlow, Q, m3h: Q * HK.qMax, Tin, Thot, out, flows, kW,
-    amb, resistorOn: on && (fanEff === 1 || fanEff === 2) };
+    amb, ign: fanOn, resistorOn: fanOn && (fanEff === 1 || fanEff === 2) };
 }
 
 // color de una temperatura del aire: azul frío → crema → rojo caliente (el agua usa la escala de coolsim.js)

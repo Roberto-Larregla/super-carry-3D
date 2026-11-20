@@ -6,7 +6,7 @@
 
 Modelo 3D interactivo de mi **Suzuki Super Carry 1000 (SK410) 1996**: furgón ciego, volante a la izquierda, caja de 5 velocidades y carburador no catalítico.
 
-Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su lugar (con corte, rayos X y animación), los frenos en detalle (pedal, servo, bomba tándem, discos, tambores y freno de mano, con presión, cortes, fallas y desgaste), la calefacción en detalle (caja, ventilador, toma de aire, salidas y mandos, con el recorrido del aire y del agua), la alimentación en detalle (estanque, bomba, líneas, carburador en corte, acelerador y ahogador, con el recorrido de la bencina y del aire), todos los sistemas, el mapa de sensores, diagramas animados, ficha técnica, plan de mantención, diagnóstico y un mapa de qué tan preciso es cada dato mostrado.
+Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su lugar (con corte, rayos X y animación), los frenos en detalle (pedal, servo, bomba tándem, discos, tambores y freno de mano, con presión, cortes, fallas y desgaste), la calefacción en detalle (caja, ventilador, toma de aire, salidas y mandos, con el recorrido del aire y del agua), la alimentación en detalle (estanque, bomba, líneas, carburador en corte, acelerador y ahogador, con el recorrido de la bencina y del aire), la transmisión, la refrigeración y el sistema eléctrico en detalle (batería, partida, carga, encendido, fusibles, luces, tablero, radio y parlantes, con la corriente animada), todos compartiendo un solo motor y una sola batería, todos los sistemas, el mapa de sensores, diagramas animados, ficha técnica, plan de mantención, diagnóstico y un mapa de qué tan preciso es cada dato mostrado.
 
 ## Cómo está hecho
 
@@ -23,6 +23,11 @@ Incluye la carrocería medida en fotos del furgón, el motor F10A completo en su
 | `src/fuelsim.js` | Cálculo simple de la alimentación: mezcla, vacío, rpm y consumo según el pedal y el ahogador |
 | `src/drive3d.js` | Tren motriz: embrague, caja de 5 marchas con sus engranajes, sincronizadores y horquillas, palanca y cables, cardán, diferencial y palieres |
 | `src/drivesim.js` | Dientes y relaciones de la caja y el diferencial, y un cálculo simple de motor, embrague y furgón para pasar los cambios |
+| `src/cool3d.js` | Refrigeración: radiador, bomba, ventilador, termostato, mangueras y depósito, con el agua y el aire animados |
+| `src/coolsim.js` | Temperatura del agua, termostato, presión y depósito; es el estado del motor que comparten todas las vistas |
+| `src/ele3d.js` | Eléctrico: chapa, caja de fusibles, destellador, bocina, limpiaparabrisas, radio, parlantes, antena, arneses, tablero y ampolletas, con la corriente animada |
+| `src/elecsim.js` | Batería, alternador, regulador, partida, consumos por fusible, destellador, encendido y radio |
+| `src/motor.js` | Lo que comparten las simulaciones: torque, poleas de la correa y presión de aceite |
 | `src/engine3d.js` | Motor F10A completo |
 | `src/viewer3d.js` | Visor 3D (three.js): vistas, cortes, despiece, colores y selección |
 | `src/main.js` | Interfaz: panel con Sistemas, Piezas, Sensores y Datos, hoja deslizable en el celular y controles del visor |

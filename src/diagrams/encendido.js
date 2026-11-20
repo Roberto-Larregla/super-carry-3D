@@ -1,7 +1,11 @@
 import { s, svg, t, callout, clamp, rad, pol, h, range, seg, readout } from '../svgkit.js';
+import { advanceAt, altMaxAt, EK } from '../elecsim.js';
+import { ALT_K } from '../motor.js';
 
 const ORDER = [1, 3, 4, 2];
-export function encendido(root) {
+const nf = (n, d = 0) => n.toLocaleString('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d });
+// link: la llave, la batería y el motor del modelo 3D (vista Eléctrico); sin él, el esquema tiene su propia simulación
+export function encendido(root, link) {
   const st = { mode: 'run', rpm: 900, load: 0.4, rotor: 0, sparkT: [0, 0, 0, 0] };
 
   // ═══ Circuito de encendido ═══
@@ -9,7 +13,7 @@ export function encendido(root) {
   // chapa de contacto
   s('circle', { cx: 44, cy: 44, r: 22, class: 'node' }, f);
   const key = s('path', { class: 'keyptr' }, f);
-  const keyPos = { off: -160, on: -75, start: -30, run: -75 };
+  const keyPos = { off: -160, lock: -160, acc: -118, on: -75, start: -30, run: -75 };
   [['LOCK', -160], ['ACC', -118], ['ON', -75], ['ST', -30]].forEach(([n, a]) => { const [x, y] = pol(44, 44, 32, rad(a)); t(f, x, y + 3, n, 'lbl lbl-xs', 'middle'); });
   t(f, 44, 82, 'Chapa', 'lbl lbl-xs', 'middle');
   // batería
@@ -70,7 +74,8 @@ export function encendido(root) {
 
   // ═══ Avance ═══
   const fa = svg(400, 118, 'Avance del encendido');
-  t(fa, 14, 18, 'Punto base: 8° antes del PMS a 900 rpm (dato UK; falta confirmarlo para cada versión)', 'lbl lbl-xs strong');
+  t(fa, 14, 18, 'Punto base: 8° antes del PMS a 900 rpm o menos (manual)', 'lbl lbl-xs strong');
+  const advTxt = t(fa, 386, 18, '', 'lbl lbl-xs', 'end');
   const AX0 = 120, AX1 = 386;
   s('line', { x1: AX0, y1: 92, x2: AX1, y2: 92, class: 'tick' }, fa);
   t(fa, AX0, 108, 'PMS', 'lbl lbl-xs', 'middle'); t(fa, AX1, 108, 'más avance (antes del PMS) →', 'lbl lbl-xs', 'end');
@@ -102,20 +107,46 @@ export function encendido(root) {
 
   // ═══ Controles ═══
   const rd = readout();
-  const rpmCtl = range({ label: 'Régimen', min: 900, max: 5500, step: 50, value: 900, fmt: v => Math.round(v).toLocaleString('es-CL') + ' rpm', oninput: v => st.rpm = v });
-  const modeCtl = seg({ label: 'Estado', options: [{ v: 'off', t: 'Apagado' }, { v: 'on', t: 'Contacto' }, { v: 'start', t: 'Partida' }, { v: 'run', t: 'En marcha' }], value: 'run', onchange: v => { st.mode = v; } });
-  const loadCtl = seg({ label: 'Carga', options: [{ v: '0.1', t: 'Ralentí' }, { v: '0.4', t: 'Parcial' }, { v: '1', t: 'A fondo' }], value: '0.4', onchange: v => st.load = +v });
+  let modeCtl, rpmCtl, loadCtl;
+  if (link) {
+    // la llave del furgón: START da la partida y vuelve sola a ON; el acelerador es el mismo de las vistas
+    modeCtl = seg({ label: 'Llave', options: [{ v: 'lock', t: 'LOCK' }, { v: 'acc', t: 'ACC' }, { v: 'on', t: 'ON' }, { v: 'start', t: 'START' }], value: 'lock', onchange: v => link.set(v === 'start' ? { crank: true } : { key: v }) });
+    rpmCtl = range({ label: 'Acelerador', min: 0, max: 100, step: 5, value: 0, fmt: v => Math.round(v) + ' %', oninput: v => link.set({ pedal: v / 100 }) });
+  } else {
+    rpmCtl = range({ label: 'Régimen', min: 900, max: 5500, step: 50, value: 900, fmt: v => Math.round(v).toLocaleString('es-CL') + ' rpm', oninput: v => st.rpm = v });
+    modeCtl = seg({ label: 'Estado', options: [{ v: 'off', t: 'Apagado' }, { v: 'on', t: 'Contacto' }, { v: 'start', t: 'Partida' }, { v: 'run', t: 'En marcha' }], value: 'run', onchange: v => { st.mode = v; } });
+    loadCtl = seg({ label: 'Carga', options: [{ v: '0.1', t: 'Ralentí' }, { v: '0.4', t: 'Parcial' }, { v: '1', t: 'A fondo' }], value: '0.4', onchange: v => st.load = +v });
+  }
   root.append(
     h('figure', { class: 'fig' }, f, h('figcaption', {}, 'Versión catalítica chilena: distribuidor 33100-85710 con módulo de encendido 33370-85710, sin platinos (el manual de servicio es de la versión con platinos 0,4–0,5 mm). Un engranaje en la punta del árbol de levas lo hace girar a la mitad del cigüeñal, en sentido horario visto desde la tapa, y el rotor reparte 4 chispas cada dos vueltas en orden 1-3-4-2. Punto: 8° APMS a 900 rpm.')),
     rd,
-    h('div', { class: 'controls' }, modeCtl, rpmCtl, loadCtl),
-    h('figure', { class: 'fig slim' }, fa, h('figcaption', {}, 'Los contrapesos centrífugos adelantan la chispa al subir las rpm y la cápsula de vacío la adelanta a carga parcial. Las barras son cualitativas: la curva exacta no está publicada en las fuentes revisadas.')),
-    h('figure', { class: 'fig' }, fc, h('figcaption', {}, 'Con el motor en marcha el alternador carga a 14,2–15,2 V y se apaga la luz de carga. En partida, el piñón del motor de partida engrana con la corona del volante.')),
+    h('div', { class: 'controls' }, ...[modeCtl, rpmCtl, loadCtl].filter(Boolean)),
+    h('figure', { class: 'fig slim' }, fa, h('figcaption', {}, 'Los contrapesos centrífugos adelantan la chispa al subir las rpm y la cápsula de vacío la adelanta a carga parcial, sólo con la mariposa abierta (manual). Las cifras del centrífugo y del vacío son estimadas: la curva exacta no está en las fuentes revisadas.')),
+    h('figure', { class: 'fig' }, fc, h('figcaption', {}, 'Con el motor en marcha el alternador carga a 14,4–15,0 V (manual, a 25 °C) y se apaga la luz de carga. En partida, el piñón del motor de partida engrana con la corona del volante y la batería entrega más de cien amperes.')),
   );
+  if (link) root.append(h('p', { class: 'muted' }, 'El esquema muestra la misma llave, batería y motor del modelo 3D: lo que se cambia aquí cambia allá.'));
 
+  // el estado a dibujar: del modelo 3D (link) o de los mandos propios
+  function state() {
+    const L = link && link.read(), r = L && L.r;
+    if (r) {
+      const cranking = !!r.crank, running = r.run;
+      return { m: cranking ? 'start' : running ? 'run' : r.key === 'on' ? 'on' : r.key === 'acc' ? 'acc' : 'off', key: r.key, cranking, running, on: r.on,
+        rpm: cranking ? r.crank.n : running ? r.rpm : 0, spark: running || (cranking && r.crank.spark), V: r.V, adv: r.adv, charge: !!r.lamps.charge,
+        iAlt: r.iAlt, iCrank: cranking ? r.crank.I : 0, miss: r.misfire ? 3 : 0, pedal: L.pedal, r };
+    }
+    const m = st.mode, cranking = m === 'start', running = m === 'run', rpm = cranking ? 220 : running ? st.rpm : 0;
+    const pedal = running ? (st.load < 0.2 ? 0 : st.load < 0.6 ? 0.25 : 1) : 0, vac = running ? 4 + 44 * Math.pow(1 - pedal, 1.6) : 0;
+    const iMax = running ? altMaxAt(rpm * ALT_K) : 0;
+    return { m, key: m === 'off' ? 'lock' : m === 'start' ? 'start' : 'on', cranking, running, on: m !== 'off', rpm, spark: running || cranking,
+      V: running ? (iMax > 5 ? EK.vReg : 12.9) : cranking ? 10.4 : 12.6, adv: advanceAt(running ? rpm : 0, vac, pedal), charge: m === 'on' || cranking || (running && iMax < 0.5),
+      iAlt: running ? Math.min(iMax, 12) : 0, iCrank: cranking ? 170 : 0, miss: 0, pedal };
+  }
+  let ctlKey = '';
   function frame(dt) {
-    const m = st.mode, on = m !== 'off', cranking = m === 'start', running = m === 'run';
-    const rpm = cranking ? 220 : running ? st.rpm : 0;
+    const S = state();
+    const m = S.m, on = S.on, cranking = S.cranking, running = S.running, rpm = S.rpm;
+    if (link) { const k = S.key + '|' + Math.round(S.pedal * 20); if (k !== ctlKey) { ctlKey = k; modeCtl.set(S.key === 'start' ? 'start' : S.key); if (document.activeElement !== rpmCtl.input) rpmCtl.set(Math.round(S.pedal * 100)); } }
     const visual = rpm ? 0.25 + rpm / 900 * 0.4 : 0; // cámara lenta
     st.rotor = (st.rotor + visual * dt * 180) % 360;
     const rot = st.rotor; // horario visto desde la tapa
@@ -124,9 +155,9 @@ export function encendido(root) {
     const a = ((-90 + rot) % 360 + 360) % 360;
     let near = null;
     for (const c of ORDER) { const d = Math.abs(((a - ((TA[c] + 360) % 360)) + 540) % 360 - 180); if (d < 9) near = c; }
-    const sparking = (running || cranking) && near != null;
+    const sparking = S.spark && near != null;
     for (const c of ORDER) {
-      if (sparking && near === c) st.sparkT[c - 1] = 0.2;
+      if (sparking && near === c && c !== S.miss) st.sparkT[c - 1] = 0.2;
       st.sparkT[c - 1] = Math.max(0, st.sparkT[c - 1] - dt);
       const v = st.sparkT[c - 1] / 0.2;
       plugs[c].style.opacity = v;
@@ -136,23 +167,26 @@ export function encendido(root) {
     const mx = Math.max(...st.sparkT);
     htc.style.opacity = mx > 0 ? 1 : 0; htc.setAttribute('stroke-dashoffset', (-(1 - mx / 0.2) * 120).toFixed(1));
     pf.forEach(p => { p.style.opacity = on ? 1 : 0.1; if (on) { p._o = ((p._o || 0) - 30 * dt) % 100; p.setAttribute('stroke-dashoffset', p._o); } });
-    { const [x, y] = pol(44, 44, 17, rad(keyPos[m])); key.setAttribute('d', `M44,44 L${x},${y}`); }
-    const cent = running ? clamp((rpm - 900) / 3600, 0, 1) : 0;
-    const vac = running ? (st.load < 0.2 ? 0.15 : st.load < 0.6 ? 1 : 0) : 0;
-    bCent.setAttribute('width', (cent * 120 + 0.01).toFixed(1));
-    bVac.setAttribute('width', (vac * 80 + 0.01).toFixed(1)); bVac.setAttribute('x', AX0 + 34 + cent * 120);
-    lamp.style.opacity = (m === 'on' || cranking) ? 1 : 0;
-    fB.style.opacity = running ? 1 : 0; fS.style.opacity = cranking ? 1 : 0;
+    { const [x, y] = pol(44, 44, 17, rad(keyPos[S.key] ?? keyPos[m])); key.setAttribute('d', `M44,44 L${x},${y}`); }
+    // avance en grados: 34 px = los 8° de base
+    const PX = 34 / 8, A = S.adv;
+    bCent.setAttribute('width', (A.cent * PX + 0.01).toFixed(1));
+    bVac.setAttribute('width', (A.vac * PX + 0.01).toFixed(1)); bVac.setAttribute('x', (AX0 + 34 + A.cent * PX).toFixed(1));
+    advTxt.textContent = running ? `${nf(A.total, 1)}° en total` : '';
+    lamp.style.opacity = S.charge && on ? 1 : 0;
+    fB.style.opacity = running && S.iAlt > 0.5 ? 1 : 0; fS.style.opacity = cranking ? 1 : 0;
     if (running) { fB._o = ((fB._o || 0) - 30 * dt) % 100; fB.setAttribute('stroke-dashoffset', fB._o); }
     if (cranking) { fS._o = ((fS._o || 0) - 60 * dt) % 100; fS.setAttribute('stroke-dashoffset', fS._o); }
     altRot.setAttribute('transform', `rotate(${(st.rotor * 4.4 * (running ? 1 : 0)).toFixed(1)} 200 48)`);
     pinion.setAttribute('cx', cranking ? 269 : 260);
     pinion.setAttribute('class', 'pinion' + (cranking ? ' engaged' : ''));
-    vtxt.textContent = running ? '14,2–15,2 V' : cranking ? 'cae en partida' : '≈ 12,6 V';
-    rd.innerHTML = m === 'off' ? '<b>Apagado.</b> Sin corriente en el primario: no hay chispa ni funciona la bomba de bencina.' :
-      m === 'on' ? '<b>Contacto puesto, motor detenido.</b> La luz de carga se enciende porque el alternador no gira. La bobina recibe 12 V, pero sin giro el generador no da señal y no hay chispa.' :
-      cranking ? '<b>Partida.</b> La batería entrega su mayor corriente al motor de partida; el giro lento del motor ya genera señal y chispa.' :
-      `<b>${Math.round(rpm).toLocaleString('es-CL')} rpm.</b> El generador de señal avisa al módulo cuándo cortar el primario; al cortarse, la bobina induce la alta tensión y el rotor la lleva a la bujía que corresponde.<span class="sub">Avance: base 8° + centrífugo ${cent > 0.66 ? 'alto' : cent > 0.2 ? 'medio' : 'mínimo'} + vacío ${vac > 0.5 ? 'actuando' : 'casi nulo'}.</span>`;
+    vtxt.textContent = (link ? '' : '≈ ') + nf(S.V, 1) + ' V';
+    const miss = S.miss ? ' El cable de la bujía del cilindro 3 está cortado: ese cilindro no explota.' : '';
+    rd.innerHTML = m === 'off' ? '<b>LOCK.</b> Sin corriente en el primario: no hay chispa ni funciona la bomba de bencina.' :
+      m === 'acc' ? '<b>ACC.</b> Tienen corriente la radio y el encendedor; el primario sigue cortado.' :
+      m === 'on' ? `<b>Contacto puesto, motor detenido.</b> La luz de carga se enciende porque el alternador no gira. La bobina recibe ${nf(S.V, 1)} V, pero sin giro el generador de señal no avisa y no hay chispa.` :
+      cranking ? `<b>Partida.</b> El motor de partida pide ≈ ${nf(Math.round(S.iCrank))} A y la batería baja a ${nf(S.V, 1)} V; el motor gira a ≈ ${nf(Math.round(rpm))} rpm${S.spark ? ' y el giro lento ya da señal y chispa.' : ', pero con tan poco voltaje no hay chispa.'}` :
+      `<b>${nf(Math.round(rpm))} rpm.</b> El generador de señal avisa al módulo cuándo cortar el primario; al cortarse, la bobina induce la alta tensión y el rotor la lleva a la bujía que corresponde.${miss}<span class="sub">Avance: ${nf(S.adv.base)}° de base + ${nf(S.adv.cent, 1)}° centrífugo + ${nf(S.adv.vac, 1)}° de vacío. El alternador entrega ${nf(S.iAlt, S.iAlt < 10 ? 1 : 0)} A a ${nf(S.V, 1)} V.</span>`;
   }
   frame(0.016);
   return { tick(dt) { frame(dt); } };

@@ -8,7 +8,7 @@
 // Es el estado del único motor del modelo: todas las vistas leen de aquí la temperatura del agua, y la calefacción y la
 // refrigeración comparten sus mandos y sus fallas. Las presiones se calculan en bar y se muestran en kg/cm², como el manual.
 
-import { MOTOR, powerAt, cabinOf, BAR_PER_KG } from './motor.js';
+import { MOTOR, powerAt, cabinOf, BAR_PER_KG, PUMP_K, beltSlip } from './motor.js';
 import { heaterCore } from './heatersim.js';
 import { GEARS, FINAL, TIRES } from './data.js';
 
@@ -16,7 +16,7 @@ export const CK = {
   vSys: 3.4, resLow: 0.22, resFull: 0.6, resMax: 0.95, hoseEnd: 0.035,   // L; la manguera llega a 10 mm del fondo del depósito
   capKg: 0.9, cap: 0.9 * BAR_PER_KG, vac: 0.05,                         // tapa: 0,9 kg/cm² (manual) = 0,88 bar; válvula de vacío (bar)
   therm: { A: [82, 95], B: [88, 100] }, lift: 8,                         // °C y mm
-  pumpK: 1.16,                                                           // bomba y ventilador: 1,16 vueltas por vuelta del cigüeñal (poleas)
+  pumpK: PUMP_K,                                                         // bomba y ventilador: ≈ 1,16 vueltas por vuelta del cigüeñal (poleas, motor.js)
   qPump: 0.0135,                                                         // L/min por rpm de la bomba (estimado)
   Ce: 30, Cr: 5,                                                         // kJ/K: motor (fierro, aluminio y agua) y radiador
   cp: 3.6 * 1.04 / 60,                                                   // kW/K por L/min de mezcla 50/50
@@ -70,6 +70,7 @@ export function senderR(T) {
 const G = T => 1 / (senderR(T) + CK.rc);
 const G0 = G(50), G1 = G(120);
 export const needleOf = T => clamp((G(T) - G0) / (G1 - G0), -0.06, 1.06);   // 0 = C, 1 = H
+export const NEEDLE_OFF = -0.06;                                              // aguja sin corriente (bajo la C)
 // la mezcla 50/50 hierve a ~106 °C sin presión y a ~123 °C con la tapa de 0,9
 export const boilAt = P => 106 + 19 * clamp(P, 0, 1.3);   // P en bar
 
@@ -118,7 +119,7 @@ function sub(st, h) {
   const S = condAt(st), f = st.fail;
   const n = st.on ? S.rpm : 0, run = n > 0;   // motor girando
   // correa: patina más con carga y con muchas vueltas
-  const slip = f === 'correa' ? clamp(0.05 + 0.15 * S.load + n / 40000, 0, 0.65) : 0;
+  const slip = f === 'correa' ? beltSlip(S.load, n, st.altA || 0) : 0;   // la misma correa mueve el alternador (vista Eléctrico)
   const wp = n * CK.pumpK * (1 - slip);
   // lo que no ocupa el agua (aire, gases o vapor, del paso anterior): la bomba cavita y la calefacción (el punto alto) se llena de aire
   const pocket = st.void || 0;
@@ -210,7 +211,7 @@ function sub(st, h) {
   // bulbo: en el múltiple; si queda en aire o vapor marca de menos
   const dry = pocket > 0.45 || (f === 'aire' && run);
   st.Ts = dry ? st.Te - Math.min(f === 'aire' ? 10 + 9 * Math.sin(st.t / 23) : Math.min(40, (pocket - 0.45) * 90), 0.6 * Math.max(0, st.Te - st.amb)) : st.Te;
-  const nt = needleOf(st.Ts);
+  const nt = st.ign === false ? NEEDLE_OFF : needleOf(st.Ts);   // el indicador necesita contacto (llave en ON): sin él vuelve a C
   st.gauge += (nt - st.gauge) * Math.min(1, h / 9);
   st.t += h;
   return { S, n, slip, wp, Qp, Qr, Qb, Qh, Qin, Qrad, Qhe, Ql, v, vf, vr, Tin, Ka, Tb, vapor, missing: pocket, rec, airF, valve };
@@ -234,13 +235,13 @@ export function warmUp(st) {
   st.ext = { ...SCEN.ralenti };
   for (let t = 0; t < 60; t += 0.5) sub(st, 0.5);
   st.on = keep.on; st.ext = keep.ext;
-  st.gauge = needleOf(st.Ts ?? st.Te);
+  st.gauge = st.ign === false ? NEEDLE_OFF : needleOf(st.Ts ?? st.Te);
 }
 // pone el agua del motor a una temperatura (el esquema del panel): el resto del circuito sigue desde ahí
 export function setTemp(st, T) {
   st.Te = T; st.Ts = T; st.TairOut = Math.min(st.TairOut, T);
   if (st.Tr > T) st.Tr = T;
-  st.gauge = needleOf(T);
+  st.gauge = st.ign === false ? NEEDLE_OFF : needleOf(T);
 }
 
 export function coolRead(st, r) {

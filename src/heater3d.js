@@ -348,7 +348,7 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   }
   function recompute() {
     const T = thermal();
-    if (T) { for (const k of HEATKEYS) st[k] = T.st.heat[k]; st.fail = T.st.fail; st.on = T.st.on; }
+    if (T) { for (const k of HEATKEYS) st[k] = T.st.heat[k]; st.fail = T.st.fail; st.on = T.st.on; st.ign = T.st.ign ?? T.st.on; }
     const r = heatSolve({ ...st, Tw: T ? T.st.Te : 20, flowW: T && T.r ? T.r.Qh : 0, amb: T ? T.st.amb : 18 });
     st.last = r; pose(); return r;
   }
@@ -376,7 +376,7 @@ export function buildHeater(ctx, { hOut, wpIn }) {
   recompute();
   return {
     planes, fan, bind, paint, setCuts, setActive, recompute, water: WATER,
-    tick(dt) { recompute(); if (!st.on) return false; animate(dt); return true; },
+    tick(dt) { recompute(); if (!st.on && !(st.ign && st.fan > 0)) return false; animate(dt); return true; },   // con contacto el ventilador sopla aunque el motor esté detenido
     // mandos de la calefacción: van al estado compartido del motor; el resto (lo que se muestra) queda aquí
     set(o) {
       const T = thermal();

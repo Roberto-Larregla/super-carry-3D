@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { CYL_X, FIRE_OFF, DIR, R, L, CH, DECK, BORE_R, TILT, cyclePhi, phaseOf, PHASES } from './geom.js';
 import { PARTS } from './data.js';
+import { PULLEY, MOTOR } from './motor.js';
 
 export const CAM_Y = 0.275;
 const HEAD_TOP = 0.31, B_FRONT = 0, B_REAR = -0.375;
@@ -289,7 +290,7 @@ export function buildEngine(ctx, parent) {
   add('correa_acc', cylX(0.013, 0.024, 6), 'chrome', { parent: pul, ex: null, p: [0.004, 0, 0] });
   add('correa_acc', rbox(0.02, 0.006, 0.004, 0.001), 'white', { parent: pul, ex: null, p: [0, 0.056, 0] });
   const ALT = [0.095, 0.155];
-  const vbelt = hullBelt([{ y: 0, z: 0, r: 0.052 }, { y: 0.115, z: 0, r: 0.045 }, { y: ALT[0], z: ALT[1], r: 0.026 }]);
+  const vbelt = hullBelt([{ y: 0, z: 0, r: PULLEY.crank }, { y: 0.115, z: 0, r: PULLEY.pump }, { y: ALT[0], z: ALT[1], r: PULLEY.alt }]);   // radios de paso compartidos con las simulaciones (motor.js)
   add('correa_acc', bandGeo(vbelt, XP, 0.011, 0.007), 'rubber', { parent: accC, ex: null, double: true });
 
   // Bomba de agua (manual secc. 6): centrífuga, con rodamiento sellado; no se desarma. Va apernada al frente del block
@@ -303,7 +304,7 @@ export function buildEngine(ctx, parent) {
     for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.4; P('bomba_agua', cylX(0.0045, 0.008, 6), 'steel', { p: [0.023, 0.115 + Math.cos(a) * 0.036, Math.sin(a) * 0.036] }); }
     // toma de agua: hacia el lado admisión y abajo, donde llega el tubo de entrada
     P('bomba_agua', tube([[0.002, 0.098, 0.026], [0.004, 0.086, 0.04], [0.006, 0.078, 0.05]], 0.0125), 'alu', {}); }
-  const wp = group('bomba_agua', parent, [XP, 0.115, 0], ex('bomba_agua')); const wpS = new THREE.Group(); wp.add(wpS); A.spin.push({ g: wpS, k: 0.058 / 0.05 }); A.pump = wpS;
+  const wp = group('bomba_agua', parent, [XP, 0.115, 0], ex('bomba_agua')); const wpS = new THREE.Group(); wp.add(wpS); A.spin.push({ g: wpS, k: PULLEY.crank / PULLEY.pump }); A.pump = wpS;
   add('bomba_agua', cylX(0.05, 0.016, 32), 'steel', { parent: wpS, ex: null });
   add('bomba_agua', cylX(0.043, 0.018, 28), 'dark', { parent: wpS, ex: null });
   add('bomba_agua', cylX(0.008, 0.066, 10), 'steel', { parent: wpS, ex: null, p: [-0.033, 0, 0] });
@@ -315,7 +316,7 @@ export function buildEngine(ctx, parent) {
     for (let k = 0; k < 6; k++) { const m = add('bomba_agua', vg.clone(), 'cast', { parent: wpS, ex: null }); m.rotation.x = k / 6 * Math.PI * 2; }
   }
   // Ventilador: 4 aspas tipo paleta, con espaciado alterno de 80° y 100° (dibujo de la correa del manual), y 4 pernos a la polea
-  const fanG = group('ventilador', parent, [XP + 0.024, 0.115, 0], ex('ventilador')); const fanS = new THREE.Group(); fanG.add(fanS); A.spin.push({ g: fanS, k: 0.058 / 0.05 }); A.fan = fanS;
+  const fanG = group('ventilador', parent, [XP + 0.024, 0.115, 0], ex('ventilador')); const fanS = new THREE.Group(); fanG.add(fanS); A.spin.push({ g: fanS, k: PULLEY.crank / PULLEY.pump }); A.fan = fanS;
   add('ventilador', cylX(0.036, 0.006, 28), 'dark', { parent: fanS, ex: null });
   add('ventilador', cylX(0.012, 0.016, 16), 'steel', { parent: fanS, ex: null, p: [0.004, 0, 0] });
   for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + 0.6; add('ventilador', cylX(0.005, 0.012, 6), 'steel', { parent: fanS, ex: null, p: [0.006, Math.cos(a) * 0.022, Math.sin(a) * 0.022] }); }
@@ -328,8 +329,8 @@ export function buildEngine(ctx, parent) {
 
   const altC = carrier('alternador');
   add('alternador', cylX(0.054, 0.095, 28), 'alu', { parent: altC, p: [0, ALT[0], ALT[1]], ex: null });
-  const altP = new THREE.Group(); altP.position.set(XP, ALT[0], ALT[1]); altC.add(altP); A.spin.push({ g: altP, k: 0.058 / 0.03 });
-  add('alternador', cylX(0.03, 0.014, 22), 'steel', { parent: altP, ex: null });
+  const altP = new THREE.Group(); altP.position.set(XP, ALT[0], ALT[1]); altC.add(altP); A.spin.push({ g: altP, k: PULLEY.crank / PULLEY.alt });
+  add('alternador', cylX(PULLEY.alt + 0.004, 0.014, 24), 'steel', { parent: altP, ex: null });   // polea de 65 mm efectivos (manual)
   if (!lite) {
     add('alternador', cylX(0.046, 0.006, 24), 'dark', { parent: altP, ex: null, p: [-0.013, 0, 0] });
     for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; add('alternador', rbox(0.07, 0.006, 0.004, 0.001), 'dark', { parent: altC, ex: null, p: [0.0, ALT[0] + Math.cos(a) * 0.054, ALT[1] + Math.sin(a) * 0.054], r: [a, 0, 0] }); }
@@ -542,12 +543,14 @@ export function buildEngine(ctx, parent) {
   const tmp = new THREE.Matrix4(), xA = V(1, 0, 0), yA = V(0, 0, 0), zA = V(0, 0, 0);
   const bump = (phi, a, b) => { const t = (((phi - a) % 720) + 720) % 720, w = b - a; return t < w ? Math.sin(Math.PI * t / w) ** 1.5 : 0; };
   const col = new THREE.Color();
-  function update(theta) {
-    const deg = theta * 180 / Math.PI;
+  // adv: avance del encendido (° antes del PMS; 8° es el punto base del manual). Con un cable de bujía cortado
+  // (MOTOR.miss, vista Eléctrico) ese cilindro no tiene chispa ni combustión
+  function update(theta, adv = 8) {
+    const deg = theta * 180 / Math.PI, fire = 360 - adv, miss = MOTOR.miss;
     A.crank.rotation.x = DIR * theta;
     A.cam.rotation.x = DIR * theta / 2;
     A.spin.forEach(s => { s.g.rotation.x = DIR * theta * s.k; });
-    const beta = -(ROTOR_A0 + deg / 2) * Math.PI / 180;
+    const beta = -(ROTOR_A0 + deg / 2 + (adv - 8) / 2) * Math.PI / 180;   // el eje de arriba (rotor y generador de señal) se adelanta con el avance
     if (A.dShaft) A.dShaft.rotation.y = beta;
     if (A.reluctor) A.reluctor.rotation.y = beta;
     for (const P of A.pistons) {
@@ -560,7 +563,7 @@ export function buildEngine(ctx, parent) {
       if (gas) {
         const phi = cyclePhi(deg, P.i), crown = ys + CH, h = Math.max(0.002, DECK + 0.002 - crown);
         gas.scale.y = h; gas.position.y = crown + h / 2;
-        const ph = phaseOf(phi), ign = phi >= 350 && phi < 430 ? 1 - (phi - 350) / 80 : 0;
+        const ph = phaseOf(phi), ign = P.i === miss ? 0 : phi >= fire - 2 && phi < fire + 78 ? 1 - (phi - fire + 2) / 80 : 0;
         col.set(PHASES[ph].color); if (ign > 0) col.lerp(new THREE.Color('#fff1a0'), ign * 0.8);
         gas.material.color.copy(col); gas.material.opacity = 0.32 + ign * 0.4;
       }
@@ -573,7 +576,7 @@ export function buildEngine(ctx, parent) {
       const rk = A.rockers.find(r => r.i === v.i && r.zs === v.zs); if (rk) rk.rg.rotation.x = v.zs * (0.006 * k) / 0.022;
     }
     A.sparks.forEach((s, i) => {
-      const d = cyclePhi(deg, i) - 352; const on = d > 0 && d < 40 ? 1 - d / 40 : 0;
+      const d = cyclePhi(deg, i) - fire; const on = i !== miss && d > 0 && d < 40 ? 1 - d / 40 : 0;
       s.material.opacity = on * 0.95; s.scale.setScalar(0.6 + on * 1.1);
     });
     if (A.teeth) {

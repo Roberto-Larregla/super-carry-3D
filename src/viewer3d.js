@@ -9,6 +9,7 @@ import { TILT } from './geom.js';
 import { buildVan } from './van3d.js';
 import { solve as brakeSolve, FORCE_NORMAL } from './brakesim.js';
 import { MOTOR } from './motor.js';
+import { EFAILS, SHARED_FAILS, KEYS } from './elecsim.js';
 
 const KINDS = {
   iron:   { c: '#61676c', m: 0.55, r: 0.5 },
@@ -67,11 +68,18 @@ const KINDS = {
   label:  { c: '#e6c229', m: 0.0, r: 0.6 },
   flame:  { c: '#4f86ff', m: 0.0, r: 0.4, e: '#2a63ff', ei: 1.1 },
   glassc: { c: '#dfeaee', m: 0.1, r: 0.05 },
+  // eléctrico
+  fusebox:{ c: '#6f2f2b', m: 0.0, r: 0.7 },
+  fuseR:  { c: '#d8483a', m: 0.0, r: 0.35 },
+  fuseB:  { c: '#3b6fd4', m: 0.0, r: 0.35 },
+  cone:   { c: '#1e2124', m: 0.0, r: 0.85 },
+  wire:   { c: '#3a3f44', m: 0.1, r: 0.6 },
+  wireR:  { c: '#9c3a33', m: 0.1, r: 0.55 },
 };
 const NOTINT = new Set(['water', 'oil', 'sensor', 'fluid', 'brushed', 'coolant', 'flame', 'label']);
 const BODYKINDS = new Set(['paint', 'trim', 'glass', 'tint', 'rim', 'floorp', 'felt', 'seat', 'tire', 'shade', 'lens', 'machined', 'bar', 'mat', 'dash']);
 
-export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHeat, onFuel, onDrive, onCool, onEngine }) {
+export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHeat, onFuel, onDrive, onCool, onElec, onEngine }) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -157,11 +165,13 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   }
 
   // ——— un solo mundo ———
-  const W = { root: new THREE.Group(), meshes: [], explodables: [], anchors: {}, partBoxes: {}, allBox: new THREE.Box3(), engBox: new THREE.Box3(), brkBox: new THREE.Box3(), calBox: new THREE.Box3(), aliBox: new THREE.Box3(), traBox: new THREE.Box3(), refBox: new THREE.Box3(), anim: null };
+  const W = { root: new THREE.Group(), meshes: [], explodables: [], anchors: {}, partBoxes: {}, allBox: new THREE.Box3(), engBox: new THREE.Box3(), brkBox: new THREE.Box3(), calBox: new THREE.Box3(), aliBox: new THREE.Box3(), traBox: new THREE.Box3(), refBox: new THREE.Box3(), eleBox: new THREE.Box3(), anim: null };
   scene.add(W.root);
   const engParts = new Set(), brkParts = new Set(), calParts = new Set(), aliParts = new Set(['carburador', 'filtro_aire', 'mult_adm']),   // la vista Alimentación también muestra estas piezas del motor
     traParts = new Set(['volante']),                                                                                              // y la de Transmisión, el volante donde apoya el embrague
-    refParts = new Set(['bomba_agua', 'ventilador', 'camisas', 'correa_acc', 's_temp', 'calef_mangueras', 'calef_radiador', 'calef_llave', 'olla']);   // y la de Refrigeración, la bomba, el ventilador, las camisas y la calefacción
+    refParts = new Set(['bomba_agua', 'ventilador', 'camisas', 'correa_acc', 's_temp', 'calef_mangueras', 'calef_radiador', 'calef_llave', 'olla']),   // y la de Refrigeración, la bomba, el ventilador, las camisas y la calefacción
+    eleParts = new Set(['bateria', 'alternador', 'partida', 'bobina', 'distribuidor', 'bujias', 'caja_dist', 'luces', 'tablero', 'correa_acc', 'volante', 's_aceite', 's_temp', 's_senal',   // y la de Eléctrico, todo lo que usa corriente
+      's_bencina', 's_freno', 's_retro', 'calef_ventilador', 'calef_resistencia', 'bomba_comb', 'carb_solenoide', 'deposito_limpia', 'limpiaparabrisas']);
   let level = 'van';                         // 'eng' mientras se construye el motor, 'brk' los frenos
   function reg(obj, part, ex) {
     obj.userData.part = part; obj.userData.base = obj.position.clone();
@@ -182,6 +192,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       if (lv === 'ali') { m.userData.ali = true; aliParts.add(part); }
       if (lv === 'tra') { m.userData.tra = true; traParts.add(part); }
       if (lv === 'ref') { m.userData.ref = true; refParts.add(part); }
+      if (lv === 'ele') { m.userData.ele = true; eleParts.add(part); }
     }
     (o.parent || W.root).add(m);
     if (o.ex !== null && o.ex !== undefined) reg(m, part, o.ex);
@@ -198,23 +209,86 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   VAN.ground && VAN.ground.traverse(o => { if (o.userData.shadow && o !== VAN.ground) floorShadows.push(o); });
   mergeStatic();
   for (const m of W.meshes) if (m.userData.eng) m.material.clippingPlanes = [m.material.userData.casing ? clip.casing : clip.all];
-  const BR = VAN.brakes, HT = VAN.heater, FU = VAN.fuel, DR = VAN.drive, CO = VAN.cool, PLANES = { ...BR.planes, ...HT.planes, ...FU.planes, ...DR.planes, ...CO.planes };
-  const SUBS = { brk: BR, cal: HT, ali: FU, tra: DR, ref: CO };
+  const BR = VAN.brakes, HT = VAN.heater, FU = VAN.fuel, DR = VAN.drive, CO = VAN.cool, ELC = VAN.elec, PLANES = { ...BR.planes, ...HT.planes, ...FU.planes, ...DR.planes, ...CO.planes, ...ELC.planes };
+  const SUBS = { brk: BR, cal: HT, ali: FU, tra: DR, ref: CO, ele: ELC };
   // ═══ un solo motor: encendido, agua, temperatura de afuera y fallas de la refrigeración y la calefacción, para todas las vistas ═══
   // La simulación de refrigeración (CO) es el estado del motor; corre siempre: en Refrigeración con su tiempo acelerado,
   // en las demás vistas a tiempo real, con las rpm y la carga que diga la vista activa.
   FU.link(() => ({ st: CO.state, r: CO.result }));
-  function setEngine(on, from) {
+  CO.state.ign = false;                       // la llave parte en LOCK: sin contacto, la aguja de temperatura descansa bajo la C
+  // Encender: la batería tiene que poder mover el motor de partida (vista Eléctrico); si no, no parte y se avisa por qué.
+  // Apagar deja la llave en LOCK, salvo que la vista Eléctrico pida otra posición (ACC u ON con el motor detenido)
+  function setEngine(on, from, key) {
     on = !!on; const changed = on !== state.engineOn;
+    if (on && !state.engineOn && from !== 'ele') {
+      const chk = ELC.startCheck(elecInputs());
+      if (!chk.ok) { if (state.mode === 'tra') DR.set({ on: false }); onEngine && onEngine(false, from, chk.why); requestRender(); return false; }
+    }
     state.engineOn = on; state.running = on;
+    ELC.st.key = on ? 'on' : key || 'lock'; ELC.st.crank = null;
     if (state.mode === 'tra' && from !== 'tra') DR.set({ on });
-    FU.set({ on }); CO.set({ on }); HT.recompute();
-    last = performance.now(); requestRender();
+    FU.set({ on }); CO.state.ign = ELC.st.key === 'on' || ELC.st.key === 'start'; CO.set({ on }); HT.recompute();
+    elecNow(); last = performance.now(); requestRender();
     if (changed && onEngine) onEngine(on, from);
+    return true;
+  }
+  // lo que la simulación eléctrica necesita de las demás: rpm, carga, agua, ventilador, freno, retroceso, bencina, aguja
+  function elecInputs() {
+    const cr = CO.result, op = state.mode === 'ref' ? (state.engineOn && cr && cr.on ? { rpm: cr.rpm, load: cr.load, kmh: cr.kmh } : { rpm: 0, load: 0, kmh: 0 }) : opNow(), fr = FU.result;
+    const brake = (state.mode === 'brk' && (BR.state.on || !!BR.state.seq)) || (state.mode === 'tra' && !!DR.state.sim.brake) || ELC.st.brake;
+    return { run: state.engineOn && op.rpm > 0, rpm: op.rpm, load: op.load, kmh: op.kmh || 0, pedal: FU.state.pedal, vac: fr ? fr.vac || 0 : 0,
+      Te: CO.state.Te, fan: CO.state.heat.fan, engFail: CO.state.fail, brake, reverse: state.mode === 'tra' && DR.state.sim.gear === 'R',
+      handbrake: BR.state.hb > 0, fuel: FU.state.level, tempNeedle: CO.state.gauge };
+  }
+  function elecNow() { const r = ELC.solve(elecInputs()); ELC.paintLamps(); return r; }
+  const animUpd = () => W.anim.update(state.theta, ELC.st.last ? ELC.st.last.adv.total : 8);
+  // llave en START: el motor de partida gira el motor; parte si la batería alcanza (rpm y chispa) y el motor "agarra"
+  function crankStart() {
+    if (state.engineOn || state.crank) return false;
+    ELC.st.key = 'start'; ELC.st.crank = true; state.crank = { t: 0, c: null };
+    CO.state.ign = true; HT.recompute(); elecNow(); last = performance.now(); requestRender(); return true;
+  }
+  function crankStop() { state.crank = null; ELC.st.crank = null; }
+  function crankTick(dt) {
+    const c = ELC.crankAt(elecInputs()); state.crank.t += dt; state.crank.c = c;
+    if (c.n > 0) { state.theta += dt * Math.PI * 2 * (0.2 + 0.6 * c.n / 240); animUpd(); }
+    if (c.ok && state.crank.t >= c.tCatch) { crankStop(); setEngine(true, 'ele'); return; }
+    if (!c.ok && state.crank.t >= (c.click ? 1.4 : 2.6)) {   // se suelta la llave: vuelve sola a ON
+      crankStop(); ELC.st.key = 'on'; elecNow(); onEngine && onEngine(false, 'ele', `No parte: ${c.why}.`);
+    }
+  }
+  function setKey(k) {
+    if (!KEYS.includes(k)) return;
+    if (k === 'start') { crankStart(); return; }
+    if (state.crank) crankStop();
+    if (state.engineOn && k !== 'on') { setEngine(false, 'ele', k); return; }
+    ELC.st.key = k; CO.state.ign = k === 'on'; HT.recompute(); elecNow();
+  }
+  // fallas: las del agua que también son eléctricas (correa, resistencia del ventilador) van en la falla del motor
+  const elecFail = () => (SHARED_FAILS.has(CO.state.fail) ? CO.state.fail : ELC.st.fail);
+  function setElecFail(f) {
+    if (!EFAILS[f]) return;
+    if (SHARED_FAILS.has(f)) { ELC.st.fail = 'ok'; CO.set({ fail: f }); }
+    else { ELC.st.fail = f; if (SHARED_FAILS.has(CO.state.fail)) CO.set({ fail: 'ok' }); }
+    MOTOR.miss = ELC.st.fail === 'bujia' ? 2 : -1;   // cilindro 3 sin chispa: el motor pierde fuerza en todas las vistas
+    HT.recompute(); FU.recompute(); elecNow();
+  }
+  // avanza la electricidad (todas las vistas, a tiempo real) y dice si hay que seguir dibujando
+  function elecAdvance(edt) {
+    if (state.crank) crankTick(Math.min(edt, 0.25));
+    const r = ELC.step(edt, elecInputs());
+    CO.state.altA = ELC.st.altA;
+    if (r.dies && state.engineOn) {
+      setEngine(false, 'ele', 'on');
+      onEngine && onEngine(false, 'ele', 'El motor se detuvo: con tan poco voltaje el módulo de encendido ya no da chispa.');
+    }
+    ELC.paintLamps();
+    if (state.mode === 'ele') { ELC.paint('ele', state.colorMode); onElec && onElec(r); }
+    return ELC.tick(Math.min(edt, 0.1), r) || !!state.crank;
   }
   function opNow() {   // lo que hace el motor según la vista activa: rpm, carga (0–1) y km/h
     if (!state.engineOn) return { rpm: 0, load: 0, kmh: 0 };
-    if (state.mode === 'ali') { const r = FU.result; return r && r.running ? { rpm: r.rpm, load: 0.03 + 0.1 * r.pedal, kmh: 0 } : { rpm: 0, load: 0, kmh: 0 }; }
+    if (state.mode === 'ali' || state.mode === 'ele') { const r = FU.result; return r && r.running ? { rpm: r.rpm, load: 0.03 + 0.1 * r.pedal, kmh: 0 } : { rpm: 0, load: 0, kmh: 0 }; }   // el mismo acelerador
     if (state.mode === 'tra') { const r = DR.result, sim = DR.state.sim; if (!r || !sim.on) return { rpm: 0, load: 0, kmh: 0 }; const k = Math.abs(r.kmh || 0); return { rpm: r.rpm, load: Math.min(1, sim.throttle || 0), kmh: k, moving: k > 1 }; }
     return { rpm: MOTOR.idle, load: 0, kmh: 0 };
   }
@@ -224,6 +298,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
   FU.bind(W.meshes.filter(m => ['feed', 'ret'].includes(m.material.userData.press)));
   DR.bind(W.meshes.filter(m => (m.material.userData.press || '').startsWith('p_')));
   CO.bind(W.meshes.filter(m => (m.material.userData.press || '').startsWith('c_')));
+  ELC.bind(W.meshes.filter(m => (m.material.userData.press || '').startsWith('e_')));
   W.explodables.forEach(o => o.userData.base.copy(o.position));
 
   // Junta las mallas estáticas que comparten padre, pieza y material: menos llamadas de dibujo (clave en celulares)
@@ -233,7 +308,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       if (m.isInstancedMesh || m.userData.dyn || !m.parent) continue;
       const mat = m.material, ud = mat.userData;
       const exk = m.userData.base ? `${m.userData.ex.x},${m.userData.ex.y},${m.userData.ex.z},${m.userData.lvl}` : '-';
-      const key = [m.parent.uuid, m.userData.part, mat.type, mat.color.getHexString(), mat.metalness, mat.roughness, mat.side, mat.emissive.getHexString(), mat.emissiveIntensity, mat.envMapIntensity, ud.op, ud.casing, ud.side, ud.wire, ud.cut || '', ud.press || '', m.userData.body || '', m.userData.pick, m.userData.noAnchor, !!m.userData.eng, !!m.userData.brk, !!m.userData.cal, !!m.userData.ali, !!m.userData.tra, exk].join('|');
+      const key = [m.parent.uuid, m.userData.part, mat.type, mat.color.getHexString(), mat.metalness, mat.roughness, mat.side, mat.emissive.getHexString(), mat.emissiveIntensity, mat.envMapIntensity, ud.op, ud.casing, ud.side, ud.wire, ud.cut || '', ud.press || '', m.userData.body || '', m.userData.pick, m.userData.noAnchor, !!m.userData.eng, !!m.userData.brk, !!m.userData.cal, !!m.userData.ali, !!m.userData.tra, !!m.userData.ele, exk].join('|');
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(m);
     }
@@ -248,7 +323,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       });
       const merged = mergeGeometries(geos, false); if (!merged) continue;
       const first = list[0], mm = new THREE.Mesh(merged, first.material);
-      for (const k of ['part', 'pick', 'noAnchor', 'body', 'eng', 'brk', 'cal', 'ali', 'tra', 'ref']) if (k in first.userData) mm.userData[k] = first.userData[k];
+      for (const k of ['part', 'pick', 'noAnchor', 'body', 'eng', 'brk', 'cal', 'ali', 'tra', 'ref', 'ele']) if (k in first.userData) mm.userData[k] = first.userData[k];
       first.parent.add(mm);
       if (first.userData.base) { mm.userData.base = new THREE.Vector3(); mm.userData.ex = first.userData.ex.clone(); mm.userData.lvl = first.userData.lvl; added.push(mm); }
       for (const m of list) { m.parent.remove(m); m.geometry.dispose(); if (m.material !== first.material) m.material.dispose(); drop.add(m); }
@@ -260,12 +335,13 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
 
   // ════════ ESTADO, MATERIALES Y SELECCIÓN ════════
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const state = { engineOn: false, thermT: performance.now(), mode: 'van', focus: null, sel: null, colorMode: 'real', body: 'solid', labels: false, running: false, theta: 0, cut: 'none', bcut: false, speed: 0.6, exVan: 0, exEng: 0 };
+  const state = { engineOn: false, thermT: performance.now(), elecT: performance.now(), crank: null, mode: 'van', focus: null, sel: null, colorMode: 'real', body: 'solid', labels: false, running: false, theta: 0, cut: 'none', bcut: false, speed: 0.6, exVan: 0, exEng: 0 };
   Object.defineProperty(state, 'explode', { get: () => (state.mode === 'eng' ? state.exEng : state.exVan), set: v => { if (state.mode === 'eng') state.exEng = v; else state.exVan = v; }, enumerable: true });
   const xraySys = new Set(['motor', 'electrico', 'lubricacion', 'transmision', 'sensores']);
   const matchFocus = (P, f) => !!P && (P.sys === f || P.serves === f || (P.also || []).includes(f));
   const isEngPart = id => engParts.has(id), isBrkPart = id => brkParts.has(id), isCalPart = id => calParts.has(id), isAliPart = id => aliParts.has(id);
-  const SUBPARTS = { brk: brkParts, cal: calParts, ali: aliParts, tra: traParts, ref: refParts };
+  const SUBPARTS = { brk: brkParts, cal: calParts, ali: aliParts, tra: traParts, ref: refParts, ele: eleParts };
+  // en Eléctrico el motor, la carrocería y el interior quedan como contexto, transparentes
   // en Refrigeración el motor queda como contexto, transparente: deja ver las camisas, la bomba y el termostato
   const REF_CTX = new Set(['bloque', 'culata', 'junta_culata', 'tapa_valvulas', 'mult_adm', 'distribucion', 'alternador', 'carburador', 'filtro_aire', 'carter', 'calef_radiador', 'calef_llave']);
   const inMode = id => (state.mode === 'eng' ? isEngPart(id) : SUBPARTS[state.mode] ? SUBPARTS[state.mode].has(id) : true);
@@ -290,10 +366,12 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
       const cat = m.userData.body;
       if (cat) {
         const inner = cat === 'int' || cat === 'seat';
-        const hide = bodyMode === 'hidden' && (!inner || !sub);   // «Oculta»: tampoco asientos, piso, forros ni tablero; en las vistas de un sistema quedan como silueta
+        const eleCtx = sub === 'ele';                              // en Eléctrico la carrocería queda de fantasma: ampolletas, limpiaparabrisas y antena están repartidos por todo el furgón
+        const hide = bodyMode === 'hidden' && !eleCtx && (!inner || !sub);   // «Oculta»: tampoco asientos, piso, forros ni tablero; en las vistas de un sistema quedan como silueta
         m.visible = !hide; if (hide) continue;
         m.material.color.copy(qmode ? qcol(part) : ud.real);
-        if (cat === 'int' || cat === 'seat') op = sub ? Math.min(op, sub === 'cal' ? 0.13 : 0.08) : solid ? 1 : Math.min(op, focusBody || isSel ? 0.7 : 0.38);
+        if (eleCtx) op = eleParts.has(part) ? (cat === 'glass' ? 0.42 : 0.95) : inner ? 0.07 : cat === 'glass' || cat === 'tint' ? 0.035 : 0.05;
+        else if (cat === 'int' || cat === 'seat') op = sub ? Math.min(op, sub === 'cal' ? 0.13 : 0.08) : solid ? 1 : Math.min(op, focusBody || isSel ? 0.7 : 0.38);
         else if (cat === 'paint') op = solid ? 1 : (focusBody ? 0.2 : 0.075);
         else if (cat === 'glass') op = solid ? 0.36 : 0.1;
         else if (cat === 'tint') op = solid ? 0.84 : 0.13;
@@ -305,7 +383,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
         if (ud.wire) m.visible = state.focus === 'sensores' || isSel;
         if (isEng && !m.userData.eng && !isSel) op = Math.min(op, inFocus && state.focus ? 0.12 : 0.06);
         else if (sub === 'ref' && REF_CTX.has(part) && !isSel) op = Math.min(op, state.bcut ? 0.1 : 0.2);
-        else if (sub && !m.userData[sub] && !((sub === 'ali' || sub === 'tra' || sub === 'ref') && SUBPARTS[sub].has(part)) && !isSel) op = Math.min(op, (isBrk || sub === 'tra') && part === 'ruedas' ? (state.bcut && isBrk ? 0.07 : 0.12) : 0.06);
+        else if (sub && !m.userData[sub] && !((sub === 'ali' || sub === 'tra' || sub === 'ref' || sub === 'ele') && SUBPARTS[sub].has(part)) && !isSel) op = Math.min(op, (isBrk || sub === 'tra') && part === 'ruedas' ? (state.bcut && isBrk ? 0.07 : 0.12) : 0.06);
         else if (!inFocus && !isSel) op = Math.min(op, dimOp);
         else if (ud.casing && xray) op = Math.min(op, isEng ? 0.14 : 0.22);
         if (isEng && state.cut === 'long' && ud.side === 'ex') op = Math.min(op, 0.06);
@@ -328,7 +406,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     VAN.setLines(bodyMode, focusBody);
     // la sombra del piso sólo tiene sentido con la carrocería sólida; en rayos X se ve como una mancha
     { const k = bodyMode === 'solid' && !isEng ? 1 : 0.15; for (const o of floorShadows) o.material.opacity = o.userData.shadow * k; }
-    const showIn = isEng ? state.cut !== 'none' : !!xray;
+    const showIn = isEng ? state.cut !== 'none' : !!xray || sub === 'ele';   // en Eléctrico se ve saltar la chispa
     VAN.engine.A.sparks.forEach(s => s.visible = showIn);
     VAN.engine.A.gas.forEach(g => g.visible = isEng && state.cut !== 'none' && state.exEng < 0.04);
     if (isBrk) BR.paint('brk', state.colorMode);
@@ -336,6 +414,8 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     if (sub === 'ali') FU.paint('ali', state.colorMode);
     if (sub === 'tra') DR.paint('tra', state.colorMode);
     if (sub === 'ref') CO.paint('ref', state.colorMode);
+    if (sub === 'ele') ELC.paint('ele', state.colorMode);
+    ELC.setMode(state.mode, bodyMode);                             // ampolletas encendidas, tablero y radio
     requestRender();
   }
 
@@ -432,7 +512,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     state.sel = id && W.anchors[id] ? id : null;
     applyMaterials();
     if (state.sel && fly && W.partBoxes[state.sel]) {
-      const b = W.partBoxes[state.sel].clone(); const sz = b.getSize(new THREE.Vector3()); const m = PARTS[state.sel] && PARTS[state.sel].tiny ? 0.07 : state.mode === 'eng' || isEngPart(state.sel) ? 0.16 : state.mode === 'brk' ? 0.24 : state.mode === 'cal' || state.mode === 'ali' ? 0.2 : state.mode === 'tra' || state.mode === 'ref' ? 0.16 : 0.5;
+      const b = W.partBoxes[state.sel].clone(); const sz = b.getSize(new THREE.Vector3()); const m = PARTS[state.sel] && PARTS[state.sel].tiny ? 0.07 : state.mode === 'eng' || isEngPart(state.sel) ? 0.16 : state.mode === 'brk' ? 0.24 : state.mode === 'cal' || state.mode === 'ali' ? 0.2 : state.mode === 'tra' || state.mode === 'ref' || state.mode === 'ele' ? 0.16 : 0.5;
       b.expandByVector(V(Math.max(0, (m - sz.x) / 2), Math.max(0, (m - sz.y) / 2), Math.max(0, (m - sz.z) / 2)));
       // piezas del motor que sólo se ven desde un lado: su dirección (marco del motor) girada a como va montado
       const lk = PARTS[state.sel] && PARTS[state.sel].look && isEngPart(state.sel) && state.mode !== 'ali';
@@ -453,6 +533,9 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     tra: { iso: [0.35, 0.6, -1], embrague: { d: [-0.8, 0.5, -0.95], g: 'embrague', pad: 1.2 }, caja: { d: [0.12, 0.32, -1], g: 'caja', pad: 1.12 }, selector: { d: [0.5, 0.9, 1], g: 'selector', pad: 1.5 }, palanca: { d: [-0.9, 0.45, -0.7], g: 'palanca', pad: 1.5 },
       cardan: { d: [0.25, 0.35, -1], g: 'cardan', pad: 1.2 }, dif: { d: [0.55, 0.85, -0.7], g: 'dif', pad: 1.7 }, arriba: [0.002, 1, -0.04], abajo: [0.05, -1, 0.002] },
     ali: { iso: [0.9, 1.0, 1.9], carb: { d: [1, 0.12, 0.2], g: 'carb', pad: 2.3 }, palancas: { d: [-1, 0.5, 0.35], g: 'carb', pad: 2.6 }, estanque: { d: [0.2, 0.5, 1], g: 'estanque', pad: 1.5 }, pedal: { d: [-0.9, 0.5, -0.5], g: 'pedal', pad: 1.3 }, arriba: [0.002, 1, 0.04], abajo: [0.05, -1, 0.002] },
+    ele: { iso: [2.5, 1.7, -3.2], tablero: { d: [-1, 0.22, -0.12], g: 'tablero', pad: 1.5 }, fusibles: { d: [-1, -0.05, -0.32], g: 'fusibles', pad: 3.2 }, chapa: { d: [-0.55, 0.2, 1], g: 'chapa', pad: 5 },
+      radio: { d: [-1, 0.08, 0.1], g: 'radio', pad: 1.8 }, puerta: { d: [-0.3, 0.2, 1], g: 'puerta', pad: 1.6 }, antena: { d: [0.75, 0.35, -1], g: 'antena', pad: 1.15 }, bateria: { d: [0.3, 1, -0.6], g: 'bateria', pad: 1.9 },
+      motor: { d: [-0.5, 0.45, 1], g: 'motor', pad: 1.15 }, delante: { d: [1, 0.28, -0.42], g: 'delante', pad: 1.12 }, atras: { d: [-1, 0.3, -0.45], g: 'atras', pad: 1.12 } },
     ref: { iso: [-0.62, 0.62, -0.6], radiador: { d: [0.95, 0.38, 0.5], g: 'radiador', pad: 1.15 }, termostato: { d: [0.2, 0.85, 0.75], g: 'termostato', pad: 4.2 }, bomba: { d: [-0.35, 0.22, -1], g: 'bomba', pad: 4.2 }, tapa: { d: [0.5, 0.8, -0.6], g: 'tapa', pad: 4 }, deposito: { d: [-0.2, 0.6, -1], g: 'deposito', pad: 2.4 }, arriba: [0.002, 1, -0.04], abajo: [0.05, -1, 0.002], olla: { d: [0.55, 0.42, -1], g: 'olla', pad: 1.0 } },
   };
   let tween = null;
@@ -498,7 +581,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
 
   // ——— animación ———
   function applyExplodeAll() { for (const o of W.explodables) o.position.copy(o.userData.base).addScaledVector(o.userData.ex, (o.userData.lvl || '').startsWith('eng') ? state.exEng : state.exVan); }
-  function applyExplode() { applyExplodeAll(); W.anim.update(state.theta); computeAnchors(); applyMaterials(); requestRender(); }
+  function applyExplode() { applyExplodeAll(); animUpd(); computeAnchors(); applyMaterials(); requestRender(); }
 
   let needs = true, visible = true, raf = 0, last = performance.now();
   function requestRender() { needs = true; if (!raf) raf = requestAnimationFrame(loop); }
@@ -515,9 +598,11 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     // el motor: el agua sigue su curso en todas las vistas (en Refrigeración la avanza su propio reloj)
     const tdt = Math.max(0, Math.min(7200, (now - state.thermT) / 1000)); state.thermT = now;
     if (state.mode !== 'ref' && visible && CO.advance(tdt, opNow()) && (state.engineOn || state.mode === 'cal')) active = true;
+    const edt = Math.max(0, Math.min(7200, (now - state.elecT) / 1000)); state.elecT = now;
+    if (visible && elecAdvance(edt)) active = true;
     if (state.engineOn && visible && (state.mode === 'van' || state.mode === 'eng')) {
       const rps = state.mode === 'eng' ? state.speed : 0.9;
-      state.theta += dt * Math.PI * 2 * rps; W.anim.update(state.theta); active = true;
+      state.theta += dt * Math.PI * 2 * rps; animUpd(); active = true;
       onTick && onTick(state.theta, state.mode);
     }
     if (visible && VAN.tick(dt, state.sel, state.mode)) active = true;
@@ -529,21 +614,26 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     if (state.mode === 'ali' && visible) {
       if (FU.tick(dt)) active = true;
       const fr = FU.result;
-      if (fr && fr.running) { state.theta += dt * Math.PI * 2 * (0.8 + 2.4 * FU.state.pedal); W.anim.update(state.theta); active = true; }   // el motor gira según el acelerador
+      if (fr && fr.running) { state.theta += dt * Math.PI * 2 * (0.8 + 2.4 * FU.state.pedal); animUpd(); active = true; }   // el motor gira según el acelerador
       FU.paint('ali', state.colorMode);
       onFuel && onFuel(fr);
+    }
+    if (state.mode === 'ele' && visible) {
+      if (FU.tick(dt)) active = true;                                                     // el mismo acelerador de Alimentación
+      const fr = FU.result;
+      if (fr && fr.running && !state.crank) { state.theta += dt * Math.PI * 2 * (0.8 + 2.4 * FU.state.pedal); animUpd(); active = true; }
     }
     if (state.mode === 'tra' && visible) {
       DR.state.sim.brakeA = brakeSolve({ force: FORCE_NORMAL, fail: BR.state.fail, wear: BR.state.wear }).a * 9.81;   // frena como en la vista Frenos
       if (DR.tick(dt, (aF, aR, aRL) => VAN.setWheels(aF, aR, aRL))) active = true;
       if (state.engineOn && !DR.state.sim.on) setEngine(false, 'tra');   // se caló
-      const w = DR.visOmega(); if (w > 0) { state.theta += dt * w; W.anim.update(state.theta); active = true; }   // el motor gira a la misma escala que el resto
+      const w = DR.visOmega(); if (w > 0) { state.theta += dt * w; animUpd(); active = true; }   // el motor gira a la misma escala que el resto
       DR.paint('tra', state.colorMode);
       onDrive && onDrive(DR.result);
     }
     if (state.mode === 'ref' && visible) {
       if (CO.tick(dt)) active = true;
-      const w = CO.visOmega(); if (w > 0) { state.theta += dt * w; W.anim.update(state.theta); active = true; }   // bomba, ventilador y correa giran
+      const w = CO.visOmega(); if (w > 0) { state.theta += dt * w; animUpd(); active = true; }   // bomba, ventilador y correa giran
       CO.paint('ref', state.colorMode);
       onCool && onCool(CO.result);
     }
@@ -585,7 +675,7 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     const prev = state.mode;
     state.mode = m;
     const E = m === 'eng', B = m === 'brk';
-    controls.minDistance = E ? 0.22 : B ? 0.25 : m === 'cal' ? 0.18 : m === 'ali' ? 0.09 : m === 'tra' || m === 'ref' ? 0.1 : 0.6; controls.maxDistance = E ? 5 : B ? 8 : m === 'cal' ? 6 : m === 'ali' || m === 'tra' || m === 'ref' ? 9 : 12;
+    controls.minDistance = E ? 0.22 : B ? 0.25 : m === 'cal' ? 0.18 : m === 'ali' ? 0.09 : m === 'tra' || m === 'ref' || m === 'ele' ? 0.1 : 0.6; controls.maxDistance = E ? 5 : B ? 8 : m === 'cal' ? 6 : m === 'ali' || m === 'tra' || m === 'ref' ? 9 : m === 'ele' ? 10 : 12;
     state.sel = null; state.exVan = 0; state.exEng = 0; applyExplodeAll();
     if (!E) state.cut = 'none';
     if (prev === 'brk') { BR.stopSeq(); BR.set({ on: false, pedalF: 0, v: 0, heat: 0 }); BR.setCuts(false); }
@@ -593,15 +683,17 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     if (prev === 'ali') { FU.setActive(false); FU.setCuts(false); }
     if (prev === 'tra') { DR.setActive(false); DR.setCuts(false); }
     if (prev === 'ref') { CO.setActive(false); CO.setCuts(false); }
+    if (prev === 'ele') { ELC.setActive(false); ELC.setCuts(false); FU.setActive(false); Object.assign(ELC.st, { brake: false, reverse: false, horn: false }); }   // al salir, el pie deja el acelerador y el freno (como en las otras vistas)
     if (B) { BR.setCuts(state.bcut); }
     if (m === 'cal') { HT.setActive(true); HT.setCuts(state.bcut); }
     if (m === 'ali') { FU.setActive(true); FU.setCuts(state.bcut); }
     if (m === 'tra') { if (!state.traSeen) { state.traSeen = true; state.bcut = true; } DR.setActive(true); DR.setCuts(state.bcut); if (state.engineOn) DR.set({ on: true }); }   // la primera vez se abre en corte: lo que importa está adentro
     if (m === 'ref') { if (!state.refSeen) { state.refSeen = true; state.bcut = true; } CO.setActive(true); CO.setCuts(state.bcut); }
+    if (m === 'ele') { if (!state.eleSeen) { state.eleSeen = true; state.bcut = true; } ELC.setActive(true); ELC.setCuts(state.bcut); }   // la primera vez, la caja de fusibles abierta
     state.thermT = performance.now();
     if (state.focus && !Object.keys(PARTS).some(id => matchFocus(PARTS[id], state.focus) && W.anchors[id] && inMode(id))) state.focus = null;
     for (const id in labelEls) labelEls[id].hidden = true;
-    W.anim.update(state.theta); updateCutPlanes(); computeAnchors();
+    animUpd(); updateCutPlanes(); computeAnchors();
     if (VAN.ground) VAN.ground.visible = !E;
     applyMaterials(); touched = false; setView('iso', false);
     onSelect && onSelect(null);
@@ -645,15 +737,36 @@ export function createViewer(host, { labelLayer, onSelect, onTick, onBrake, onHe
     setEngine(on) { setEngine(on, 'van'); },
     get engineOn() { return state.engineOn; },
     get heatState() { return HT.state; },
+    // eléctrico: llave, luces, accesorios, radio, fallas y carga de la batería (lo mismo en todas las vistas)
+    elec(o) {
+      o = { ...(o || {}) }; const S = ELC.st;
+      if ('fail' in o) setElecFail(o.fail);
+      if ('key' in o) setKey(o.key);
+      if (o.crank) crankStart();
+      if ('soc' in o) S.soc = Math.max(0, Math.min(1, +o.soc));
+      if (o.radio) Object.assign(S.radio, o.radio);
+      if ('showI' in o) ELC.showFlow(!!o.showI);
+      if ('lighter' in o) S.lighter = o.lighter ? 14 : 0;                // el encendedor salta solo cuando calienta (≈ 14 s, est.)
+      if ('fan' in o) { CO.set({ heat: { fan: o.fan } }); HT.recompute(); }   // el ventilador es el de la calefacción
+      if ('pedal' in o) FU.set({ pedal: o.pedal });                        // el acelerador es el de Alimentación
+      for (const k of ['lights', 'turn', 'hazard', 'wipers', 'horn', 'inner', 'brake', 'reverse']) if (k in o) S[k] = o[k];
+      const r = elecNow(); last = performance.now(); requestRender(); return r;
+    },
+    get elecState() { return ELC.st; },
+    get elecResult() { return ELC.result; },
+    crankPreview() { return ELC.crankAt(elecInputs()); },                // cómo sería la partida ahora, sin darla
+    get elecFail() { return elecFail(); },
+    get cranking() { return state.crank; },
+    debugElec(sec) { for (let t = 0; t < sec; t += 1 / 30) elecAdvance(1 / 30); requestRender(); return ELC.result; },   // adelanta la simulación (pruebas)
     // frenos
     brake(o) { const r = BR.set(o || {}); last = performance.now(); requestRender(); return r; },
     brakeTest() { BR.startStop(); last = performance.now(); requestRender(); },
     brakeAbort() { BR.stopSeq(); requestRender(); },
     get brakeState() { return BR.state; },
-    setBCut(on) { state.bcut = on; BR.setCuts(on && state.mode === 'brk'); HT.setCuts(on && state.mode === 'cal'); FU.setCuts(on && state.mode === 'ali'); DR.setCuts(on && state.mode === 'tra'); CO.setCuts(on && state.mode === 'ref'); applyMaterials(); requestRender(); },
+    setBCut(on) { state.bcut = on; BR.setCuts(on && state.mode === 'brk'); HT.setCuts(on && state.mode === 'cal'); FU.setCuts(on && state.mode === 'ali'); DR.setCuts(on && state.mode === 'tra'); CO.setCuts(on && state.mode === 'ref'); ELC.setCuts(on && state.mode === 'ele'); applyMaterials(); requestRender(); },
     setCut(c) { state.cut = c; updateCutPlanes(); applyMaterials(); },
     setSpeed(k) { state.speed = k; },
-    stepTo(deg) { state.theta = deg * Math.PI / 180; W.anim.update(state.theta); onTick && onTick(state.theta, state.mode); requestRender(); },
+    stepTo(deg) { state.theta = deg * Math.PI / 180; animUpd(); onTick && onTick(state.theta, state.mode); requestRender(); },
     get state() { return state; },
     debugTheme(t) { setStage(t); applyMaterials(); requestRender(); },   // prueba de paletas del escenario
     debugCam(v) { animateCam(new THREE.Vector3(v[0], v[1], v[2]), new THREE.Vector3(v[3], v[4], v[5]), 0); },

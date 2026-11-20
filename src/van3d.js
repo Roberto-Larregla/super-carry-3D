@@ -10,6 +10,7 @@ import { buildHeater } from './heater3d.js';
 import { buildCooling } from './cool3d.js';
 import { buildFuel } from './fuel3d.js';
 import { buildDrive } from './drive3d.js';
+import { buildElectric } from './ele3d.js';
 
 const EXV = {
   carroceria: [0, 1.25, 0], asientos: [0, 0.9, 0], interior: [0, 0.55, 0], radiador: [0.32, 0.05, 0], deposito: [0.32, 0.15, 0.12], calefactor: [0.35, 0.35, 0],
@@ -35,8 +36,7 @@ export function buildVan(ctx) {
   const BD = buildBody(ctx);
 
   // tablero de instrumentos frente al conductor (izquierda)
-  A('tablero', rbox(0.09, 0.11, 0.32, 0.02), 'dark', { p: [0.405, 1.065, -0.33] });
-  for (const dz of [-0.07, 0.07]) A('tablero', cylX(0.04, 0.006, 28), 'white', { p: [0.358, 1.07, -0.33 + dz], op: 0.9 });
+  A('tablero', rbox(0.09, 0.11, 0.32, 0.02), 'dark', { p: [0.405, 1.065, -0.33] });   // la cara con los indicadores va en ele3d.js
 
   // ════════ INTERIOR: asientos, piso de carga, cajas de rueda, forros y tablero ════════
   const I = (geo, kind, p, o = {}) => A(o.part || 'interior', geo, kind, { p, body: o.part === 'asientos' ? 'seat' : 'int', ex: 'ex' in o ? o.ex : EXV[o.part || 'interior'], ...o });
@@ -65,8 +65,7 @@ export function buildVan(ctx) {
   I(rbox(0.012, 0.07, 0.44, 0.006), 'dash', [0.372, 0.90, ZC + 0.02]);                      // repisa baja del centro
   I(rbox(0.006, 0.09, 0.165, 0.008), 'dark', [0.373, 1.045, ZC]);                            // nicho de los mandos
   I(rbox(0.006, 0.075, 0.205, 0.008), 'dark', [0.373, 0.972, ZC]);                           // nicho de la radio
-  I(rbox(0.012, 0.052, 0.182, 0.004), 'dark', [0.368, 0.972, ZC]);                           // radio 1-DIN (no original)
-  I(cylX(0.016, 0.01, 16), 'chrome', [0.362, 0.972, ZC - 0.06]);
+  // (la radio Sony 1 DIN de este furgón va en ele3d.js)
   I(rbox(0.008, 0.045, 0.12, 0.006), 'dash', [0.368, 0.915, ZC + 0.035]);                   // cenicero
   I(cylX(0.013, 0.012, 16), 'chrome', [0.366, 0.915, ZC - 0.07]);                           // encendedor
   I(rbox(0.006, 0.032, 0.035, 0.004), 'dark', [0.368, 0.915, ZC - 0.125]);
@@ -247,6 +246,8 @@ export function buildVan(ctx) {
   const dc = ELv(E.pts.distCenter), dAx = E.pts.distAxis.clone().applyQuaternion(eng.quaternion), dc1 = dc.clone().addScaledVector(dAx, 0.04);
   A('bobina', tube([[-0.78, 0.565, 0.2], [-0.77, 0.6, 0.12], [dc1.x - 0.02, dc1.y + 0.02, dc1.z + 0.06], dc1.toArray(), [dc.x, dc.y, dc.z]], 0.004), 'lead');
   A('interior', rbox(0.36, 0.008, 0.29, 0.004), 'floorp', { p: [BAT.x, 0.638, BAT.z], body: 'int' });   // tapa del piso de carga sobre la batería (foto)
+  // chapa, fusibles, radio, parlantes, antena, arneses, tablero y ampolletas (vista Eléctrico)
+  const ELC = buildElectric(ctx, { eng, E, BD, BAT });
   A('interior', rbox(0.38, 0.006, 0.31, 0.004), 'trim', { p: [BAT.x, 0.633, BAT.z], body: 'int' });
 
   // ════════ ESCAPE ════════
@@ -309,8 +310,8 @@ export function buildVan(ctx) {
   }
   root.add(out.ground);
 
-  function update(theta) {
-    E.update(theta);
+  function update(theta, adv) {
+    E.update(theta, adv);
     out.fans.forEach(f => { f.rotation.z = theta * 0.8; });
     if (!DR.active) DR.kin(theta, setWheels);
   }
@@ -340,7 +341,7 @@ export function buildVan(ctx) {
   }
   // ruedas con sus discos y tambores; adelante y atrás por separado (una rueda bloqueada no gira)
   function setWheels(aF, aR, aRL = aR) { out.wheels.forEach((w, i) => { w.rotation.z = i < 2 ? aF : i === 2 ? aR : aRL; }); BR.spinRotors(aF, aR, aRL); }   // traseras por separado: derecha, izquierda
-  return { update, tick, demos, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, fuel: FU, drive: DR, cool: CO, setWheels };
+  return { update, tick, demos, eng, engine: E, setLines, ground: out.ground, brakes: BR, heater: HT, fuel: FU, drive: DR, cool: CO, elec: ELC, setWheels };
 }
 
 // Flecha "adelante" y lados (conductor a la izquierda) dibujados en el piso

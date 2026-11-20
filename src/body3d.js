@@ -138,6 +138,9 @@ export function buildBody(ctx) {
   const root = ctx.world.root;
   const body = new THREE.Group(); root.add(body); ctx.reg(body, 'carroceria', [0, 1.25, 0]);
   const B = (geo, kind, cat, o = {}) => ctx.add(o.part || 'carroceria', geo, kind, { parent: body, body: cat, ex: null, ...o });
+  // ampolletas (las enciende la vista Eléctrico) y piezas que se mueven: no se juntan con las demás al optimizar
+  const lamps = [];
+  const lamp = (m, id, side) => { m.userData.dyn = true; if (id) { m.userData.lamp = id + (side > 0 ? 'R' : side < 0 ? 'L' : ''); lamps.push(m); } return m; };
   const n = PROF.length;
 
   // ——— radio de los bordes redondeados por tramo, suavizado a lo largo de la silueta ———
@@ -397,8 +400,8 @@ export function buildBody(ctx) {
     // óptica 200×142 mm: reflector cromado, ampolleta y mica
     const zc = s * 0.476, yc = 0.874;
     B(rbox(0.012, 0.118, 0.182, 0.014), 'chrome', 'lamp', { part: 'luces', p: [fx(yc) + 0.004, yc, zc], r: [0, 0, lean] });
-    B(cylX(0.016, 0.02, 14), 'lamp', 'lamp', { part: 'luces', p: [fx(yc) + 0.010, yc, zc] });
-    B(rbox(0.008, 0.129, 0.194, 0.018), 'lens', 'glass', { part: 'luces', p: [fx(yc) + 0.014, yc, zc], r: [0, 0, lean] });
+    lamp(B(cylX(0.016, 0.02, 14), 'lamp', 'lamp', { part: 'luces', p: [fx(yc) + 0.010, yc, zc] }), 'head', s);
+    lamp(B(rbox(0.008, 0.129, 0.194, 0.018), 'lens', 'glass', { part: 'luces', p: [fx(yc) + 0.014, yc, zc], r: [0, 0, lean] }), 'head', s);
     // por dentro: la parte de atrás del foco asoma en el rincón bajo el tablero, con su cable (foto del lado copiloto)
     const hx = fx(yc) - 0.006, hy = yc + 0.01;
     B(rbox(0.062, 0.104, 0.165, 0.03), 'trim', 'int', { part: 'luces', p: [hx - 0.031, hy, zc] });
@@ -413,12 +416,15 @@ export function buildBody(ctx) {
   }
   // emblema genérico (sin logo) y plumillas
   B(rbox(0.006, 0.05, 0.05, 0.016), 'alu', 'trim', { p: [fx(0.825) + 0.003 + bulgeOut(fx(0.825), 0.825, 0), 0.825, 0], r: [0, 0, lean] });
+  const wipers = [], WN = V(WS0[1] - WS1[1], WS1[0] - WS0[0], 0).normalize().negate();   // normal del parabrisas (hacia afuera)
   for (const zp of [0.0, -0.48]) {   // pivotes al centro y al lado conductor; estacionadas hacia el copiloto (foto de frente)
     const bo = bulgeOut(0.585, 1.152, zp + 0.2);
     const base = V(0.585 + bulgeOut(0.585, 1.152, zp), 1.152, zp), tip = V(0.552 + bo, 1.205, zp + 0.41);
-    B(cylX(0.013, 0.022, 10), 'trim', 'trim', { p: [base.x, base.y, base.z] });
-    B(tube([base, base.clone().lerp(tip, 0.5).add(V(0.004, 0.012, 0)), tip], 0.0055), 'trim', 'trim');
-    B(rbox(0.012, 0.012, 0.40, 0.004), 'trim', 'trim', { p: [0.548 + bo, 1.212, zp + 0.21] });
+    B(cylX(0.013, 0.022, 10), 'trim', 'trim', { part: 'limpiaparabrisas', p: [base.x, base.y, base.z] });
+    const wg = new THREE.Group(); wg.position.copy(base); body.add(wg); wipers.push({ g: wg, n: WN.clone() });   // gira sobre la normal del vidrio
+    const rel = v => v.clone().sub(base);
+    lamp(B(tube([rel(base), rel(base.clone().lerp(tip, 0.5).add(V(0.004, 0.012, 0))), rel(tip)], 0.0055), 'trim', 'trim', { part: 'limpiaparabrisas', parent: wg }));
+    lamp(B(rbox(0.012, 0.012, 0.40, 0.004), 'trim', 'trim', { part: 'limpiaparabrisas', parent: wg, p: rel(V(0.548 + bo, 1.212, zp + 0.21)).toArray() }));
   }
   // parachoques delantero alto (0,395–0,713 m): perfil en planta extruido en altura, envuelve las esquinas
   const bumper = (xFace0, back, zO0, zI, xIn, h, y, rr) => {
@@ -434,8 +440,8 @@ export function buildBody(ctx) {
   };
   B(bumper(BODY.BUMPF, 0.585, 0.69, 0.668, BODY.FRONT + 0.002, 0.318, 0.554, 0.13), 'trim', 'trim');
   for (const s of [1, -1]) {
-    B(rbox(0.008, 0.05, 0.118, 0.008), 'amber', 'lamp', { part: 'luces', p: [BODY.BUMPF + 0.002, 0.572, s * 0.472] });
-    B(rbox(0.008, 0.05, 0.05, 0.008), 'lamp', 'lamp', { part: 'luces', p: [BODY.BUMPF + 0.0, 0.572, s * 0.556] });
+    lamp(B(rbox(0.008, 0.05, 0.118, 0.008), 'amber', 'lamp', { part: 'luces', p: [BODY.BUMPF + 0.002, 0.572, s * 0.472] }), 'turnF', s);
+    lamp(B(rbox(0.008, 0.05, 0.05, 0.008), 'lamp', 'lamp', { part: 'luces', p: [BODY.BUMPF + 0.0, 0.572, s * 0.556] }), 'pos', s);
   }
   B(rbox(0.006, 0.13, 0.36, 0.006), 'white', 'trim', { p: [BODY.BUMPF + 0.005, 0.545, 0] });         // patente (sin número)
   B(rbox(0.005, 0.138, 0.368, 0.006), 'trim', 'trim', { p: [BODY.BUMPF + 0.002, 0.545, 0] });
@@ -457,7 +463,7 @@ export function buildBody(ctx) {
     SB(rbox(0.070, 0.180, 0.006, 0.02), 'shade', 'paint', -0.695, 0.989, 0.0005);                       // nicho corredera
     SB(rbox(0.026, 0.144, 0.014, 0.008), 'trim', 'trim', -0.695, 0.989, 0.004);                         // manilla corredera
     SB(rbox(0.080, 0.235, 0.008, 0.006), 'trim', 'trim', -0.479, 1.4705, 0.003);                        // placa negra del pilar B
-    SB(rbox(0.063, 0.068, 0.010, 0.012), 'amber', 'lamp', -0.4785, 1.403, 0.006, { part: 'luces' });    // marcador lateral
+    lamp(SB(rbox(0.063, 0.068, 0.010, 0.012), 'amber', 'lamp', -0.4785, 1.403, 0.006, { part: 'luces' }), 'side', s);   // señal de giro lateral (manual secc. 20)
     SB(rbox(0.789, 0.055, 0.016, 0.01), 'trim', 'trim', -1.876, 0.837, 0.006);                          // cubierta del riel central
     SB(rbox(0.785, 0.006, 0.004, 0.002), 'dark', 'trim', -1.876, 0.838, 0.0145);
     for (const [y, x0] of [[0.548, -0.262], [0.581, -0.238], [0.617, -0.213]]) {                        // nervios bajos
@@ -493,11 +499,11 @@ export function buildBody(ctx) {
   for (const s of [1, -1]) {
     // focos verticales en las esquinas (0,748–1,036 m): ámbar, rojo y retroceso, con la vuelta de la esquina
     const M = halfW(xr + R_REAR, 0.9) - R_REAR;
-    const parts = [['amber', 0.927, 1.036], ['red', 0.818, 0.927], ['lamp', 0.748, 0.818]], LO = 0.02;   // la unidad sobresale 2 cm (foto de costado)
+    const parts = [['amber', 0.927, 1.036, 'turnR'], ['red', 0.818, 0.927, 'tail'], ['lamp', 0.748, 0.818, 'rev']], LO = 0.02;   // la unidad sobresale 2 cm (foto de costado)
     B(rbox(0.016, 0.294, M - 0.581 + 0.012, 0.005), 'trim', 'trim', { part: 'luces', p: [xr - 0.008, 0.892, s * (0.581 + M) / 2] });
-    for (const [kind, ya, yb] of parts) {
-      B(rbox(0.012, yb - ya - 0.004, M - 0.581, 0.004), kind, 'lamp', { part: 'luces', p: [xr - LO + 0.006, (ya + yb) / 2, s * (0.581 + M) / 2] });
-      wrapShell('rear', ya, yb, s, LO, 0.0, kind, 'lamp', 'luces', true);
+    for (const [kind, ya, yb, lk] of parts) {
+      lamp(B(rbox(0.012, yb - ya - 0.004, M - 0.581, 0.004), kind, 'lamp', { part: 'luces', p: [xr - LO + 0.006, (ya + yb) / 2, s * (0.581 + M) / 2] }), lk, s);
+      lamp(wrapShell('rear', ya, yb, s, LO, 0.0, kind, 'lamp', 'luces', true), lk, s);
     }
   }
   B(rbox(0.016, 0.089, 0.61, 0.012), 'trim', 'trim', { p: [xr - 0.006, 1.044, 0] });                       // moldura negra bajo el vidrio
@@ -539,7 +545,7 @@ export function buildBody(ctx) {
     for (let k = 0; k < 9; k++) { const x = lerp(-0.07, -1.87, k / 8); RK(cylZ(0.011, 1.17, 12), 'bar', [x, 1.840, 0]); }
     for (const x of [X0 - 0.02, X1 + 0.02]) RK(rbox(0.03, 0.05, 1.17, 0.006), 'trim', [x, 1.845, 0]);
   }
-  return { body, outline, seams };
+  return { body, outline, seams, lamps, wipers };
 }
 
 // ════════ ruedas: neumático 175/70 R13 (Ø 575 mm) y llanta de aleación de 13" ════════

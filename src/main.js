@@ -19,6 +19,7 @@ import { qualitySheet, qualityNeeds, qualityTable, qualityLegend, qualityCardHTM
 import { BK, FAILS } from './brakesim.js';
 import { MODES as HMODES, tempColor } from './heatersim.js';
 import { kgcm2 } from './motor.js';
+import { EFAILS, FUSES, FEEDNAME, KEYNAME, SHARED_FAILS } from './elecsim.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
@@ -35,6 +36,7 @@ const IC = {
   search: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
   play: '<svg class="ic" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/></svg>',
   pause: '<svg class="ic" viewBox="0 0 24 24"><rect x="6.5" y="5.5" width="4" height="13" rx="1" fill="currentColor" stroke="none"/><rect x="13.5" y="5.5" width="4" height="13" rx="1" fill="currentColor" stroke="none"/></svg>',
+  key: '<svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="12" r="4.2"/><path d="M12.2 12H21M17.5 12v3.2M20 12v2.4"/></svg>',
 };
 
 const used = new Set();
@@ -54,7 +56,7 @@ const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
 const TABS = [
   { id: 'motor', sys: 'motor', h: 'Cómo funciona: 4 tiempos y distribución', p: 'Cada cilindro aspira, comprime, explota y expulsa en dos vueltas de cigüeñal. La correa dentada sincroniza el árbol de levas con los pistones.', mount: motor, eng3d: true },
   { id: 'combustible', sys: 'combustible', h: 'Cómo funciona: bencina y carburador', p: 'La bomba eléctrica, en el larguero derecho, llena la cuba; el venturi y los chicleres dosifican la bencina según cuánto se abra la mariposa.', mount: combustible },
-  { id: 'encendido', sys: 'electrico', h: 'Cómo funciona: encendido, carga y partida', p: 'El módulo corta la corriente de la bobina en el instante justo y el rotor reparte la chispa. El alternador mantiene la batería cargada.', mount: encendido },
+  { id: 'encendido', sys: 'electrico', h: 'Cómo funciona: encendido, carga y partida', p: 'El módulo corta la corriente de la bobina en el instante justo y el rotor reparte la chispa. El alternador mantiene la batería cargada; para partir, la batería mueve el motor de partida.', mount: encendido, link: () => elecLink() },
   { id: 'refrigeracion', sys: 'refrigeracion', h: 'Cómo funciona: refrigeración y calefacción', p: 'La bomba hace circular el refrigerante; el termostato decide cuándo pasa por el radiador, y la calefacción toma agua caliente del múltiple de admisión.', mount: refrigeracion },
   { id: 'lubricacion', sys: 'lubricacion', h: 'Cómo funciona: lubricación a presión', p: 'La bomba de rotores lleva el aceite filtrado a bancadas, bielas, árbol de levas y balancines.', mount: lubricacion },
   { id: 'escape', sys: 'escape', h: 'Cómo funciona: escape y catalizador', p: 'Los gases salen en pulsos 1-3-4-2, se tratan en el catalizador y se silencian antes de la cola.', mount: escape },
@@ -65,22 +67,22 @@ const TABS = [
 const DIAG_OF_SYS = { calefaccion: 'refrigeracion' };
 const tabOfSys = sys => TABS.find(t => t.id === DIAG_OF_SYS[sys]) || TABS.find(t => t.sys === sys) || null;
 const BLURB = {
-  motor: 'F10A de 970 cm³ y 4 cilindros, inclinado bajo los asientos', combustible: 'Estanque, bomba, carburador por dentro, acelerador y ahogador', electrico: 'Encendido, carga, partida, luces y tablero',
+  motor: 'F10A de 970 cm³ y 4 cilindros, inclinado bajo los asientos', combustible: 'Estanque, bomba, carburador por dentro, acelerador y ahogador', electrico: 'Batería, carga, partida, encendido, luces, fusibles y radio',
   refrigeracion: 'Radiador, bomba de agua, ventilador y termostato', lubricacion: 'Bomba, filtro, cárter y bulbo de aceite', escape: 'Múltiple, catalizador, silenciador y cola',
   transmision: 'Embrague, caja de 5 por dentro, palanca, cardán y diferencial', chasis: 'McPherson adelante, resortes atrás y cremallera', frenos: 'Discos adelante, tambores atrás y doble circuito',
   carroceria: 'Furgón ciego, interior, asientos y parrilla', calefaccion: 'Caja, ventilador, toma de aire, salidas y mandos', sensores: 'Los 9 sensores e interruptores, con su cableado',
 };
 // Cada sistema abre su vista del modelo: los que ya están detallados tienen una propia; el resto se marca sobre el furgón completo.
-const SYSVIEW = { motor: 'eng', lubricacion: 'eng', frenos: 'brk', calefaccion: 'cal', combustible: 'ali', transmision: 'tra', refrigeracion: 'ref' };
-const MODESYS = { eng: 'motor', brk: 'frenos', cal: 'calefaccion', ali: 'combustible', tra: 'transmision', ref: 'refrigeracion' };
-const MODENAME = { eng: 'Motor', brk: 'Frenos', cal: 'Calefacción', ali: 'Alimentación', tra: 'Transmisión', ref: 'Refrigeración' };
+const SYSVIEW = { motor: 'eng', lubricacion: 'eng', frenos: 'brk', calefaccion: 'cal', combustible: 'ali', transmision: 'tra', refrigeracion: 'ref', electrico: 'ele' };
+const MODESYS = { eng: 'motor', brk: 'frenos', cal: 'calefaccion', ali: 'combustible', tra: 'transmision', ref: 'refrigeracion', ele: 'electrico' };
+const MODENAME = { eng: 'Motor', brk: 'Frenos', cal: 'Calefacción', ali: 'Alimentación', tra: 'Transmisión', ref: 'Refrigeración', ele: 'Eléctrico' };
 const GRID = SYSTEMS.filter(sy => sy.id !== 'sensores');      // los sensores tienen su pestaña y aparecen en el sistema al que sirven
 
 // ═══════════ Visor 3D ═══════════
-const viewerEl = $('#viewer'), hud = $('#enghud'), bhud = $('#brkhud'), chud = $('#calhud'), ahud = $('#alihud'), thud = $('#trahud'), rhud = $('#refhud');
-let viewer, smap = null, quiet = false, bhKey = '', simKey = '', seqWas = null, chKey = '', csimKey = '', ahKey = '', asimKey = '', thKey = '', tsimKey = '', rhKey = '', rsimKey = '', guideKey = '';
+const viewerEl = $('#viewer'), hud = $('#enghud'), bhud = $('#brkhud'), chud = $('#calhud'), ahud = $('#alihud'), thud = $('#trahud'), rhud = $('#refhud'), ehud = $('#elehud');
+let viewer, smap = null, quiet = false, ehKey = '', esimKey = '', bhKey = '', simKey = '', seqWas = null, chKey = '', csimKey = '', ahKey = '', asimKey = '', thKey = '', tsimKey = '', rhKey = '', rsimKey = '', guideKey = '';
 try {
-  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th), onBrake: r => onBrake(r), onHeat: r => onHeat(r), onFuel: r => onFuel(r), onDrive: r => onDrive(r), onCool: r => onCool(r), onEngine: () => syncEngineUI() });
+  viewer = createViewer(viewerEl, { labelLayer: $('#labels'), onSelect: onViewerSelect, onTick: (th, m) => m === 'eng' && renderHud(th), onBrake: r => onBrake(r), onHeat: r => onHeat(r), onFuel: r => onFuel(r), onDrive: r => onDrive(r), onCool: r => onCool(r), onElec: r => onElec(r), onEngine: (on, from, why) => { syncEngineUI(); if (why) toast(why, 6500); if (mode() === 'ele') { ehKey = ''; onElec(viewer.elecResult); } } });
   window.__viewer = viewer;
 } catch (err) {
   viewerEl.classList.add('nogl'); $('#viewer-msg').hidden = false; $('#dock').hidden = true; console.error(err);
@@ -304,10 +306,18 @@ function engLink() {
     set(o) { const r = viewer.cool(o); if (mode() === 'ref') { onCool(r); renderGuide(); } engKey = ''; syncEngineUI(); syncHeatControls(); },
   };
 }
+// el esquema del encendido trabaja con la misma llave, batería y motor del modelo
+function elecLink() {
+  if (!viewer) return undefined;
+  return {
+    read() { return { r: viewer.elecResult, cranking: viewer.cranking, on: viewer.engineOn, pedal: viewer.fuelState.target || 0 }; },
+    set(o) { const r = viewer.elec(o); if (mode() === 'ele') onElec(r); engKey = ''; syncEngineUI(); },
+  };
+}
 function diagFor(tb) {
   if (!diags[tb.id]) {
     const wrap = h('div', { class: 'diag-body' });
-    let api; try { api = tb.mount(wrap, engLink()); } catch (err) { console.error(err); wrap.append(h('p', { class: 'muted' }, 'No se pudo cargar este esquema.')); api = { tick() {} }; }
+    let api; try { api = tb.mount(wrap, tb.link ? tb.link() : engLink()); } catch (err) { console.error(err); wrap.append(h('p', { class: 'muted' }, 'No se pudo cargar este esquema.')); api = { tick() {} }; }
     diags[tb.id] = { wrap, api };
   }
   return diags[tb.id];
@@ -319,7 +329,7 @@ function renderSys(sys) {
   const guests = all.filter(id => PARTS[id].sys !== sys && PARTS[id].serves !== sys && (PARTS[id].also || []).includes(sys));
   const tb = tabOfSys(sys), specs = SPECS.find(sp => sp.sys === sys), maint = MAINT.filter(m => m.sys === sys || (m.also || []).includes(sys)), faults = DIAG.filter(d => d.sys === sys);
   const J = [['s-piezas', 'Piezas'], tb && ['s-diag', 'Cómo funciona'], specs && ['s-datos', 'Datos'], maint.length && ['s-mant', 'Mantención'], faults.length && ['s-fallas', 'Fallas']].filter(Boolean);
-  const m = mode(), sim = { frenos: ['brk', 'brksim', ''], calefaccion: ['cal', 'calsim', ' cal'], combustible: ['ali', 'alisim', ' ali'], transmision: ['tra', 'trasim', ' tra'], refrigeracion: ['ref', 'refsim', ' ref'] }[sys];
+  const m = mode(), sim = { frenos: ['brk', 'brksim', ''], calefaccion: ['cal', 'calsim', ' cal'], combustible: ['ali', 'alisim', ' ali'], transmision: ['tra', 'trasim', ' tra'], refrigeracion: ['ref', 'refsim', ' ref'], electrico: ['ele', 'elesim', ' ele'] }[sys];
   const where = SYSVIEW[sys] ? (m === SYSVIEW[sys] ? 'vista detallada' : 'tiene vista detallada') : 'marcadas en el modelo';
   vDetail.innerHTML = vhead(SYS[sys].name, `${plural(own.length, 'pieza', 'piezas')}, ${where}`, true, sys) + `
     <p class="lead">${tb && tb.sys === sys ? tb.p : (BLURB[sys] || '') + '.'}</p>
@@ -339,6 +349,7 @@ function renderSys(sys) {
   if ($('#alisim')) { asimKey = ''; viewer && updateAliSim(viewer.fuel()); }
   if ($('#trasim')) { tsimKey = ''; viewer && updateTraSim(viewer.drive()); }
   if ($('#refsim')) { rsimKey = ''; viewer && updateRefSim(viewer.cool()); }
+  if ($('#elesim')) { esimKey = ''; viewer && updateEleSim(viewer.elecResult); }
 }
 const maintHTML = m => `<div class="mitem"><b><span class="dot" style="--c:${SYS[m.sys].color}"></span>${m.item}${m.urgent ? ' <span class="pill">Prioridad</span>' : ''}</b><span class="when">${m.every}</span><p>${m.note} ${srcBadge(m.src)}</p></div>`;
 const diagHTML = d => `<article class="dcard" style="--c:${SYS[d.sys].color}"><h5>${d.s}</h5><ol>${d.c.map(c => `<li>${c}</li>`).join('')}</ol><button type="button" class="btn ghost sm" data-part="${d.part}">Ver ${(PARTS[d.part].short || PARTS[d.part].name).replace(/\s*\(.*?\)/g, '').toLowerCase()}</button></article>`;
@@ -514,6 +525,7 @@ const VIEWS = {
   cal: [['iso', '3/4'], ['cabina', 'Desde la cabina'], ['caja', 'Caja por dentro'], ['mandos', 'Mandos'], ['admision', 'Toma de aire'], ['arriba', 'Arriba']],
   tra: [['iso', '3/4'], ['embrague', 'Embrague por dentro'], ['caja', 'Caja por dentro'], ['selector', 'Selector y cables'], ['palanca', 'Palanca'], ['cardan', 'Cardán'], ['dif', 'Diferencial por dentro'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
   ali: [['iso', '3/4'], ['carb', 'Carburador por dentro'], ['palancas', 'Palancas y piolas'], ['estanque', 'Estanque y bomba'], ['pedal', 'Pedal y ahogador'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
+  ele: [['iso', '3/4'], ['tablero', 'Tablero'], ['fusibles', 'Caja de fusibles'], ['chapa', 'Chapa'], ['radio', 'Radio'], ['puerta', 'Parlante de la puerta'], ['antena', 'Antena'], ['bateria', 'Batería'], ['motor', 'Alternador y partida'], ['delante', 'Luces delanteras'], ['atras', 'Luces traseras']],
   ref: [['iso', '3/4'], ['radiador', 'Radiador'], ['termostato', 'Termostato'], ['bomba', 'Bomba y ventilador'], ['tapa', 'Tapa del radiador'], ['deposito', 'Depósito'], ['arriba', 'Arriba'], ['abajo', 'Abajo']],
 };
 function renderViews(m) { $('#tb-view').innerHTML = VIEWS[m].map(([v, t], i) => `<button type="button" data-v="${v}" aria-pressed="${i === 0}">${t}</button>`).join(''); }
@@ -521,15 +533,15 @@ const COLORNOTE = { real: 'Los colores de verdad de cada pieza.', sys: 'Cada sis
 const run = $('#tb-run');
 const syncRun = () => { if (!viewer) return; const on = viewer.isRunning(); run.innerHTML = (on ? IC.pause : IC.play) + `<span>${on ? 'Apagar' : 'Encender'}</span>`; run.setAttribute('aria-pressed', String(on)); run.setAttribute('aria-label', on ? 'Apagar el motor' : 'Encender el motor'); };
 // un solo motor: todos los botones de encendido, el «Motor: Frío / Caliente» y la temperatura de afuera muestran lo mismo
-const ENGSEGS = ['#tb-heng', '#tb-feng', '#tb-ceng'];
+const ENGSEGS = ['#tb-heng', '#tb-feng', '#tb-ceng', '#tb-eeng'];
 let engKey = '';
 function syncEngineUI() {
   if (!viewer) return;
-  syncRun(); syncHeat(); syncFuel(); syncDrive(); syncCool();
+  syncRun(); syncHeat(); syncFuel(); syncDrive(); syncCool(); syncElec();
   const st = viewer.coolState, k = [st.Te < 60, Math.round(st.amb), st.fail, st.heat.temp, st.heat.fan].join('|');
   if (k === engKey) return; engKey = k;
   for (const id of ENGSEGS) { const el = $(id); if (el) pressSeg(el, st.Te < 60 ? 'frio' : 'caliente'); }
-  for (const [r, o] of [['#tb-camb', '#tb-camb-v'], ['#tb-hamb', '#tb-hamb-v']]) { const el = $(r); if (el) { el.value = Math.round(st.amb); $(o).textContent = nf(Math.round(st.amb)) + ' °C'; } }
+  for (const [r, o] of [['#tb-camb', '#tb-camb-v'], ['#tb-hamb', '#tb-hamb-v'], ['#tb-eamb', '#tb-eamb-v']]) { const el = $(r); if (el) { el.value = Math.round(st.amb); $(o).textContent = nf(Math.round(st.amb)) + ' °C'; } }
   syncFails();
 }
 // fallas del agua (refrigeración y calefacción): una sola a la vez, la misma en las dos vistas
@@ -562,6 +574,7 @@ const BCUTNOTE = {
   tra: 'Abre la campana del embrague y la caja por el lado del conductor, y el puente trasero por arriba.',
   ali: 'Abre el carburador por la mitad (se mira desde el frente) y deja transparentes el estanque, la bomba, el filtro de aire, el cánister y la tapa del pedal.',
   ref: 'Abre el radiador y su tapa por la mitad, y deja transparentes el motor, la bomba y la caja del termostato.',
+  ele: 'Abre la caja de fusibles: cada fusible se pinta según la corriente que pasa por él.',
 };
 const MODETOAST = {
   eng: ['Motor F10A en su lugar. Capas → Corte lo abre; Encender lo pone en marcha.', 'Motor F10A en su lugar, sin carrocería. Capas → Corte lo muestra por dentro y Encender lo pone en marcha.'],
@@ -569,6 +582,7 @@ const MODETOAST = {
   cal: ['Mandos cambia la salida del aire, la temperatura y el ventilador.', 'La calefacción sola, en su lugar. Mandos tiene las mismas palancas del tablero y se ve por dónde entra y sale el aire; el agua caliente viene del mismo motor de las otras vistas. Taller simula fallas; Capas → Cortes abre la caja.'],
   tra: ['Cambios pasa las marchas y muestra qué engranajes llevan la fuerza.', 'El tren motriz solo, del embrague a las ruedas, abierto en corte. En Cambios se enciende el motor, se pasan las marchas y se pisa el embrague: lo que lleva la fuerza se pinta naranjo. Taller simula fallas, una curva y una rueda sin agarre.'],
   ref: ['Manejo cambia la situación y el tiempo; Taller simula fallas, cambia el agua y prueba el termostato.', 'La refrigeración en su lugar, con el motor transparente. Frío, el agua da la vuelta por el motor hasta que el termostato abre y la deja pasar al radiador. En Manejo se elige la situación, la temperatura de afuera y lo rápido que pasa el tiempo; en Taller se simulan fallas, se cambia el agua paso a paso y se prueba el termostato en una olla.'],
+  ele: ['Encender da la partida; Mandos tiene la llave, las luces y la radio, y Taller las fallas y la batería.', 'Todo lo eléctrico en su lugar, con la carrocería de fantasma. Encender da la partida: la batería tiene que alcanzar. Los puntos muestran por dónde va la corriente y cuánta. En Mandos están la llave, las luces, los intermitentes, la radio y los accesorios; en Taller se simulan fallas y se cambia la carga de la batería.'],
   ali: ['Acelerador mueve el pedal y el ahogador; Vista → Carburador por dentro lo abre.', 'La alimentación sola, del estanque al carburador. En Acelerador se pisa el pedal y se tira el ahogador; Vista → Carburador por dentro lo muestra en corte; Taller simula fallas.'],
 };
 // m: vista del modelo; focusPart: pieza a mostrar; opt.sys: sistema que la abre; opt.keep: no tocar la pila de fichas
@@ -581,8 +595,8 @@ function setMode(m, focusPart, opt = {}) {
   $$('[data-only]').forEach(el => el.hidden = !el.dataset.only.split(' ').includes(m));
   renderViews(m);
   $('#tb-explode').value = 0; $('#tb-explode-v').textContent = '0 %';
-  hud.hidden = m !== 'eng'; bhud.hidden = m !== 'brk'; chud.hidden = m !== 'cal'; ahud.hidden = m !== 'ali'; thud.hidden = m !== 'tra'; rhud.hidden = m !== 'ref';
-  viewerEl.classList.toggle('is-eng', m === 'eng'); viewerEl.classList.toggle('is-brk', m === 'brk' || m === 'cal' || m === 'ali' || m === 'tra' || m === 'ref');
+  hud.hidden = m !== 'eng'; bhud.hidden = m !== 'brk'; chud.hidden = m !== 'cal'; ahud.hidden = m !== 'ali'; thud.hidden = m !== 'tra'; rhud.hidden = m !== 'ref'; ehud.hidden = m !== 'ele';
+  viewerEl.classList.toggle('is-eng', m === 'eng'); viewerEl.classList.toggle('is-brk', m === 'brk' || m === 'cal' || m === 'ali' || m === 'tra' || m === 'ref' || m === 'ele');
   $('#tb-bcut-note').textContent = BCUTNOTE[m] || '';
   pressSeg($('#tb-bcut'), viewer.state.bcut ? 'in' : 'none');
   if (m === 'eng') renderHud(viewer.state.theta, true);
@@ -601,6 +615,7 @@ function setMode(m, focusPart, opt = {}) {
   if (m === 'ali') { ahKey = ''; onFuel(viewer.fuel({ pedal: 0 })); }
   if (m === 'tra') { thKey = ''; resetDriveUI(); onDrive(viewer.drive()); }
   if (m === 'ref') { rhKey = ''; guideKey = ''; onCool(viewer.cool()); }
+  if (m === 'ele') { ehKey = ''; esimKey = ''; const a = $('#tb-eacc'); if (a) { a.value = 0; $('#tb-eacc-v').textContent = '0 %'; } onElec(viewer.elec()); }
   engKey = ''; syncEngineUI();
   if (m !== 'ref') { const g = $('#guide'); if (g) g.hidden = true; }
   built.sistemas = false; render();
@@ -1100,7 +1115,8 @@ function renderRhud(r) {
     const S = SCEN[r.scen];
     const where = `${S.name}${S.stopgo ? (r.moving ? ', avanzando' : ', detenido') : ''}, ${nf(r.amb)} °C afuera. `;
     if (!r.on && r.Te < r.amb + 3) line = 'Motor detenido y frío: <b>Encender</b> lo pone en marcha, en ralentí; en <b>Manejo</b> se elige la situación y lo rápido que pasa el tiempo.';
-    else if (!r.on) line = 'Motor apagado: el agua ya no circula. El radiador se enfría primero; el motor caliente sigue entregando calor un rato y la aguja puede subir un poco.';
+    else if (!r.on) line = st.ign ? 'Motor apagado con la llave en ON: el agua ya no circula. El radiador se enfría primero; el motor caliente sigue entregando calor un rato y la aguja puede subir un poco.'
+      : 'Motor apagado y llave en LOCK: el agua ya no circula y, sin contacto, la aguja del tablero baja a C. El radiador se enfría primero; el motor caliente sigue entregando calor un rato.';
     else if (r.boil > 0.02) line = where + `Hierve: sobre ${nf(Math.round(r.Tb))} °C la tapa ya no mantiene el agua líquida y el vapor la empuja al depósito.`;
     else if (r.lift < 0.05) line = where + `Termostato cerrado: el agua da la vuelta por el motor y vuelve a la bomba por la derivación${r.hflow ? ' y por la calefacción' : ''}; el radiador sigue frío.`;
     else if (r.lift < 7.9) line = where + `Termostato abierto ${nf(r.lift, 1)} mm: deja pasar al radiador sólo el agua necesaria para mantener ${nf(Math.round(r.Te))} °C; el resto sigue por la derivación.`;
@@ -1224,6 +1240,134 @@ function wireCool() {
   });
 }
 
+// ═══════════ Vista Eléctrico: llave, partida, luces, radio, fallas y batería ═══════════
+const EFAILTXT = {
+  bateria: 'La batería perdió capacidad (placas sulfatadas): en reposo marca casi normal, pero apenas se le pide corriente el voltaje se cae. Al dar la partida suena clic-clic o el motor gira muy lento, peor en frío. Se prueba con carga y se cambia.',
+  borne: 'Un borne sulfatado o suelto agrega resistencia justo en el cable más cargado: con poca corriente casi no se nota, pero en la partida el voltaje se pierde ahí y suena clic-clic. Se limpian y aprietan los bornes; el polvo blanco verdoso es sulfato.',
+  correa: 'La misma correa mueve la bomba de agua, el ventilador y el alternador: suelta, patina más mientras más corriente se le pide al alternador. Con mucho consumo la batería deja de cargar, puede chillar y el motor se calienta. Se tensa a 6–9 mm de flecha con 10 kg (manual).',
+  nocarga: 'El alternador no entrega corriente (diodos, carbones o regulador): la luz de carga queda encendida en marcha y todo sale de la batería, que se va descargando. Con el tiempo todo baja y el motor termina deteniéndose. Con el motor acelerado debe haber 14,4–15,0 V en la batería (manual).',
+  sobrecarga: 'El regulador deja pasar de más: la batería recibe ≈ 15,9 V. Las ampolletas brillan más y se queman antes, y la batería hierve y pierde agua. El regulador va dentro del alternador.',
+  ampolleta: 'Falta la ampolleta trasera izquierda de 21 W: por ese lado pasa menos corriente y el destellador, que la mide, destella mucho más rápido. A la derecha destella normal. Si destella rápido de un solo lado, se busca una ampolleta quemada de ese lado.',
+  destellador: 'El destellador está defectuoso: destella rápido de los dos lados aunque todas las ampolletas encienden, como en este furgón. Antes de cambiarlo se confirma que todas las ampolletas sean de 21 W.',
+  parlantes: 'Falso contacto en los cables o conectores de los parlantes: la radio sigue encendida y mostrando todo, pero de repente no suena, y el sonido vuelve solo o con un bache, como en este furgón. Se revisan los conectores de los parlantes y el paso del cable por la bisagra de cada puerta.',
+  resistencia: 'La resistencia del ventilador de la calefacción está cortada: las velocidades 1 y 2 no andan y la 3 sí, porque va directo. Es la misma falla de Calefacción y Refrigeración.',
+  bujia: 'El cable de la bujía del cilindro 3 está cortado: ese cilindro no explota. El motor tiembla, tiene menos fuerza en todas las vistas y la bencina que no se quema sale por el escape. Cada cable se mide: máximo 20 kΩ (manual).',
+};
+const vcol = V => (V < 11.6 ? '#d23a2e' : V < 12.3 ? '#e0a030' : V > 15.3 ? '#d23a2e' : V > 13.6 ? '#2e9461' : '#7a8599');
+const amps = (a, d) => nf(Math.abs(a), d ?? (Math.abs(a) < 10 ? 1 : 0));
+function syncElec() {
+  const b = $('#tb-elec'); if (!b || !viewer) return;
+  const on = viewer.engineOn, cr = !!viewer.cranking, S = viewer.elecState;
+  b.setAttribute('aria-pressed', String(on || cr));
+  b.innerHTML = (on ? IC.pause : IC.key) + `<span>${on ? 'Apagar' : cr ? 'Partida' : 'Encender'}</span>`;
+  b.setAttribute('aria-label', on ? 'Apagar el motor: llave a LOCK' : 'Dar la partida');
+  const seg = (sel, v) => { const el = $(sel); if (el) pressSeg(el, String(v)); };
+  seg('#tb-key', S.key); seg('#tb-lights', S.lights); seg('#tb-eturn', S.turn); seg('#tb-wipe', S.wipers); seg('#tb-radio', S.radio.on ? 'on' : 'off');
+  seg('#tb-efan', viewer.coolState.heat.fan); seg('#tb-efail', viewer.elecFail);
+  const chk = (sel, v) => { const el = $(sel); if (el) el.checked = !!v; };
+  chk('#tb-hazard', S.hazard); chk('#tb-ebrake', S.brake); chk('#tb-erev', S.reverse); chk('#tb-inner', S.inner);
+  const rng = (sel, out, v, txt) => { const el = $(sel); if (el && document.activeElement !== el) { el.value = v; $(out).textContent = txt; } };
+  rng('#tb-soc', '#tb-soc-v', Math.round(S.soc * 100), nf(Math.round(S.soc * 100)) + ' %');
+  rng('#tb-vol', '#tb-vol-v', Math.round(S.radio.vol * 50), nf(Math.round(S.radio.vol * 50)));
+  const cf = viewer.coolState.fail, n = $('#tb-efail-note');
+  if (n) { const show = cf !== 'ok' && !SHARED_FAILS.has(cf); n.hidden = !show; n.textContent = show ? `Además sigue una falla del agua: ${CFAILS[cf].name} (se quita en Refrigeración).` : ''; }
+}
+function onElec(r) {
+  if (!r || mode() !== 'ele') return;
+  const c = r.crank;
+  const key = [r.key, c ? Math.round(c.I / 5) : 0, r.run, Math.round(r.V * 10), Math.round(r.iAlt), Math.round(r.iLoad * 2), Math.round(r.iBat * 2), Math.round(r.soc * 100), r.lamps.charge, r.fail, r.engFail, r.radio.on, r.radio.sound, r.turnFast, r.flashing, r.wiper, Math.round(r.rpm / 50), r.lights, viewer.cranking ? 1 : 0].join('|');
+  if (key !== ehKey) { ehKey = key; renderEhud(r); syncElec(); }
+  updateEleSim(r);
+}
+function renderEhud(r) {
+  const c = r.crank, chips = [], tags = [];
+  chips.push(`<span class="bh"><small>Llave</small><b class="raw">${KEYNAME[r.key]}</b></span>`,
+    `<span class="bh p" style="--c:${vcol(r.V)}"><small>Voltaje</small><b>${nf(r.V, 1)} V</b></span>`,
+    c ? `<span class="bh p" style="--c:#d23a2e"><small>Motor de partida</small><b>${amps(c.I, 0)} A</b></span>` : `<span class="bh"><small>Alternador</small><b>${amps(r.iAlt)} A</b></span>`,
+    `<span class="bh"><small>Consumo</small><b>${amps(r.iLoad)} A</b></span>`,
+    `<span class="bh"><small>Batería</small><b>${Math.abs(r.iBat) < 0.05 ? '0 A' : (r.iBat > 0 ? '+' : '−') + amps(r.iBat) + ' A'}</b></span>`,
+    `<span class="bh opt"><small>Carga</small><b>${nf(Math.round(r.soc * 100))} %</b></span>`);
+  if (r.run) chips.push(`<span class="bh opt"><small>Motor</small><b>${nf(Math.round(r.rpm / 10) * 10)} rpm</b></span>`);
+  let line;
+  if (c) line = `<b>Partida:</b> el motor de partida pide ≈ ${amps(c.I, 0)} A y la batería baja a ${nf(c.vBat, 1)} V; el motor gira a ≈ ${nf(Math.round(c.n))} rpm. ${c.ok ? 'Alcanza: parte en un momento.' : 'Así ' + c.why + '.'}`;
+  else if (!r.run && r.key === 'lock') line = 'Llave en LOCK: sólo tiene corriente lo permanente (faros, cola, bocina, balizas y la memoria de la radio). <b>Encender</b> da la partida.';
+  else if (!r.run && r.key === 'acc') line = 'ACC: tienen corriente la radio y el encendedor; el encendido sigue cortado.';
+  else if (!r.run) line = 'Contacto puesto con el motor detenido: luces de carga y de aceite encendidas, y la bobina, la bomba de bencina y los indicadores con corriente. Todo sale de la batería.';
+  else if (r.iMax < 0.5) line = `En marcha, pero el alternador no carga: todo sale de la batería (${amps(r.iBat)} A).`;
+  else if (r.iBat < -0.3) line = `En marcha a ${nf(Math.round(r.rpm / 10) * 10)} rpm: el alternador da todo lo que puede a esas vueltas (${amps(r.iAlt)} A) y no alcanza; la batería pone ${amps(r.iBat)} A.`;
+  else line = `En marcha a ${nf(Math.round(r.rpm / 10) * 10)} rpm: el alternador entrega ${amps(r.iAlt)} A a ${nf(r.V, 1)} V, alimenta todo y ${r.iBat > 0.3 ? `carga la batería con ${amps(r.iBat)} A` : 'mantiene la batería'}.`;
+  if (!c && r.iBat < -0.3 && r.hoursLeft != null) line += ` Así le quedan ≈ ${r.hoursLeft < 1 ? nf(Math.max(1, Math.round(r.hoursLeft * 60))) + ' min' : nf(r.hoursLeft, 1) + ' h'} antes de quedar sin fuerza para partir.`;
+  const f = viewer.elecFail;
+  if (f !== 'ok') tags.push(`<span class="bt f">${EFAILS[f].name}</span>`);
+  if (r.run && r.lamps.charge) tags.push('<span class="bt w">Luz de carga encendida</span>');
+  if (r.lamps.oil && r.run) tags.push('<span class="bt w">Luz de aceite encendida</span>');
+  if (r.flashing && r.turnFast) tags.push('<span class="bt w">Intermitentes rápidos</span>');
+  if (r.radio.mute) tags.push('<span class="bt w">La radio está encendida pero no suena</span>');
+  if (r.V > 15.3) tags.push('<span class="bt w">Voltaje alto: la batería hierve</span>');
+  if (r.soc < 0.45 && !c) tags.push('<span class="bt w">Batería baja: puede no partir</span>');
+  if (r.misfire && r.run) tags.push('<span class="bt w">El cilindro 3 no explota</span>');
+  if (r.lights !== 'off' && r.run && r.iBat < -0.3) tags.push('<span class="bt i">En ralentí las luces gastan batería</span>');
+  ehud.innerHTML = `<div class="bh-row">${chips.join('')}</div><p class="bh-line">${line}</p>${tags.length ? `<div class="bh-tags">${tags.join('')}</div>` : ''}`;
+  gauges(ehud);
+}
+function updateEleSim(r) {
+  const box = $('#elesim'); if (!box || !r || !viewer) return;
+  const c = r.crank || viewer.crankPreview();
+  const key = [r.key, r.run, Math.round(r.V * 5), Math.round(r.iAlt / 2), Math.round(r.iLoad), Math.round(r.iBat), Math.round(r.soc * 50), r.fail, r.engFail, r.lights, r.radio.on, r.radio.sound, r.flashing, r.wiper, Math.round(r.rpm / 200), !!r.crank, Math.round(c.n / 10), c.ok, Math.round(r.adv.total)].join('|');
+  if (key === esimKey) return; esimKey = key;
+  const f = viewer.elecFail;
+  const items = r.items.filter(i => i.I > 0.02).sort((a, b) => b.I - a.I);
+  const fus = r.fuses.map(F => `<div><dt>${F.name} <span class="muted">${F.A} A · ${FEEDNAME[F.feed]}</span></dt><dd>${F.live ? (F.I > 0.02 ? amps(F.I) + ' A' : 'con corriente, sin consumo') : 'sin corriente'}</dd></div>`).join('');
+  const cr = c.click ? 'Suena clic-clic: el interruptor magnético no alcanza a quedar cerrado (necesita ≈ 8 V) y el motor no gira.'
+    : `El motor de partida pediría ≈ ${amps(c.I, 0)} A; la batería bajaría a ${nf(c.vBat, 1)} V y el motor giraría a ≈ ${nf(Math.round(c.n))} rpm${c.ok ? ', suficiente para partir (sobre ≈ 140 rpm y con chispa).' : `: ${c.why}.`}`;
+  const alt = r.run ? `El alternador gira 1,6 veces lo que el motor: ${nf(Math.round(r.nAlt / 100) * 100)} rpm. A esas vueltas puede dar hasta ${amps(r.iMax, 0)} A${r.slip > 0.03 ? ` (la correa patina ${nf(Math.round(r.slip * 100))} %)` : ''}; el regulador lo frena para no pasar de ${nf(r.vSet, 1)} V.`
+    : 'Con el motor detenido el alternador no gira: no carga y la luz de carga se enciende con el contacto.';
+  const adv = r.run ? `Avance: ${nf(r.adv.base)}° de base + ${nf(r.adv.cent, 1)}° centrífugo + ${nf(r.adv.vac, 1)}° de vacío = ${nf(r.adv.total, 1)}° antes del PMS. La bobina alcanza ≈ ${nf(Math.round(r.kvAvail))} kV y la bujía necesita ≈ ${nf(Math.round(r.kvNeed))} kV para saltar.` : '';
+  box.innerHTML = `<h4>En el modelo</h4>
+    <p>${r.run ? 'Con el motor en marcha, el alternador alimenta todo lo encendido y lo que sobra carga la batería.' : 'Con el motor detenido, todo lo encendido sale de la batería.'} La corriente sale del positivo, pasa por un fusible y vuelve por la carrocería, que es la masa.</p>
+    ${f !== 'ok' ? `<p><b>${EFAILS[f].name}.</b> ${EFAILTXT[f] || ''}</p>` : ''}
+    <dl class="kv">
+      <div><dt>Batería</dt><dd>${nf(r.V, 2)} V; carga ${nf(Math.round(r.soc * 100))} % de ${nf(Math.round(r.ah))} Ah${Math.abs(r.iBat) > 0.05 ? `; ${r.iBat > 0 ? 'recibe' : 'entrega'} ${amps(r.iBat)} A` : ''}</dd></div>
+      <div><dt>Carga</dt><dd>${alt}</dd></div>
+      <div><dt>Partida</dt><dd>${cr}</dd></div>
+      ${adv ? `<div><dt>Encendido</dt><dd>${adv}</dd></div>` : ''}
+      <div><dt>Radio Sony</dt><dd>${r.radio.on ? `encendida, ${amps(r.radio.I)} A${r.radio.sound ? '' : '; los parlantes no suenan'}` : r.acc ? 'apagada' : 'sin ACC: apagada, guarda la memoria por el cable amarillo'}</dd></div>
+    </dl>
+    ${items.length ? `<h4 class="subh">Lo que consume ahora</h4><dl class="kv">${items.map(i => `<div><dt>${i.name}</dt><dd>${amps(i.I)} A</dd></div>`).join('')}</dl>` : ''}
+    <h4 class="subh">Fusibles</h4><dl class="kv">${fus}</dl>
+    <p class="muted">Del manual: alternador y regulador, motor de partida, fusibles, ampolletas, limpiaparabrisas y punto de encendido. De Sony: la radio y su conector. Estimados: la batería por dentro, la curva del alternador entre los puntos del manual, el avance centrífugo y de vacío, el consumo de la radio y el recorrido de los cables.</p>`;
+}
+function wireElec() {
+  const E = o => { const r = viewer.elec(o); onElec(r); engKey = ''; syncEngineUI(); return r; };
+  $('#tb-elec').addEventListener('click', () => { if (viewer.engineOn) E({ key: 'lock' }); else if (!viewer.cranking) E({ crank: true }); });
+  segGroup($('#tb-key'), v => E({ key: v }));
+  $('#tb-eacc').addEventListener('input', e => { const v = +e.target.value; $('#tb-eacc-v').textContent = v + ' %'; E({ pedal: v / 100 }); });
+  segGroup($('#tb-lights'), v => E({ lights: v }));
+  segGroup($('#tb-eturn'), v => E({ turn: +v }));
+  $('#tb-hazard').addEventListener('change', e => E({ hazard: e.target.checked }));
+  segGroup($('#tb-radio'), v => E({ radio: { on: v === 'on' } }));
+  $('#tb-vol').addEventListener('input', e => { const v = +e.target.value; $('#tb-vol-v').textContent = nf(v); E({ radio: { vol: v / 50 } }); });
+  segGroup($('#tb-wipe'), v => E({ wipers: v }));
+  segGroup($('#tb-efan'), v => { E({ fan: +v }); syncHeatControls(); });
+  $('#tb-ebrake').addEventListener('change', e => E({ brake: e.target.checked }));
+  $('#tb-erev').addEventListener('change', e => E({ reverse: e.target.checked }));
+  $('#tb-inner').addEventListener('change', e => E({ inner: e.target.checked }));
+  // bocina: suena mientras se mantiene apretada
+  const horn = $('#tb-horn');
+  const hornOn = e => { e.preventDefault(); horn.setAttribute('aria-pressed', 'true'); E({ horn: true }); };
+  const hornOff = () => { horn.setAttribute('aria-pressed', 'false'); if (viewer.elecState.horn) E({ horn: false }); };
+  horn.addEventListener('pointerdown', hornOn);
+  for (const t of ['pointerup', 'pointerleave', 'pointercancel']) horn.addEventListener(t, hornOff);
+  horn.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') hornOn(e); });
+  horn.addEventListener('keyup', hornOff);
+  $('#tb-lighter').addEventListener('click', () => { E({ lighter: true }); toast(viewer.elecState.key === 'lock' ? 'Sin ACC el encendedor no calienta.' : 'Encendedor apretado: pide ≈ 10 A hasta que calienta y salta solo.', 3200); });
+  segGroup($('#tb-efail'), v => { E({ fail: v }); if (v !== 'ok' && isMobile()) toast(`${EFAILS[v].name}: la explicación está en el panel de Eléctrico.`, 4500); });
+  $('#tb-soc').addEventListener('input', e => { const v = +e.target.value; $('#tb-soc-v').textContent = v + ' %'; E({ soc: v / 100 }); });
+  $('#tb-eamb').addEventListener('input', e => { const v = +e.target.value; $('#tb-eamb-v').textContent = nf(v) + ' °C'; viewer.cool({ amb: v }); engKey = ''; syncEngineUI(); onElec(viewer.elec()); });
+  segGroup($('#tb-eeng'), v => { engTemp(v); onElec(viewer.elec()); });
+  $('#tb-eflow').addEventListener('change', e => E({ showI: e.target.checked }));
+}
+
 // ═══════════ Acerca de ═══════════
 const about = $('#about');
 $('#helpbtn').addEventListener('click', () => { if (about.showModal) about.showModal(); else about.setAttribute('open', ''); });
@@ -1245,5 +1389,5 @@ function loop(now) {
 requestAnimationFrame(loop);
 
 render();
-if (viewer) { wireBrakes(); wireHeater(); wireFuel(); wireDrive(); wireCool(); }
+if (viewer) { wireBrakes(); wireHeater(); wireFuel(); wireDrive(); wireCool(); wireElec(); }
 window.__app = { showTab, openPart, openSys, setSheet, back, get state() { return { tab, stack: stack.map(e => e.t + ':' + e.id), sheet, focus: focusSys }; } };
